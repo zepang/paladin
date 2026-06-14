@@ -1,1 +1,23 @@
-/* Base styles — Tailwind CSS 4 will be configured in Wave 3 */
+@import 'tailwindcss';
+
+@variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-paladin-50: #f0f4ff;
+  --color-paladin-100: #dbe4ff;
+  --color-paladin-200: #bac8ff;
+  --color-paladin-300: #91a7ff;
+  --color-paladin-400: #748ffc;
+  --color-paladin-500: #5c7cfa;
+  --color-paladin-600: #4c6ef5;
+  --color-paladin-700: #4263eb;
+  --color-paladin-800: #3b5bdb;
+  --color-paladin-900: #364fc7;
+}
+
+body {
+  @apply bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+}
