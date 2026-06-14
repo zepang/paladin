@@ -34,7 +34,7 @@ class ModelConfig:
     provider: str              # 提供商: openai / anthropic
     model_id: str              # 模型 ID，如 deepseek-v4-pro
     api_base: str              # API 基础 URL（支持 $ENV_VAR / ${ENV_VAR}）
-    api_key_env: str           # API Key 环境变量名
+    api_key: str               # API Key（支持 $ENV_VAR 从 .env 读取）
     priority: int              # fallback 优先级（升序：1 最优先）
     params: dict = field(default_factory=dict)  # temperature, max_tokens 等
 
@@ -89,7 +89,7 @@ def load_models(config_path: str) -> list[ModelConfig]:
     configs: list[ModelConfig] = []
     for entry in raw["models"]:
         # 校验必需字段
-        required = ["id", "provider", "model_id", "api_base", "api_key_env", "priority"]
+        required = ["id", "provider", "model_id", "api_base", "api_key", "priority"]
         missing = [f for f in required if f not in entry]
         if missing:
             raise ValueError(
@@ -101,7 +101,7 @@ def load_models(config_path: str) -> list[ModelConfig]:
             provider=entry["provider"],
             model_id=entry["model_id"],
             api_base=entry["api_base"],
-            api_key_env=entry["api_key_env"],
+            api_key=entry["api_key"],
             priority=entry["priority"],
             params=entry.get("params", {}),
         ))
@@ -115,7 +115,8 @@ def _create_openai_model(config: ModelConfig) -> OpenAIChatModel:
     """
     从 ModelConfig 创建 Pydantic AI OpenAIChatModel 实例
 
-    使用 OpenAIProvider 支持自定义 base_url（DeepSeek、LM Studio 等兼容 API）
+    使用 OpenAIProvider 支持自定义 base_url（DeepSeek、LM Studio 等兼容 API）。
+    api_base 和 api_key 均支持 $ENV_VAR / ${ENV_VAR} 语法，通过 .env 注入实际值。
 
     Args:
         config: 模型配置
@@ -126,16 +127,18 @@ def _create_openai_model(config: ModelConfig) -> OpenAIChatModel:
     Raises:
         ValueError: API Key 环境变量缺失
     """
-    api_key = os.environ.get(config.api_key_env)
-    if not api_key:
-        raise ValueError(
-            f"模型 '{config.id}' 需要环境变量 {config.api_key_env}，但未设置"
-        )
-    # 解析 api_base 中的环境变量引用（如 $LM_STUDIO_BASE_URL）
+    # 解析环境变量引用（$VAR 或 ${VAR}），从 .env 读取实际值
     resolved_base = os.path.expandvars(config.api_base)
-    # 创建自定义 Provider，支持任意 OpenAI 兼容 API
-    provider = OpenAIProvider(base_url=resolved_base, api_key=api_key)
-    return OpenAIChatModel(config.model_id, provider=provider)
+    resolved_key = os.path.expandvars(config.api_key)
+    resolved_model = os.path.expandvars(config.model_id)
+    if not resolved_key or resolved_key == config.api_key:
+        # 展开后与原值相同，说明环境变量未设置
+        raise ValueError(
+            f"模型 '{config.id}' 的 api_key 无法解析: {config.api_key}，"
+            f"请检查 .env 中对应的环境变量是否已设置"
+        )
+    provider = OpenAIProvider(base_url=resolved_base, api_key=resolved_key)
+    return OpenAIChatModel(resolved_model, provider=provider)
 
 
 def create_paladin_agent(

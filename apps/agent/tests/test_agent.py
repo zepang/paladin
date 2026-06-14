@@ -26,7 +26,7 @@ def make_model_config(**kwargs) -> dict:
         "provider": "openai",
         "model_id": "test-model",
         "api_base": "https://api.test.com/v1",
-        "api_key_env": "TEST_API_KEY",
+        "api_key": "$TEST_API_KEY",
         "priority": 1,
         "params": {"temperature": 0.3, "max_tokens": 4096},
     }
@@ -93,7 +93,7 @@ class TestAgentCreation:
                 )
 
     def test_missing_api_key_env_raises_clear_error(self, tmp_path):
-        """缺少 API Key 环境变量时抛出清晰错误"""
+        """api_key 引用未设置的环境变量时抛出清晰错误"""
         models_yaml = write_models_yaml(tmp_path, [make_model_config()])
         prompt_md = tmp_path / "system.md"
         prompt_md.write_text("Hello.")
@@ -163,7 +163,7 @@ class TestLoadModels:
         """缺少必需字段（如 model_id）时抛出 ValidationError"""
         models_yaml = write_models_yaml(
             tmp_path,
-            [{"id": "bad", "provider": "openai", "api_key_env": "X"}],
+            [{"id": "bad", "provider": "openai", "api_key": "$X"}],
             # 缺少 model_id, api_base, priority
         )
 
