@@ -2,7 +2,7 @@
  * Chat Store 测试套件 — TDD RED phase
  * 测试 conversation CRUD、persistence、边界条件
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // 使用动态 import 以支持每次测试前重置 store 状态
 let useChatStore: typeof import('../chat').useChatStore;

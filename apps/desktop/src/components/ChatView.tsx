@@ -1,7 +1,7 @@
 import { useChatStore } from '@/stores/chat';
-import { WelcomePage } from './WelcomePage';
-import { MessageList } from './MessageList';
 import { useMemo } from 'react';
+import { MessageList } from './MessageList';
+import { WelcomePage } from './WelcomePage';
 
 /**
  * 聊天视图容器
@@ -15,7 +15,7 @@ export function ChatView() {
   // 当前选中的对话
   const currentConversation = useMemo(
     () => conversations.find((c) => c.id === currentThreadId),
-    [conversations, currentThreadId],
+    [conversations, currentThreadId]
   );
 
   // 无选中对话 → 欢迎页

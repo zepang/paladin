@@ -1,7 +1,7 @@
 import type { ChatMessage } from '@/stores/chat';
-import { MessageBubble } from './MessageBubble';
-import { Virtuoso } from 'react-virtuoso';
 import { useCallback, useRef } from 'react';
+import { Virtuoso } from 'react-virtuoso';
+import { MessageBubble } from './MessageBubble';
 
 interface MessageListProps {
   /** 消息列表 */
@@ -20,10 +20,8 @@ export function MessageList({ messages, footer }: MessageListProps) {
 
   // Virtuoso item renderer
   const renderItem = useCallback(
-    (_index: number, message: ChatMessage) => (
-      <MessageBubble key={message.id} message={message} />
-    ),
-    [],
+    (_index: number, message: ChatMessage) => <MessageBubble key={message.id} message={message} />,
+    []
   );
 
   // 空列表占位

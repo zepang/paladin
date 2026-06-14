@@ -1,6 +1,6 @@
 import { useWindowStore } from '@/stores/window';
-import { ThemeToggle } from './ThemeToggle';
 import { ChatToggle } from './ChatToggle';
+import { ThemeToggle } from './ThemeToggle';
 
 function MinimizeIcon() {
   return (
@@ -58,7 +58,7 @@ export function Titlebar({ onToggleChat }: { onToggleChat: () => void }) {
   return (
     <div
       data-tauri-drag-region
-      className="flex items-center justify-between h-9 bg-gray-100 dark:bg-gray-850 border-b border-gray-200 dark:border-gray-700 select-none flex-shrink-0"
+      className="flex items-center justify-between h-9 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 select-none flex-shrink-0"
       style={{ backgroundColor: 'var(--titlebar-bg, #f3f4f6)' }}
     >
       {/* Left: drag region spacer */}

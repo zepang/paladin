@@ -1,9 +1,9 @@
-import { CopilotKitProvider, CopilotSidebar } from '@copilotkit/react-core/v2';
-import { Titlebar } from '@/components/Titlebar';
 import { ChatView } from '@/components/ChatView';
 import { ConversationList } from '@/components/ConversationList';
+import { Titlebar } from '@/components/Titlebar';
 import { initWindowEvents } from '@/stores/window';
-import { useEffect, useState, useCallback } from 'react';
+import { CopilotKitProvider, CopilotSidebar } from '@copilotkit/react-core/v2';
+import { useCallback, useEffect, useState } from 'react';
 
 /**
  * 应用根组件
@@ -29,7 +29,7 @@ function App() {
         <Titlebar onToggleChat={toggleSidebar} />
         <main className="flex-1 flex overflow-hidden">
           {/* 对话列表侧边栏 */}
-          <aside className="w-64 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-850 overflow-hidden">
+          <aside className="w-64 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-800 overflow-hidden">
             <ConversationList />
           </aside>
           {/* 主内容区域 */}
@@ -38,11 +38,7 @@ function App() {
           </div>
         </main>
       </div>
-      <CopilotSidebar
-        key={sidebarOpen ? 'open' : 'closed'}
-        defaultOpen={sidebarOpen}
-        width={400}
-      />
+      <CopilotSidebar key={sidebarOpen ? 'open' : 'closed'} defaultOpen={sidebarOpen} width={400} />
     </CopilotKitProvider>
   );
 }

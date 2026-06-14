@@ -1,10 +1,16 @@
 import { useChatStore } from '@/stores/chat';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // 图标组件
 function PlusIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
       <title>New Conversation</title>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
     </svg>
@@ -13,7 +19,13 @@ function PlusIcon() {
 
 function TrashIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
       <title>Delete</title>
       <path
         strokeLinecap="round"
@@ -27,7 +39,13 @@ function TrashIcon() {
 
 function EditIcon() {
   return (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
       <title>Edit</title>
       <path
         strokeLinecap="round"
@@ -82,13 +100,10 @@ export function ConversationList() {
   }, [editingId]);
 
   /** 开始编辑标题 */
-  const startEdit = useCallback(
-    (id: string, currentTitle: string) => {
-      setEditingId(id);
-      setEditValue(currentTitle);
-    },
-    [],
-  );
+  const startEdit = useCallback((id: string, currentTitle: string) => {
+    setEditingId(id);
+    setEditValue(currentTitle);
+  }, []);
 
   /** 提交标题编辑 */
   const commitEdit = useCallback(() => {
@@ -106,7 +121,7 @@ export function ConversationList() {
       acc[group].push(conv);
       return acc;
     },
-    {} as Record<string, typeof conversations>,
+    {} as Record<string, typeof conversations>
   );
 
   const groupOrder = ['今天', '昨天', '本周', '更早'];
@@ -129,9 +144,7 @@ export function ConversationList() {
       {/* 对话列表 */}
       <div className="flex-1 overflow-y-auto">
         {conversations.length === 0 ? (
-          <div className="p-4 text-center text-sm text-gray-400 dark:text-gray-500">
-            暂无对话
-          </div>
+          <div className="p-4 text-center text-sm text-gray-400 dark:text-gray-500">暂无对话</div>
         ) : (
           groupOrder.map((group) => {
             const items = grouped[group];
@@ -151,6 +164,12 @@ export function ConversationList() {
                         : 'hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}
                     onClick={() => setCurrentThreadId(conv.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setCurrentThreadId(conv.id);
+                      }
+                    }}
                   >
                     {/* 标题区域 — 点击切换对话或编辑 */}
                     <div className="flex-1 min-w-0">

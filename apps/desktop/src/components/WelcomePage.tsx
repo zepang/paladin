@@ -14,7 +14,7 @@ export function WelcomePage() {
   // 只有无对话或无当前对话时显示
   const showWelcome = useMemo(
     () => conversations.length === 0 || !currentThreadId,
-    [conversations.length, currentThreadId],
+    [conversations.length, currentThreadId]
   );
 
   if (!showWelcome) return null;

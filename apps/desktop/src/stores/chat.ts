@@ -115,9 +115,7 @@ export const useChatStore = create<ChatState>()(
 
       updateConversationTitle: (id: string, title: string) => {
         set((state) => ({
-          conversations: state.conversations.map((c) =>
-            c.id === id ? { ...c, title } : c,
-          ),
+          conversations: state.conversations.map((c) => (c.id === id ? { ...c, title } : c)),
         }));
       },
 
@@ -129,6 +127,6 @@ export const useChatStore = create<ChatState>()(
     {
       name: 'paladin-chat',
       version: 0,
-    },
-  ),
+    }
+  )
 );
