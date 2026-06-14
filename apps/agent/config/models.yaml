@@ -1,0 +1,33 @@
+# Paladin 模型配置
+# 按 priority 升序作为 fallback 链顺序
+
+models:
+  - id: deepseek-v4-pro
+    provider: openai
+    model_id: deepseek-v4-pro
+    api_base: https://api.deepseek.com/v1
+    api_key_env: DEEPSEEK_API_KEY
+    priority: 1
+    params:
+      temperature: 0.3
+      max_tokens: 8192
+
+  - id: deepseek-v4-flash
+    provider: openai
+    model_id: deepseek-v4-flash
+    api_base: https://api.deepseek.com/v1
+    api_key_env: DEEPSEEK_API_KEY
+    priority: 2
+    params:
+      temperature: 0.3
+      max_tokens: 4096
+
+  - id: llama-local
+    provider: openai
+    model_id: local-model
+    api_base: http://localhost:8080/v1
+    api_key_env: LLAMA_API_KEY
+    priority: 3
+    params:
+      temperature: 0.7
+      max_tokens: 2048

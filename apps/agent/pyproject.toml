@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.136.3",
     "httpx>=0.28.1",
+    "openai>=2.41.1",
     "pydantic-ai-slim[ag-ui]>=1.107.0",
     "pydantic-deep>=0.3.29",
     "python-dotenv>=1.2.2",
