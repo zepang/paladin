@@ -1,6 +1,6 @@
 # Project State: Paladin
 
-**Phase:** 1-Desktop Shell (Context gathered)
+**Phase:** 1-Desktop Shell (Planned)
 **Last Updated:** 2026-06-14
 
 ## Project Reference
@@ -8,13 +8,13 @@
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 1 context gathered — ready for planning
+**Current focus:** Phase 1 planned — 6 waves, 22 tasks, ready for execution
 
 ## Phase Status
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | Desktop Shell | Context gathered |
+| 1 | Desktop Shell | Planned |
 | 2 | Chat UI | Pending |
 | 3 | AI Agent Core | Pending |
 | 4 | Agent ↔ Desktop | Pending |
