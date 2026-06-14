@@ -37,16 +37,45 @@
 - **D-16:** 安全优先工具调用策略 — 默认询问用户确认后才执行文件/终端操作，危险操作（删除/执行命令）强制审批
 - **D-17:** 使用 structlog + 控制台输出日志，结构化日志便于调试，Phase 7 可扩展为文件/远程日志
 
+### pydantic-deepagents 集成
+- **D-18:** 安装 pydantic-deepagents，在 Agent 初始化时注册 TodoToolset 和 FilesystemToolset，验证工具可被 Agent 发现。Phase 6 再扩展更多工具。
+- **D-19:** TodoToolset 启用 — Agent 可创建/更新/完成任务清单，帮助用户追踪工作进度
+- **D-20:** FilesystemToolset 限制在当前项目目录（`apps/agent/`），沙箱化防止访问系统文件
+
+### AG-UI 事件类型与生命周期
+- **D-21:** 完整覆盖 AG-UI 事件类型：TEXT_MESSAGE_START/CONTENT/END（聊天流）、RUN_STARTED/FINISHED（生命周期）、TOOL_CALL_START/ARGS/END（工具调用），与 Pydantic AI `to_ag_ui()` 输出对齐
+- **D-22:** 暴露 RUN_ERROR 结构化错误事件，包含错误码、消息、可恢复标识，前端可据此展示友好提示
+- **D-23:** RUN_STARTED / RUN_FINISHED 生命周期事件完整支持，方便调试和前端状态同步
+
+### 模型配置管理
+- **D-24:** 模型配置使用 `config/models.yaml` 定义模型列表，每项包含 provider、model_id、api_base、temperature、max_tokens、priority（fallback 顺序），Agent 启动时解析
+- **D-25:** fallback 降级链按优先级顺序逐一尝试（DeepSeek V4 Pro → DeepSeek V4 Flash → Llama Studio），当前模型失败自动尝试下一个，全部失败返回错误
+- **D-26:** 各模型独立参数 — temperature、max_tokens、top_p 等均可按模型配置，不同提供商最优参数不同
+
+### Session 与 Thread 管理
+- **D-27:** Agent 无状态 — 每次请求独立处理，前端传入完整消息历史，Agent 不记忆上下文
+- **D-28:** 对话历史由前端 Zustand persist 管理，Agent 端不持久化。Phase 8 Go Server 做服务端持久化
+- **D-29:** thread_id 由前端传入（复用 Phase 2 conversation.threadId），Agent 用此 ID 关联 Pydantic AI run context
+
+### 本地开发体验
+- **D-30:** 提供 CLI REPL 交互模式：`uv run paladin-agent` 进入交互式对话，输入文本 Agent 回复，适合手动验证
+- **D-31:** `uv run paladin-agent serve --dev` 启动 FastAPI 开发服务器，热重载文件改动
+- **D-32:** 保留 FastAPI Swagger `/docs` 页面，可直接在浏览器测试 AG-UI 端点
+- **D-33:** 使用 pyproject.toml `[project.scripts]` 注册命令入口（`paladin-agent` → REPL、`paladin-agent serve` → HTTP 服务）
+
 ### Claude's Discretion
 以下实现细节由 Claude 在规划/执行阶段自主决定：
 - uv 具体配置（pyproject.toml 字段、dev dependencies）
 - 模块化目录内部的具体文件划分
 - .env 文件的具体变量命名
-- fallback 模型的切换逻辑和超时配置
+- models.yaml 的具体字段和默认值
+- fallback 链的超时和重试次数
 - FastAPI 中间件（CORS、异常处理等具体配置）
 - /health 端点具体返回格式
 - System Prompt 的具体内容（用户可在 prompts/system.md 中自定义）
 - structlog 的具体格式配置
+- TodoToolset、FilesystemToolset 的具体注册代码
+- CLI REPL 的交互界面实现（rich/prompt-toolkit 等）
 
 ## Canonical References
 
