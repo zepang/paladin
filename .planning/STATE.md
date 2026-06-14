@@ -1,6 +1,6 @@
 # Project State: Paladin
 
-**Phase:** 1-Desktop Shell (Complete)
+**Phase:** 2-Chat UI (Context Ready)
 **Last Updated:** 2026-06-14
 
 ## Project Reference
@@ -8,14 +8,14 @@
 See: .planning/PROJECT.md (updated 2026-06-14)
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 1 complete — ready for Phase 2 (Chat UI)
+**Current focus:** Phase 1 complete. Phase 2 context gathered — 29 decisions, 4 requirements (CHT-01~04), ready for planning.
 
 ## Phase Status
 
 | Phase | Name | Status |
 |-------|------|--------|
 | 1 | Desktop Shell | Complete |
-| 2 | Chat UI | Pending |
+| 2 | Chat UI | Context Ready |
 | 3 | AI Agent Core | Pending |
 | 4 | Agent ↔ Desktop | Pending |
 | 5 | Terminal + Diff | Pending |
