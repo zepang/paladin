@@ -1,0 +1,24 @@
+# 环境变量（含 API Key）
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# Agent 工作区（运行时创建）
+workspace/
+
+# 测试
+.pytest_cache/
+htmlcov/
+
+# uv
+uv.lock
