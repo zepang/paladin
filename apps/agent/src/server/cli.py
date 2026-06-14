@@ -49,7 +49,12 @@ def run_repl(model_override: str | None = None):
     Args:
         model_override: 覆盖默认模型的配置 ID
     """
-    from src.agent.paladin_agent import create_paladin_agent, load_models, _create_openai_model
+    from src.agent.paladin_agent import (
+        create_paladin_agent,
+        load_models,
+        _create_openai_model,
+        get_fallback_models,
+    )
 
     config_path = str(PROJECT_ROOT / "config" / "models.yaml")
     prompt_path = str(PROJECT_ROOT / "prompts" / "system.md")
@@ -61,19 +66,27 @@ def run_repl(model_override: str | None = None):
         workspace_dir=str(PROJECT_ROOT / "workspace"),
     )
 
-    # 覆盖模型（如果指定了 --model）
+    # 构建 fallback 链：当前模型 + 备用模型
+    model_configs = load_models(config_path)
     if model_override:
-        model_configs = load_models(config_path)
         matched = [c for c in model_configs if c.id == model_override]
         if not matched:
             print(f"错误: 模型 '{model_override}' 不在配置中")
             print(f"可用模型: {', '.join(c.id for c in model_configs)}")
             sys.exit(1)
-        agent.model = _create_openai_model(matched[0])
+        # 指定模型时也用 fallback 链（其他模型作为备用）
+        fallback_chain = [(_create_openai_model(matched[0]), matched[0])]
+        fallback_chain += [
+            (_create_openai_model(c), c)
+            for c in model_configs if c.id != model_override
+        ]
         print(f"使用模型: {model_override}")
     else:
-        primary = load_models(config_path)[0]
+        # 默认使用完整的优先级 fallback 链
+        primary = model_configs[0]
+        fallback_chain = [(_create_openai_model(c), c) for c in model_configs]
         print(f"使用模型: {primary.id}")
+    print(f"可用备用: {', '.join(c.id for _, c in fallback_chain[1:])}")
 
     print("Paladin Agent — REPL 模式")
     print("输入消息开始对话，Ctrl+C 退出")
@@ -91,20 +104,35 @@ def run_repl(model_override: str | None = None):
 
             print("\033[34mPaladin: \033[0m", end="", flush=True)
             try:
-                # 打印请求信息便于调试
-                model = getattr(agent, 'model', None)
-                if model:
+                # 按 fallback 链逐一尝试模型
+                last_error = None
+                for model_instance, model_cfg in fallback_chain:
                     logger.info(
                         "REPL 请求: model=%s, base_url=%s",
-                        getattr(model, 'model_name', '?'),
-                        getattr(model, 'base_url', '?'),
+                        model_instance.model_name,
+                        model_instance.base_url,
                     )
-                # 传入 _default_deps: pydantic-deep 的 @agent.instructions 动态函数需要 ctx.deps
-                result = agent.run_sync(
-                    user_input,
-                    deps=getattr(agent, '_default_deps', None),
-                )
-                print(result.data)
+                    try:
+                        # 传入 _default_deps: pydantic-deep 的 @agent.instructions 动态函数需要 ctx.deps
+                        result = agent.run_sync(
+                            user_input,
+                            deps=getattr(agent, '_default_deps', None),
+                            model=model_instance,
+                        )
+                        # 如果当前模型不是首选模型，提示用户
+                        if model_cfg.id != fallback_chain[0][1].id:
+                            logger.warning("主模型失败，已降级到: %s", model_cfg.id)
+                        print(result.data)
+                        last_error = None
+                        break
+                    except Exception as e:
+                        last_error = e
+                        logger.warning("模型 '%s' 失败: %s", model_cfg.id, e)
+                        continue
+
+                if last_error is not None:
+                    print(f"\n[错误] 所有模型均失败: {last_error}")
+
             except Exception as e:
                 print(f"\n[错误] {e}")
 
