@@ -144,6 +144,7 @@ def _create_openai_model(config: ModelConfig) -> OpenAIChatModel:
         resolved_model, resolved_base, key_preview,
     )
     provider = OpenAIProvider(base_url=resolved_base, api_key=resolved_key)
+    logger.info("OpenAIProvider 已初始化: %s, %s, %s, %s", provider, resolved_base, resolved_key, resolved_model)
     return OpenAIChatModel(resolved_model, provider=provider)
 
 

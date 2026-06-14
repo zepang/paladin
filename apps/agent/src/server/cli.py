@@ -122,7 +122,7 @@ def run_repl(model_override: str | None = None):
                         # 如果当前模型不是首选模型，提示用户
                         if model_cfg.id != fallback_chain[0][1].id:
                             logger.warning("主模型失败，已降级到: %s", model_cfg.id)
-                        print(result.data)
+                        print(result.output)
                         last_error = None
                         break
                     except Exception as e:
