@@ -16,6 +16,7 @@ import yaml
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.providers.deepseek import DeepSeekProvider
 from pydantic_deep import create_deep_agent
 from pydantic_deep import LocalBackend
 from pydantic_deep import create_default_deps
@@ -111,11 +112,14 @@ def load_models(config_path: str) -> list[ModelConfig]:
     return configs
 
 
-def _create_openai_model(config: ModelConfig) -> OpenAIChatModel:
+def _create_model(config: ModelConfig) -> OpenAIChatModel:
     """
     从 ModelConfig 创建 Pydantic AI OpenAIChatModel 实例
 
-    使用 OpenAIProvider 支持自定义 base_url（DeepSeek、LM Studio 等兼容 API）。
+    根据 provider 字段选择正确的 Provider:
+    - deepseek: 使用 DeepSeekProvider（推荐）
+    - openai: 使用 OpenAIProvider（兼容其他 OpenAI 兼容 API）
+
     api_base 和 api_key 均支持 $ENV_VAR / ${ENV_VAR} 语法，通过 .env 注入实际值。
 
     Args:
@@ -125,26 +129,39 @@ def _create_openai_model(config: ModelConfig) -> OpenAIChatModel:
         OpenAIChatModel 实例
 
     Raises:
-        ValueError: API Key 环境变量缺失
+        ValueError: API Key 环境变量缺失或 provider 不支持
     """
     # 解析环境变量引用（$VAR 或 ${VAR}），从 .env 读取实际值
-    resolved_base = os.path.expandvars(config.api_base)
     resolved_key = os.path.expandvars(config.api_key)
     resolved_model = os.path.expandvars(config.model_id)
+    
     if not resolved_key or resolved_key == config.api_key:
         # 展开后与原值相同，说明环境变量未设置
         raise ValueError(
             f"模型 '{config.id}' 的 api_key 无法解析: {config.api_key}，"
             f"请检查 .env 中对应的环境变量是否已设置"
         )
-    # 日志: 显示实际请求的 API 地址和模型
+    
+    # 根据 provider 选择正确的 Provider
+    if config.provider == "deepseek":
+        # 使用 Pydantic AI 官方推荐的 DeepSeekProvider
+        provider = DeepSeekProvider(api_key=resolved_key)
+        logger.info("DeepSeekProvider 已初始化: %s, %s", provider, resolved_model)
+    elif config.provider == "openai":
+        # 使用 OpenAIProvider（兼容 LM Studio 等 OpenAI 兼容 API）
+        resolved_base = os.path.expandvars(config.api_base)
+        provider = OpenAIProvider(base_url=resolved_base, api_key=resolved_key)
+        logger.info("OpenAIProvider 已初始化: %s, %s, %s", provider, resolved_base, resolved_model)
+    else:
+        raise ValueError(f"不支持的 provider: {config.provider}")
+    
+    # 日志: 显示实际请求的模型和 API Key 预览
     key_preview = resolved_key[:8] + "..." if len(resolved_key) > 8 else resolved_key
     logger.info(
-        "创建模型连接: model=%s, base_url=%s, api_key=%s",
-        resolved_model, resolved_base, key_preview,
+        "创建模型连接: model=%s, provider=%s, api_key=%s",
+        resolved_model, config.provider, key_preview,
     )
-    provider = OpenAIProvider(base_url=resolved_base, api_key=resolved_key)
-    logger.info("OpenAIProvider 已初始化: %s, %s, %s, %s", provider, resolved_base, resolved_key, resolved_model)
+    
     return OpenAIChatModel(resolved_model, provider=provider)
 
 
@@ -190,7 +207,7 @@ def create_paladin_agent(
 
     # 用最高优先级模型创建 Pydantic AI Model 实例
     primary_config = model_configs[0]
-    primary_model = _create_openai_model(primary_config)
+    primary_model = _create_model(primary_config)
     logger.info(
         "Agent 使用主模型: %s (%s/%s)",
         primary_config.id, primary_config.provider, primary_config.model_id,
@@ -247,7 +264,7 @@ def get_fallback_models(agent: Agent) -> list[tuple[ModelConfig, OpenAIChatModel
 
     for config in configs:
         try:
-            model = _create_openai_model(config)
+            model = _create_model(config)
             fallback_models.append((config, model))
         except ValueError as e:
             logger.warning("Fallback 模型 '%s' 跳过: %s", config.id, e)

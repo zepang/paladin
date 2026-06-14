@@ -52,7 +52,7 @@ def run_repl(model_override: str | None = None):
     from src.agent.paladin_agent import (
         create_paladin_agent,
         load_models,
-        _create_openai_model,
+        _create_model,
         get_fallback_models,
     )
 
@@ -75,16 +75,16 @@ def run_repl(model_override: str | None = None):
             print(f"可用模型: {', '.join(c.id for c in model_configs)}")
             sys.exit(1)
         # 指定模型时也用 fallback 链（其他模型作为备用）
-        fallback_chain = [(_create_openai_model(matched[0]), matched[0])]
+        fallback_chain = [(_create_model(matched[0]), matched[0])]
         fallback_chain += [
-            (_create_openai_model(c), c)
+            (_create_model(c), c)
             for c in model_configs if c.id != model_override
         ]
         print(f"使用模型: {model_override}")
     else:
         # 默认使用完整的优先级 fallback 链
         primary = model_configs[0]
-        fallback_chain = [(_create_openai_model(c), c) for c in model_configs]
+        fallback_chain = [(_create_model(c), c) for c in model_configs]
         print(f"使用模型: {primary.id}")
     print(f"可用备用: {', '.join(c.id for _, c in fallback_chain[1:])}")
 
