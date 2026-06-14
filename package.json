@@ -1,0 +1,17 @@
+{
+  "name": "paladin",
+  "private": true,
+  "description": "AI 编程助手桌面端",
+  "scripts": {
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "check": "biome ci ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

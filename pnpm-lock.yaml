@@ -1,0 +1,109 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^1.9.4
+        version: 1.9.4
+
+packages:
+
+  '@biomejs/biome@1.9.4':
+    resolution: {integrity: sha1-iXZigcvDoKroZaf/E9aq/+ooQr8=, tarball: https://registry.npm.wps.cn/@biomejs/biome/download/@biomejs/biome-1.9.4.tgz}
+    engines: {node: '>=14.21.3'}
+    hasBin: true
+
+  '@biomejs/cli-darwin-arm64@1.9.4':
+    resolution: {integrity: sha1-36N20jpUotjxcTPJLyPBvy5iUJ8=, tarball: https://registry.npm.wps.cn/@biomejs/cli-darwin-arm64/download/@biomejs/cli-darwin-arm64-1.9.4.tgz}
+    engines: {node: '>=14.21.3'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@biomejs/cli-darwin-x64@1.9.4':
+    resolution: {integrity: sha1-6vws44SdOF/AIjiq0cpKczlaZNk=, tarball: https://registry.npm.wps.cn/@biomejs/cli-darwin-x64/download/@biomejs/cli-darwin-x64-1.9.4.tgz}
+    engines: {node: '>=14.21.3'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@biomejs/cli-linux-arm64-musl@1.9.4':
+    resolution: {integrity: sha1-14DD4BdY/JDzJoNX4/GRY9H4T8o=, tarball: https://registry.npm.wps.cn/@biomejs/cli-linux-arm64-musl/download/@biomejs/cli-linux-arm64-musl-1.9.4.tgz}
+    engines: {node: '>=14.21.3'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@biomejs/cli-linux-arm64@1.9.4':
+    resolution: {integrity: sha1-jtHdDolBmktmpH+VrvuMRq5gQck=, tarball: https://registry.npm.wps.cn/@biomejs/cli-linux-arm64/download/@biomejs/cli-linux-arm64-1.9.4.tgz}
+    engines: {node: '>=14.21.3'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@biomejs/cli-linux-x64-musl@1.9.4':
+    resolution: {integrity: sha1-82mCuWa9Zxo2Zx4d5EF5Y9fbFfs=, tarball: https://registry.npm.wps.cn/@biomejs/cli-linux-x64-musl/download/@biomejs/cli-linux-x64-musl-1.9.4.tgz}
+    engines: {node: '>=14.21.3'}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@biomejs/cli-linux-x64@1.9.4':
+    resolution: {integrity: sha1-oKf1ZoDHa4A03cFJ2/OYvdOkYug=, tarball: https://registry.npm.wps.cn/@biomejs/cli-linux-x64/download/@biomejs/cli-linux-x64-1.9.4.tgz}
+    engines: {node: '>=14.21.3'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@biomejs/cli-win32-arm64@1.9.4':
+    resolution: {integrity: sha1-4u9OAITna34m8PyIfF7xJl6lYgA=, tarball: https://registry.npm.wps.cn/@biomejs/cli-win32-arm64/download/@biomejs/cli-win32-arm64-1.9.4.tgz}
+    engines: {node: '>=14.21.3'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@biomejs/cli-win32-x64@1.9.4':
+    resolution: {integrity: sha1-THr6kOOXAhNZm0CV5i+H5ZcrI0A=, tarball: https://registry.npm.wps.cn/@biomejs/cli-win32-x64/download/@biomejs/cli-win32-x64-1.9.4.tgz}
+    engines: {node: '>=14.21.3'}
+    cpu: [x64]
+    os: [win32]
+
+snapshots:
+
+  '@biomejs/biome@1.9.4':
+    optionalDependencies:
+      '@biomejs/cli-darwin-arm64': 1.9.4
+      '@biomejs/cli-darwin-x64': 1.9.4
+      '@biomejs/cli-linux-arm64': 1.9.4
+      '@biomejs/cli-linux-arm64-musl': 1.9.4
+      '@biomejs/cli-linux-x64': 1.9.4
+      '@biomejs/cli-linux-x64-musl': 1.9.4
+      '@biomejs/cli-win32-arm64': 1.9.4
+      '@biomejs/cli-win32-x64': 1.9.4
+
+  '@biomejs/cli-darwin-arm64@1.9.4':
+    optional: true
+
+  '@biomejs/cli-darwin-x64@1.9.4':
+    optional: true
+
+  '@biomejs/cli-linux-arm64-musl@1.9.4':
+    optional: true
+
+  '@biomejs/cli-linux-arm64@1.9.4':
+    optional: true
+
+  '@biomejs/cli-linux-x64-musl@1.9.4':
+    optional: true
+
+  '@biomejs/cli-linux-x64@1.9.4':
+    optional: true
+
+  '@biomejs/cli-win32-arm64@1.9.4':
+    optional: true
+
+  '@biomejs/cli-win32-x64@1.9.4':
+    optional: true
