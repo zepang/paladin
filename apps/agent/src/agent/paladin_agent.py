@@ -145,7 +145,17 @@ def _create_model(config: ModelConfig) -> OpenAIChatModel:
     # 根据 provider 选择正确的 Provider
     if config.provider == "deepseek":
         # 使用 Pydantic AI 官方推荐的 DeepSeekProvider
-        provider = DeepSeekProvider(api_key=resolved_key)
+        # DeepSeekProvider 默认 base_url 是 https://api.deepseek.com，需要添加 /v1
+        from openai import AsyncOpenAI
+        import httpx
+        # 创建自定义 httpx client，解决 SSL 证书问题
+        custom_http_client = httpx.AsyncClient(verify=False)  # 绕过 SSL 验证
+        custom_client = AsyncOpenAI(
+            api_key=resolved_key,
+            base_url="https://api.deepseek.com/v1",
+            http_client=custom_http_client
+        )
+        provider = DeepSeekProvider(api_key=resolved_key, openai_client=custom_client)
         logger.info("DeepSeekProvider 已初始化: %s, %s", provider, resolved_model)
     elif config.provider == "openai":
         # 使用 OpenAIProvider（兼容 LM Studio 等 OpenAI 兼容 API）
