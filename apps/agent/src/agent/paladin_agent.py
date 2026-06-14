@@ -4,7 +4,7 @@ Paladin Agent Core — Agent 创建、模型加载、fallback 链
 提供核心函数:
 - load_system_prompt(): 从 Markdown 文件加载 System Prompt
 - load_models(): 从 YAML 解析模型配置列表
-- create_paladin_agent(): 创建完整的 Paladin Agent 实例
+- create_paladin_agent(): 创建完整的 Paladin Agent 实例（含 TodoToolset + FilesystemToolset）
 """
 import os
 import logging
@@ -16,6 +16,8 @@ import yaml
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_deep import create_deep_agent
+from pydantic_deep import LocalBackend
 
 # ---- 日志 ----
 logger = logging.getLogger(__name__)
@@ -136,21 +138,27 @@ def _create_openai_model(config: ModelConfig) -> OpenAIChatModel:
 def create_paladin_agent(
     models_config_path: str = "config/models.yaml",
     system_prompt_path: str = "prompts/system.md",
+    workspace_dir: Optional[str] = None,
 ) -> Agent:
     """
     创建完整的 Paladin Agent 实例
 
+    集成 pydantic-deep 的 TodoToolset 和 FilesystemToolset，
+    使用 LocalBackend 沙箱限制文件访问范围。
+
     流程:
     1. 加载 System Prompt
     2. 加载模型配置（按 priority 排序）
-    3. 用最高优先级模型创建 Pydantic AI Agent
+    3. 创建 LocalBackend 沙箱
+    4. 用 create_deep_agent() 创建 Agent（含内建工具集）
 
     Args:
         models_config_path: models.yaml 路径
         system_prompt_path: system.md 路径
+        workspace_dir: Agent 工作区根目录，默认在项目 root 下的 workspace/
 
     Returns:
-        Pydantic AI Agent 实例
+        Pydantic AI Agent 实例（含 deepagents 工具集）
 
     Raises:
         FileNotFoundError: 配置文件缺失
@@ -167,7 +175,7 @@ def create_paladin_agent(
     if not model_configs:
         raise ValueError("模型配置列表为空，至少需要一个模型")
 
-    # 用最高优先级模型创建 Agent
+    # 用最高优先级模型创建 Pydantic AI Model 实例
     primary_config = model_configs[0]
     primary_model = _create_openai_model(primary_config)
     logger.info(
@@ -175,10 +183,26 @@ def create_paladin_agent(
         primary_config.id, primary_config.provider, primary_config.model_id,
     )
 
-    agent = Agent(
-        model=primary_model,
-        instructions=instructions,
+    # 创建工作区沙箱（LocalBackend: 限制文件访问范围）
+    workspace = Path(workspace_dir) if workspace_dir else (
+        Path(models_config_path).resolve().parent.parent / "workspace"
     )
+    workspace.mkdir(parents=True, exist_ok=True)
+    backend = LocalBackend(root_dir=str(workspace))
+    logger.info("工作区沙箱: %s", workspace)
+
+    # 使用 pydantic-deep 创建 Agent，集成 TodoToolset + FilesystemToolset
+    agent = create_deep_agent(
+        model=primary_model,
+        system_prompt=instructions,
+        include_todo=True,          # 启用 TodoToolset
+        include_filesystem=True,    # 启用 FilesystemToolset
+        include_subagents=False,    # Phase 3: 暂不启用子 Agent
+        include_plan=False,         # Phase 3: 暂不启用计划工具集
+        include_skills=False,       # Phase 3: 暂不启用技能工具集
+        backend=backend,
+    )
+    logger.info("Agent 已创建（含 TodoToolset + FilesystemToolset）")
 
     # 将模型配置列表附加到 agent 上，供 server 层 fallback 使用
     agent._model_configs = model_configs  # type: ignore[attr-defined]
@@ -190,7 +214,7 @@ def create_paladin_agent(
 
 def get_fallback_models(agent: Agent) -> list[tuple[ModelConfig, OpenAIChatModel]]:
     """
-    获取 Agent 的 fallback 模型列表（排除当前主模型）
+    获取 Agent 的 fallback 模型列表
 
     用于 server 层在 LLM 调用失败时按优先级降级
 
@@ -198,10 +222,10 @@ def get_fallback_models(agent: Agent) -> list[tuple[ModelConfig, OpenAIChatModel
         agent: 已创建的 Agent 实例
 
     Returns:
-        (ModelConfig, OpenAIModel) 元组列表，按 priority 升序
+        (ModelConfig, OpenAIChatModel) 元组列表，按 priority 升序
     """
     configs: list[ModelConfig] = getattr(agent, "_model_configs", [])
-    fallback_models: list[tuple[ModelConfig, OpenAIModel]] = []
+    fallback_models: list[tuple[ModelConfig, OpenAIChatModel]] = []
 
     for config in configs:
         try:

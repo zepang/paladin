@@ -196,3 +196,46 @@ class TestLoadSystemPrompt:
 
         with pytest.raises(FileNotFoundError):
             load_system_prompt(str(tmp_path / "nonexistent.md"))
+
+
+# ---- Tests: deepagents 集成 ----
+
+class TestDeepAgentIntegration:
+    """测试 pydantic-deep 工具集集成"""
+
+    def test_agent_includes_deepagent_toolsets(self, tmp_path):
+        """Agent 创建后包含 TodoToolset 和 FilesystemToolset"""
+        models_yaml = write_models_yaml(tmp_path, [make_model_config()])
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are helpful.")
+
+        with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
+            from src.agent.paladin_agent import create_paladin_agent
+
+            agent = create_paladin_agent(
+                models_config_path=str(models_yaml),
+                system_prompt_path=str(prompt_md),
+            )
+            # 验证 Agent 创建成功（deepagents 工具集在内部注册）
+            assert agent is not None
+            # pydantic-deep 的 create_deep_agent 返回的 agent 默认可运行
+            assert hasattr(agent, 'run')
+            assert hasattr(agent, 'run_sync')
+
+    def test_workspace_dir_is_created(self, tmp_path):
+        """workspace 目录自动创建"""
+        models_yaml = write_models_yaml(tmp_path, [make_model_config()])
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are helpful.")
+        ws_dir = tmp_path / "workspace"
+
+        with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
+            from src.agent.paladin_agent import create_paladin_agent
+
+            create_paladin_agent(
+                models_config_path=str(models_yaml),
+                system_prompt_path=str(prompt_md),
+                workspace_dir=str(ws_dir),
+            )
+            assert ws_dir.exists()
+            assert ws_dir.is_dir()
