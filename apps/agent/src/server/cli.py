@@ -20,6 +20,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+# ---- 日志 ----
+logger = logging.getLogger(__name__)
+
 # 项目根目录
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -88,6 +91,14 @@ def run_repl(model_override: str | None = None):
 
             print("\033[34mPaladin: \033[0m", end="", flush=True)
             try:
+                # 打印请求信息便于调试
+                model = getattr(agent, 'model', None)
+                if model:
+                    logger.info(
+                        "REPL 请求: model=%s, base_url=%s",
+                        getattr(model, 'model_name', '?'),
+                        getattr(model, 'base_url', '?'),
+                    )
                 # 传入 _default_deps: pydantic-deep 的 @agent.instructions 动态函数需要 ctx.deps
                 result = agent.run_sync(
                     user_input,

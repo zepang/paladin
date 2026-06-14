@@ -137,6 +137,12 @@ def _create_openai_model(config: ModelConfig) -> OpenAIChatModel:
             f"模型 '{config.id}' 的 api_key 无法解析: {config.api_key}，"
             f"请检查 .env 中对应的环境变量是否已设置"
         )
+    # 日志: 显示实际请求的 API 地址和模型
+    key_preview = resolved_key[:8] + "..." if len(resolved_key) > 8 else resolved_key
+    logger.info(
+        "创建模型连接: model=%s, base_url=%s, api_key=%s",
+        resolved_model, resolved_base, key_preview,
+    )
     provider = OpenAIProvider(base_url=resolved_base, api_key=resolved_key)
     return OpenAIChatModel(resolved_model, provider=provider)
 
