@@ -1,6 +1,6 @@
 import { CopilotKitProvider, CopilotSidebar } from '@copilotkit/react-core/v2';
 import { Titlebar } from '@/components/Titlebar';
-import { WelcomePage } from '@/components/WelcomePage';
+import { ChatView } from '@/components/ChatView';
 import { ConversationList } from '@/components/ConversationList';
 import { initWindowEvents } from '@/stores/window';
 import { useEffect, useState, useCallback } from 'react';
@@ -34,7 +34,7 @@ function App() {
           </aside>
           {/* 主内容区域 */}
           <div className="flex-1 flex items-center justify-center">
-            <WelcomePage />
+            <ChatView />
           </div>
         </main>
       </div>
