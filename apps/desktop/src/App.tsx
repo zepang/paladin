@@ -1,5 +1,6 @@
 import { CopilotKitProvider, CopilotSidebar } from '@copilotkit/react-core/v2';
 import { Titlebar } from '@/components/Titlebar';
+import { WelcomePage } from '@/components/WelcomePage';
 import { initWindowEvents } from '@/stores/window';
 import { useEffect, useState, useCallback } from 'react';
 
@@ -26,7 +27,7 @@ function App() {
       <div className="flex flex-col h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
         <Titlebar onToggleChat={toggleSidebar} />
         <main className="flex-1 flex items-center justify-center">
-          <p className="text-lg text-gray-500 dark:text-gray-400">Paladin — AI 编程助手</p>
+          <WelcomePage />
         </main>
       </div>
       <CopilotSidebar
