@@ -18,6 +18,7 @@ from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_deep import create_deep_agent
 from pydantic_deep import LocalBackend
+from pydantic_deep import create_default_deps
 
 # ---- 日志 ----
 logger = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ def _create_openai_model(config: ModelConfig) -> OpenAIChatModel:
     """
     从 ModelConfig 创建 Pydantic AI OpenAIChatModel 实例
 
-    使用 OpenAIProvider 支持自定义 base_url（DeepSeek、Llama Studio 等兼容 API）
+    使用 OpenAIProvider 支持自定义 base_url（DeepSeek、LM Studio 等兼容 API）
 
     Args:
         config: 模型配置
@@ -200,9 +201,14 @@ def create_paladin_agent(
         include_subagents=False,    # Phase 3: 暂不启用子 Agent
         include_plan=False,         # Phase 3: 暂不启用计划工具集
         include_skills=False,       # Phase 3: 暂不启用技能工具集
+        web_search=False,           # WebSearch 与 OpenAIChatModel 不兼容
         backend=backend,
     )
     logger.info("Agent 已创建（含 TodoToolset + FilesystemToolset）")
+
+    # 创建默认 deps（pydantic-deep 的 @agent.instructions 动态函数需要）
+    # ctx.deps 是 DeepAgentDeps，不传 deps= 时为 None，导致 get_uploads_summary() 崩溃
+    agent._default_deps = create_default_deps(backend=backend)  # type: ignore[attr-defined]
 
     # 将模型配置列表附加到 agent 上，供 server 层 fallback 使用
     agent._model_configs = model_configs  # type: ignore[attr-defined]

@@ -88,7 +88,11 @@ def run_repl(model_override: str | None = None):
 
             print("\033[34mPaladin: \033[0m", end="", flush=True)
             try:
-                result = agent.run_sync(user_input)
+                # 传入 _default_deps: pydantic-deep 的 @agent.instructions 动态函数需要 ctx.deps
+                result = agent.run_sync(
+                    user_input,
+                    deps=getattr(agent, '_default_deps', None),
+                )
                 print(result.data)
             except Exception as e:
                 print(f"\n[错误] {e}")

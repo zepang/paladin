@@ -77,7 +77,11 @@ async def copilotkit_endpoint(request: Request) -> Response:
     Returns:
         text/event-stream 响应，包含 AG-UI 事件
     """
-    return await handle_ag_ui_request(agent=agent, request=request)
+    return await handle_ag_ui_request(
+        agent=agent,
+        request=request,
+        deps=getattr(agent, '_default_deps', None),
+    )
 
 
 @app.get("/health")
