@@ -1,5 +1,6 @@
 import { useWindowStore } from '@/stores/window';
 import { ThemeToggle } from './ThemeToggle';
+import { ChatToggle } from './ChatToggle';
 
 function MinimizeIcon() {
   return (
@@ -51,7 +52,7 @@ function CloseIcon() {
   );
 }
 
-export function Titlebar() {
+export function Titlebar({ onToggleChat }: { onToggleChat: () => void }) {
   const { minimize, toggleMaximize, close } = useWindowStore();
 
   return (
@@ -70,6 +71,7 @@ export function Titlebar() {
 
       {/* Right: controls */}
       <div className="flex-1 flex items-center justify-end gap-0.5 pr-1">
+        <ChatToggle onClick={onToggleChat} />
         <ThemeToggle />
         <button
           type="button"
