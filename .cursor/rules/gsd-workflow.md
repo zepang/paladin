@@ -1,0 +1,137 @@
+<!-- gsd-project-start source:PROJECT.md -->
+
+## Project
+
+**Paladin**
+
+Paladin 是一个 AI 编程助手桌面端应用，仿 cc-haha/desktop 的交互体验。集 AI Agent、桌面端工作台、企业业务层于一体，一个 monorepo 展示 TypeScript + Python + Go + Rust 四种语言的全栈能力。定位为学习性质项目，目标为展示全栈架构能力和求职亮点。
+
+**Core Value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、Human-in-the-Loop 权限审批，一个桌面应用完成完整编码工作流。
+
+### Constraints
+
+- **语言栈**: TypeScript（桌面 UI）+ Rust（桌面壳）+ Python（AI Agent）+ Go（业务层）
+- **桌面框架**: Tauri 2（不可更换，核心卖点）
+- **AI 框架**: Pydantic AI + pydantic-deepagents（不可更换）
+- **前端 Agent UI**: CopilotKit + AG-UI 协议
+- **项目结构**: Monorepo，apps/ 下单仓管理
+- **部署形态**: 桌面端打包 10-50MB，内存 80-120MB
+
+<!-- gsd-project-end -->
+
+<!-- gsd-stack-start source:research/STACK.md -->
+
+## Technology Stack
+
+## 推荐技术栈
+
+### 桌面框架
+
+| 选择 | 版本 | 置信度 | 理由 |
+|------|------|--------|------|
+| **Tauri 2** | 2.x stable | HIGH | 安装包 3-10MB（Electron 100MB+），内存低（80-120MB），Rust 后端性能优异。2024 年正式发布，API 稳定。系统原生 WebView 而非内嵌 Chromium |
+
+### 前端
+
+| 选择 | 版本 | 置信度 | 理由 |
+|------|------|--------|------|
+| **React 19** | 19.x | HIGH | 生态最成熟，CopilotKit 以 React 为核心 |
+| **TypeScript** | 5.x | HIGH | 类型安全，全栈统一 |
+| **Vite** | 6.x | HIGH | Tauri 官方推荐，HMR 极快 |
+| **Tailwind CSS 4** | 4.x | HIGH | 2025 年底发布，CSS 变量主题系统，构建体积更小，原生暗色模式 |
+| **Zustand** | 5.x | HIGH | 轻量状态管理，TypeScript 友好，比 Redux 简洁 |
+| **shadcn/ui** | latest | MEDIUM | 2026 年 React 生态最热门 UI 库（75k+ stars），copy-paste 模式零冗余，Tailwind CSS 4 原生兼容。但非本项目核心需求 |
+
+### AI Agent 层
+
+| 选择 | 版本 | 置信度 | 理由 |
+|------|------|--------|------|
+| **Pydantic AI** | 1.106.0 | HIGH | Pydantic 团队官方维护，17.6k stars，类型安全，模型无关（支持 OpenAI/Anthropic/Gemini 等） |
+| **pydantic-deepagents** | 0.3.21 | HIGH | 内置 Planning、Filesystem、SubAgent、Sandbox、Skills、MCP，开箱即用 |
+| **AG-UI 协议** | latest | HIGH | Pydantic AI 原生 `agent.to_ag_ui()` 一行代码暴露端点；Google/AWS/Microsoft/LangChain 共同支持 |
+
+### 前端 Agent UI
+
+| 选择 | 版本 | 置信度 | 理由 |
+|------|------|--------|------|
+| **CopilotKit** | latest | HIGH | 20.5k stars，开箱即用聊天 UI（CopilotChat/Sidebar）、HITL 审批、Generative UI、工具调用可视化。2026 年 2700 万美元 A 轮融资 |
+
+### Go 业务层
+
+| 选择 | 版本 | 置信度 | 理由 |
+|------|------|--------|------|
+| **Go** | 1.24+ | HIGH | 高并发（goroutine）、类型安全、wps-cowork 验证的企业级方案 |
+| **MySQL** | 8.x | HIGH | 持久化存储，wps-cowork 验证 |
+| **Redis** | 7.x | HIGH | 缓存 + 配额计数 |
+
+### 桌面端原生能力
+
+| 选择 | 用途 | 置信度 |
+|------|------|--------|
+| **portable-pty** (Rust) | PTY 终端 | HIGH - wezterm 同款，跨平台 |
+| **xterm.js** | 前端终端渲染 | HIGH - 行业标准 |
+| **react-diff-viewer-continued** | 代码 Diff | HIGH - React 生态成熟方案 |
+
+## 版本约束
+
+| 组件 | 最低版本 | 推荐版本 | 备注 |
+|------|---------|---------|------|
+| Rust | 1.77 | 1.85+ | Tauri 2 要求 |
+| Node.js | 20 LTS | 22 LTS | |
+| Python | 3.10 | 3.12+ | Pydantic AI 要求 |
+| Go | 1.22 | 1.24+ | |
+
+## 不推荐的技术
+
+| 技术 | 原因 |
+|------|------|
+| Electron | 包体积大，不符合项目"小而美"定位 |
+| LangChain | 臃肿，Pydantic AI 性能和 DX 更优 |
+| shadcn/ui（重度使用） | 非本项目核心需求，Tailwind 手写更快 |
+| GraphQL | 单机 localhost 通信不需要，WebSocket 更直接 |
+| gRPC | WebSocket 足够，增加复杂度无收益 |
+<!-- gsd-stack-end -->
+
+<!-- gsd-conventions-start source:CONVENTIONS.md -->
+
+## Conventions
+
+Conventions not yet established. Will populate as patterns emerge during development.
+<!-- gsd-conventions-end -->
+
+<!-- gsd-architecture-start source:ARCHITECTURE.md -->
+
+## Architecture
+
+Architecture not yet mapped. Follow existing patterns found in the codebase.
+<!-- gsd-architecture-end -->
+
+<!-- gsd-skills-start source:skills/ -->
+
+## Project Skills
+
+No project skills found. Add skills to any of: `.cursor/skills/`, `.agents/skills/`, `.cursor/skills/`, `.github/skills/`, or `.codex/skills/` with a `SKILL.md` index file.
+<!-- gsd-skills-end -->
+
+<!-- gsd-workflow-start source:GSD defaults -->
+
+## GSD Workflow Enforcement
+
+Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
+
+Use these entry points:
+
+- `/gsd-quick` for small fixes, doc updates, and ad-hoc tasks
+- `/gsd-debug` for investigation and bug fixing
+- `/gsd-execute-phase` for planned phase work
+
+Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
+<!-- gsd-workflow-end -->
+
+<!-- gsd-profile-start -->
+
+## Developer Profile
+
+> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
+> This section is managed by `generate-claude-profile` -- do not edit manually.
+<!-- gsd-profile-end -->
