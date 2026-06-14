@@ -1,5 +1,5 @@
-import { create } from 'zustand';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { create } from 'zustand';
 
 interface WindowState {
   isMaximized: boolean;

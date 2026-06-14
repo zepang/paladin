@@ -3,7 +3,14 @@ import { ThemeToggle } from './ThemeToggle';
 
 function MinimizeIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <title>Minimize</title>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
     </svg>
   );
@@ -11,15 +18,34 @@ function MinimizeIcon() {
 
 function MaximizeIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <title>Maximize</title>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"
+      />
     </svg>
   );
 }
 
 function CloseIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <title>Close</title>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
     </svg>
   );
@@ -46,6 +72,7 @@ export function Titlebar() {
       <div className="flex-1 flex items-center justify-end gap-0.5 pr-1">
         <ThemeToggle />
         <button
+          type="button"
           onClick={minimize}
           className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           aria-label="Minimize"
@@ -53,6 +80,7 @@ export function Titlebar() {
           <MinimizeIcon />
         </button>
         <button
+          type="button"
           onClick={toggleMaximize}
           className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           aria-label="Maximize"
@@ -60,6 +88,7 @@ export function Titlebar() {
           <MaximizeIcon />
         </button>
         <button
+          type="button"
           onClick={close}
           className="p-1.5 rounded hover:bg-red-500 hover:text-white transition-colors"
           aria-label="Close"

@@ -23,14 +23,12 @@ function applyTheme(theme: Theme) {
 
 // Listen to system preference changes when theme is 'system'
 if (typeof window !== 'undefined') {
-  window
-    .matchMedia('(prefers-color-scheme: dark)')
-    .addEventListener('change', () => {
-      const state = useThemeStore.getState();
-      if (state.theme === 'system') {
-        applyTheme('system');
-      }
-    });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    const state = useThemeStore.getState();
+    if (state.theme === 'system') {
+      applyTheme('system');
+    }
+  });
 }
 
 export const useThemeStore = create<ThemeState>()(
@@ -45,7 +43,7 @@ export const useThemeStore = create<ThemeState>()(
         const { theme } = get();
         const order: Theme[] = ['system', 'light', 'dark'];
         const nextIndex = (order.indexOf(theme) + 1) % order.length;
-        const next = order[nextIndex]!;
+        const next = order[nextIndex] ?? 'system';
         set({ theme: next });
         applyTheme(next);
       },
@@ -57,6 +55,6 @@ export const useThemeStore = create<ThemeState>()(
           applyTheme(state.theme);
         }
       },
-    },
-  ),
+    }
+  )
 );
