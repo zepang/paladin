@@ -156,12 +156,10 @@ def _create_model(config: ModelConfig) -> OpenAIChatModel:
             http_client=custom_http_client
         )
         provider = DeepSeekProvider(api_key=resolved_key, openai_client=custom_client)
-        logger.info("DeepSeekProvider 已初始化: %s, %s", provider, resolved_model)
     elif config.provider == "openai":
         # 使用 OpenAIProvider（兼容 LM Studio 等 OpenAI 兼容 API）
         resolved_base = os.path.expandvars(config.api_base)
         provider = OpenAIProvider(base_url=resolved_base, api_key=resolved_key)
-        logger.info("OpenAIProvider 已初始化: %s, %s, %s", provider, resolved_base, resolved_model)
     else:
         raise ValueError(f"不支持的 provider: {config.provider}")
     
