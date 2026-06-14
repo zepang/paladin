@@ -1,11 +1,11 @@
-import type { ChatMessage } from '@/stores/chat';
+import type { Message } from '@copilotkit/react-core/v2';
 import { useCallback, useRef } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { MessageBubble } from './MessageBubble';
 
 interface MessageListProps {
-  /** 消息列表 */
-  messages: ChatMessage[];
+  /** 消息列表（AG-UI Message 类型） */
+  messages: Message[];
   /** 输入框区域（由父组件渲染在最底部） */
   footer?: React.ReactNode;
 }
@@ -20,7 +20,7 @@ export function MessageList({ messages, footer }: MessageListProps) {
 
   // Virtuoso item renderer
   const renderItem = useCallback(
-    (_index: number, message: ChatMessage) => <MessageBubble key={message.id} message={message} />,
+    (_index: number, message: Message) => <MessageBubble key={message.id} message={message} />,
     []
   );
 

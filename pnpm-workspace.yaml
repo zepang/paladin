@@ -2,5 +2,5 @@ packages:
   - 'apps/*'
 allowBuilds:
   '@biomejs/biome': true
-  '@scarf/scarf': set this to true or false
+  '@scarf/scarf': false
   esbuild: true

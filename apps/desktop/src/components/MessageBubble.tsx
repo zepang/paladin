@@ -1,7 +1,22 @@
-import type { ChatMessage } from '@/stores/chat';
+import type { Message } from '@copilotkit/react-core/v2';
 
 interface MessageBubbleProps {
-  message: ChatMessage;
+  message: Message;
+}
+
+/**
+ * 从 AG-UI Message 中提取文本内容
+ * content 类型可能是 string 或 InputContent 数组
+ */
+function getMessageText(content: Message['content']): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+      .map(p => p.text)
+      .join('');
+  }
+  return '';
 }
 
 /** 用户头像 SVG */
@@ -44,7 +59,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-md'
         }`}
       >
-        {message.content}
+        {getMessageText(message.content)}
       </div>
     </div>
   );

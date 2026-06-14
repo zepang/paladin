@@ -66,6 +66,32 @@ logger.info("Paladin Agent 已初始化")
 
 # ---- 端点 ----
 
+# CopilotKit v2 子路由：/copilotkit/info 和 /copilotkit POST
+# CopilotKitProvider 的 runtimeUrl 指向 /copilotkit，
+# 框架内部调用 <runtimeUrl>/info 获取 Agent 列表，POST <runtimeUrl> 发起对话
+
+@app.get("/copilotkit/info")
+async def copilotkit_info():
+    """
+    CopilotKit Agent 发现端点
+    
+    CopilotKit v2 启动时调用 <runtimeUrl>/info 获取可用 Agent 列表。
+    Phase 4 添加以支持直连 AG-UI 模式（无需 Copilot Runtime 中间层）。
+    
+    Returns:
+        JSON: {"agents": [{"name": "default", "type": "ag-ui"}]}
+    """
+    return JSONResponse({
+        "agents": [
+            {
+                "name": "default",
+                "description": "Paladin AI 编程助手",
+                "type": "ag-ui",
+            }
+        ]
+    })
+
+
 @app.post("/copilotkit")
 async def copilotkit_endpoint(request: Request) -> Response:
     """
@@ -101,4 +127,64 @@ async def health():
         "status": "ok",
         "agent": "paladin-agent",
         "models": model_ids,
+    })
+
+
+@app.get("/info")
+async def info():
+    """
+    CopilotKit Agent 发现端点
+    
+    返回可用 Agent 列表，供 CopilotKit v2 启动时调用 
+    Phase 5.1 添加以解决直连模式下的 /info 404 问题
+    
+    Returns:
+        JSON: {"agents": [{"name": "default", "type": "ag-ui"}]}
+    """
+    return JSONResponse({
+        "agents": [
+            {
+                "name": "default",
+                "description": "Paladin AI 编程助手",
+                "type": "ag-ui",
+            }
+        ]
+    })
+
+
+@app.get("/copilotkit/threads")
+async def copilotkit_threads(agentId: str = "default"):
+    """
+    CopilotKit 线程列表端点（带前缀）
+    
+    CopilotKit v2 启动时会调用此端点获取线程列表。
+    返回空数组表示当前没有持久化的线程（Phase 4 简化实现）。
+    
+    Args:
+        agentId: Agent 标识符，默认 "default"
+    
+    Returns:
+        JSON: {"threads": []}
+    """
+    return JSONResponse({
+        "threads": []
+    })
+
+
+@app.get("/threads")
+async def threads(agentId: str = "default"):
+    """
+    CopilotKit 线程列表端点（根路径）
+    
+    CopilotKit v2 可能直接调用 /threads 获取线程列表。
+    提供根路径版本以兼容不同的 API 调用方式。
+    
+    Args:
+        agentId: Agent 标识符，默认 "default"
+    
+    Returns:
+        JSON: {"threads": []}
+    """
+    return JSONResponse({
+        "threads": []
     })
