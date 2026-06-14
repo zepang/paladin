@@ -33,7 +33,7 @@ class ModelConfig:
     id: str                    # 配置内唯一标识
     provider: str              # 提供商: openai / anthropic
     model_id: str              # 模型 ID，如 deepseek-v4-pro
-    api_base: str              # API 基础 URL
+    api_base: str              # API 基础 URL（支持 $ENV_VAR / ${ENV_VAR}）
     api_key_env: str           # API Key 环境变量名
     priority: int              # fallback 优先级（升序：1 最优先）
     params: dict = field(default_factory=dict)  # temperature, max_tokens 等
@@ -131,8 +131,10 @@ def _create_openai_model(config: ModelConfig) -> OpenAIChatModel:
         raise ValueError(
             f"模型 '{config.id}' 需要环境变量 {config.api_key_env}，但未设置"
         )
+    # 解析 api_base 中的环境变量引用（如 $LM_STUDIO_BASE_URL）
+    resolved_base = os.path.expandvars(config.api_base)
     # 创建自定义 Provider，支持任意 OpenAI 兼容 API
-    provider = OpenAIProvider(base_url=config.api_base, api_key=api_key)
+    provider = OpenAIProvider(base_url=resolved_base, api_key=api_key)
     return OpenAIChatModel(config.model_id, provider=provider)
 
 
