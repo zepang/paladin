@@ -35,7 +35,7 @@
 
 ### Code Diff
 
-- [ ] **DIF-01**: react-diff-viewer-continued 集成，展示代码变更
+- [ ] **DIF-01**: @git-diff-view/react 集成，展示代码变更
 - [ ] **DIF-02**: Side-by-side 和 unified diff 两种视图
 - [ ] **DIF-03**: Diff 视图关联聊天消息（Agent 修改了什么）
 
@@ -61,7 +61,7 @@
 
 ### Go Server - Auth
 
-- [ ] **SRV-01**: Go 项目骨架 + MySQL + Redis 连接
+- [ ] **SRV-01**: Go 项目骨架 + PostgreSQL + Redis 连接
 - [ ] **SRV-02**: 用户注册/登录 API
 - [ ] **SRV-03**: RBAC 角色权限控制
 - [ ] **SRV-04**: WebSocket Hub 实时通信

@@ -57,7 +57,7 @@
 - Rust portable-pty 终端
 - Tauri IPC 传输到 xterm.js
 - 多 tab 终端
-- react-diff-viewer-continued 集成
+- @git-diff-view/react 集成
 
 ### Phase 6: Agent Tools
 **Goal:** Agent 具备完整工具链
@@ -80,7 +80,7 @@
 ### Phase 8: Go Server
 **Goal:** 业务层基础能力就绪
 **Requirements:** SRV-01~04
-- Go 项目骨架 + MySQL + Redis
+- Go 项目骨架 + PostgreSQL + Redis
 - 用户注册/登录
 - RBAC 权限控制
 - WebSocket Hub

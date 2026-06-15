@@ -38,7 +38,7 @@
 
 ### Server（Go 业务层）
 - **认证授权**: RBAC 权限控制
-- **数据持久化**: MySQL + Redis
+- **数据持久化**: PostgreSQL + Redis
 - **WebSocket Hub**: 实时通信中转
 - **配额/审计**: 用量控制和操作追溯
 
