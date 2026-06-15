@@ -7,6 +7,7 @@ import { type Channel } from '@tauri-apps/api/core';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Terminal } from '@xterm/xterm';
+import { useTerminalStore } from '@/stores/terminal';
 import { useThemeStore } from '@/stores/theme';
 import { useCallback, useEffect, useRef } from 'react';
 
@@ -70,6 +71,8 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon>(new FitAddon());
+  // 终端 store — 用于右键菜单「新建 Tab」
+  const addTab = useTerminalStore((s) => s.addTab);
   const isDark = useThemeStore((s) => {
     const theme = s.theme;
     return (
@@ -189,7 +192,10 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
             }
           },
         },
-        { label: '新建 Tab', action: () => {} }, // 由父组件通过 store 处理
+        { label: '新建 Tab', action: () => {
+          const id = `term-${Date.now()}`;
+          addTab({ id, title: 'zsh', cwd: '' });
+        } },
         { label: '关闭 Tab', action: onClose },
       ];
 
@@ -216,7 +222,7 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
       };
       setTimeout(() => document.addEventListener('click', closeMenu), 0);
     },
-    [terminalId, onClose],
+    [terminalId, onClose, addTab],
   );
 
   return (

@@ -23,6 +23,7 @@ function App() {
   const togglePanel = useTerminalStore((s) => s.togglePanel);
   const setActivePanel = useTerminalStore((s) => s.setActivePanel);
   const isOpen = useTerminalStore((s) => s.isOpen);
+  const activePanel = useTerminalStore((s) => s.activePanel);
 
   useEffect(() => {
     initWindowEvents();
@@ -33,18 +34,29 @@ function App() {
     setSidebarOpen((prev) => !prev);
   }, []);
 
-  // 终端切换回调
+  // 终端切换回调 — 三态：关闭→打开终端 / diff面板→切换到终端 / 终端面板→关闭
   const handleToggleTerminal = useCallback(() => {
-    togglePanel();
-  }, [togglePanel]);
-
-  // Diff 面板切换回调
-  const handleToggleDiff = useCallback(() => {
     if (!isOpen) {
+      setActivePanel('terminal');
+      togglePanel();
+    } else if (activePanel !== 'terminal') {
+      setActivePanel('terminal');
+    } else {
       togglePanel();
     }
-    setActivePanel('diff');
-  }, [isOpen, togglePanel, setActivePanel]);
+  }, [isOpen, activePanel, togglePanel, setActivePanel]);
+
+  // Diff 面板切换回调 — 三态：关闭→打开diff / 终端面板→切换到diff / diff面板→关闭
+  const handleToggleDiff = useCallback(() => {
+    if (!isOpen) {
+      setActivePanel('diff');
+      togglePanel();
+    } else if (activePanel !== 'diff') {
+      setActivePanel('diff');
+    } else {
+      togglePanel();
+    }
+  }, [isOpen, activePanel, togglePanel, setActivePanel]);
 
   // 全局键盘快捷键
   useEffect(() => {
