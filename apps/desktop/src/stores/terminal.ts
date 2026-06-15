@@ -62,8 +62,8 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     const isLastTab = newTabs.length === 0;
 
     if (isLastTab) {
-      // 关闭最后一个 Tab 时隐藏面板
-      set({ tabs: [], activeTabId: null, isOpen: false });
+      // 关闭最后一个 Tab 时隐藏面板，并重置运行状态
+      set({ tabs: [], activeTabId: null, isOpen: false, isTerminalRunning: false });
     } else {
       // 如果关闭的是活跃 Tab，切换到最后一个 Tab
       const newActiveId = state.activeTabId === id ? (newTabs[newTabs.length - 1]?.id ?? null) : state.activeTabId;
