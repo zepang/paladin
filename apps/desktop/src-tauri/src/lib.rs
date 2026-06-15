@@ -4,6 +4,9 @@ use tauri::{
     Manager, WindowEvent,
 };
 
+mod terminal;
+use crate::terminal::TerminalManager;
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -13,8 +16,17 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            terminal::commands::spawn_terminal,
+            terminal::commands::write_to_terminal,
+            terminal::commands::resize_terminal,
+            terminal::commands::close_terminal,
+        ])
         .setup(|app| {
+            // 管理 TerminalManager 实例
+            app.manage(TerminalManager::new(app.handle().clone()));
+
             // System tray with Show/Hide/Quit menu
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
             let hide = MenuItem::with_id(app, "hide", "Hide", true, None::<&str>)?;

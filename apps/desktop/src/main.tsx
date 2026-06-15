@@ -1,7 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-// CopilotKit v2 样式 — 聊天 UI 组件默认样式
+// CopilotKit v2 样式
 import '@copilotkit/react-core/v2/styles.css';
+// xterm.js 终端样式
+import '@xterm/xterm/css/xterm.css';
 import App from './App';
 import './index.css';
 

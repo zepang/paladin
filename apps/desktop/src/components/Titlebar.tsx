@@ -52,7 +52,15 @@ function CloseIcon() {
   );
 }
 
-export function Titlebar({ onToggleChat }: { onToggleChat: () => void }) {
+export function Titlebar({
+  onToggleChat,
+  onToggleTerminal,
+  onToggleDiff,
+}: {
+  onToggleChat: () => void;
+  onToggleTerminal: () => void;
+  onToggleDiff: () => void;
+}) {
   const { minimize, toggleMaximize, close } = useWindowStore();
 
   return (
@@ -73,6 +81,32 @@ export function Titlebar({ onToggleChat }: { onToggleChat: () => void }) {
       <div className="flex-1 flex items-center justify-end gap-0.5 pr-1">
         <ChatToggle onClick={onToggleChat} />
         <ThemeToggle />
+        {/* 终端按钮 */}
+        <button
+          type="button"
+          onClick={onToggleTerminal}
+          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400"
+          aria-label="切换终端面板"
+          title="终端 (Ctrl+`)"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <title>终端</title>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </button>
+        {/* Diff 按钮 */}
+        <button
+          type="button"
+          onClick={onToggleDiff}
+          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400"
+          aria-label="切换 Diff 面板"
+          title="Diff (Ctrl+Shift+D)"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <title>Diff</title>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+          </svg>
+        </button>
         <button
           type="button"
           onClick={minimize}
