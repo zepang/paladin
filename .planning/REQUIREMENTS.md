@@ -18,6 +18,7 @@
 - [ ] **CHT-02**: 流式输出响应，逐 token 渲染
 - [ ] **CHT-03**: 对话历史管理（查看、切换、删除）
 - [ ] **CHT-04**: CopilotKit CopilotSidebar 侧边栏模式
+- [ ] **CHT-05**: 主工作区与对话区隔离（聊天交互归拢至右侧，中间保留为工作区画布）
 
 ### Agent Core
 
@@ -95,7 +96,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DSK-01 ~ DSK-04 | Phase 1 | Pending |
-| CHT-01 ~ CHT-04 | Phase 2 | Pending |
+| CHT-01 ~ CHT-05 | Phase 2 | Pending |
 | AGT-01 ~ AGT-04 | Phase 3 | Pending |
 | AGT-01~04 + CHT 对接 | Phase 4 | Pending |
 | TRM-01 ~ TRM-04 | Phase 5 | Pending |
@@ -108,7 +109,7 @@
 | PKG-01 ~ PKG-03 | Phase 10 | Pending |
 
 **Coverage:**
-- v1 requirements: 38 total
+- v1 requirements: 39 total
 - Mapped to phases: 38
 - Unmapped: 0
 
