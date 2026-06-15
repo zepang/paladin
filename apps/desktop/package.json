@@ -12,6 +12,9 @@
   "dependencies": {
     "@ag-ui/client": "^0.0.57",
     "@copilotkit/react-core": "^1.60.1",
+    "@git-diff-view/file": "^0.1.5",
+    "@git-diff-view/lowlight": "^0.1.5",
+    "@git-diff-view/react": "^0.1.5",
     "@tailwindcss/vite": "^4.3.1",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
