@@ -47,16 +47,17 @@
 | 选择 | 版本 | 置信度 | 理由 |
 |------|------|--------|------|
 | **Go** | 1.24+ | HIGH | 高并发（goroutine）、类型安全、wps-cowork 验证的企业级方案 |
-| **MySQL** | 8.x | HIGH | 持久化存储，wps-cowork 验证 |
+| **PostgreSQL** | 16+ | HIGH | JSONB 原生支持 Agent 消息存储，Go 生态 pgx 驱动成熟 |
 | **Redis** | 7.x | HIGH | 缓存 + 配额计数 |
 
 ### 桌面端原生能力
 
 | 选择 | 用途 | 置信度 |
 |------|------|--------|
-| **portable-pty** (Rust) | PTY 终端 | HIGH - wezterm 同款，跨平台 |
-| **xterm.js** | 前端终端渲染 | HIGH - 行业标准 |
-| **react-diff-viewer-continued** | 代码 Diff | HIGH - React 生态成熟方案 |
+| **portable-pty** (Rust) | PTY 终端 | HIGH - wezterm 同款，跨平台，Phase 5 已验证 |
+| **xterm.js v6** | 前端终端渲染 | HIGH - 行业标准，FitAddon + WebLinksAddon |
+| **@git-diff-view/react** | 代码 Diff | HIGH - 虚拟滚动、Split/Unified 切换、语法高亮，替代 react-diff-viewer-continued |
+| **Tauri Channel** | 终端数据流 | HIGH - 官方流式 API，避免 JSON 序列化瓶颈 |
 
 ## 版本约束
 
