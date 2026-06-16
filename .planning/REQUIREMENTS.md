@@ -20,6 +20,7 @@
 - [ ] **CHT-04**: CopilotKit CopilotSidebar 侧边栏模式
 - [ ] **CHT-05**: 主工作区与对话区隔离（聊天交互归拢至右侧，中间保留为工作区画布）
 - [ ] **CHT-06**: 集成式历史会话入口（移除左侧独立对话栏，在聊天侧边栏内提供历史记录视图）
+- [ ] **CHT-07**: 侧边栏可拖拽且宽度持久化（右侧聊天边栏支持拖拽调整宽度，且宽度状态重启后保持）
 
 ### Agent Core
 
@@ -97,7 +98,7 @@
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DSK-01 ~ DSK-04 | Phase 1 | Pending |
-| CHT-01 ~ CHT-06 | Phase 2 | Pending |
+| CHT-01 ~ CHT-07 | Phase 2 | Pending |
 | AGT-01 ~ AGT-04 | Phase 3 | Pending |
 | AGT-01~04 + CHT 对接 | Phase 4 | Pending |
 | TRM-01 ~ TRM-04 | Phase 5 | Pending |
@@ -110,7 +111,7 @@
 | PKG-01 ~ PKG-03 | Phase 10 | Pending |
 
 **Coverage:**
-- v1 requirements: 40 total
+- v1 requirements: 41 total
 - Mapped to phases: 38
 - Unmapped: 0
 
