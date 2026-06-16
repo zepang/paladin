@@ -22,6 +22,7 @@ pub fn run() {
             terminal::commands::write_to_terminal,
             terminal::commands::resize_terminal,
             terminal::commands::close_terminal,
+            terminal::commands::restart_terminal,
         ])
         .setup(|app| {
             // 管理 TerminalManager 实例
