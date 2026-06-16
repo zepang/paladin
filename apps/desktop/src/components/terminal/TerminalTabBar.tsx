@@ -1,28 +1,24 @@
 import { useTerminalStore } from '@/stores/terminal';
 import { useCallback } from 'react';
 
-// Tab 栏 - 横向排列，+ 按钮新建，x 关闭，双击重命名
-
-export function TerminalTabBar() {
+export function TerminalTabBar({ onCloseTab }: { onCloseTab: (id: string) => void }) {
   const tabs = useTerminalStore((s) => s.tabs);
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const addTab = useTerminalStore((s) => s.addTab);
-  const removeTab = useTerminalStore((s) => s.removeTab);
   const setActiveTab = useTerminalStore((s) => s.setActiveTab);
   const renameTab = useTerminalStore((s) => s.renameTab);
 
   const handleAddTab = useCallback(() => {
     const id = `term-${Date.now()}`;
     addTab({ id, title: 'zsh', cwd: '' });
-    setActiveTab(id);
-  }, [addTab, setActiveTab]);
+  }, [addTab]);
 
   const handleRemoveTab = useCallback(
     (id: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      removeTab(id);
+      onCloseTab(id);
     },
-    [removeTab],
+    [onCloseTab],
   );
 
   const handleDoubleClick = useCallback(
@@ -41,11 +37,9 @@ export function TerminalTabBar() {
         e.preventDefault();
         const currentIndex = tabs.findIndex((t) => t.id === activeTabId);
         if (e.shiftKey) {
-          // 上一个 Tab
           const prevIndex = currentIndex <= 0 ? tabs.length - 1 : currentIndex - 1;
           setActiveTab(tabs[prevIndex]?.id ?? null);
         } else {
-          // 下一个 Tab
           const nextIndex = currentIndex >= tabs.length - 1 ? 0 : currentIndex + 1;
           setActiveTab(tabs[nextIndex]?.id ?? null);
         }
@@ -58,6 +52,7 @@ export function TerminalTabBar() {
     <div
       className="flex items-center bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-1"
       onKeyDown={handleKeyDown}
+      tabIndex={0}
       role="tablist"
       aria-label="终端标签栏"
     >
@@ -76,6 +71,9 @@ export function TerminalTabBar() {
           title="双击重命名"
         >
           <span className="truncate max-w-32">{tab.title}</span>
+          {tab.cwd && (
+            <span className="truncate max-w-32 text-gray-400 dark:text-gray-500">{tab.cwd}</span>
+          )}
           <button
             type="button"
             className="ml-1 w-4 h-4 flex items-center justify-center rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"

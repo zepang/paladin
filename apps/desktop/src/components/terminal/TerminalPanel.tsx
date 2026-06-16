@@ -1,12 +1,9 @@
-/// 终端面板组件 — 单个 xterm.js 终端实例
-///
-/// 负责初始化 Terminal、addons、Channel 数据接收和用户输入发送。
-/// 使用 useRef + useEffect 模式管理 xterm 生命周期。
-
-import { type Channel } from '@tauri-apps/api/core';
+import { type Channel, invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { Terminal } from '@xterm/xterm';
+import '@xterm/xterm/css/xterm.css';
 import { useTerminalStore } from '@/stores/terminal';
 import { useThemeStore } from '@/stores/theme';
 import { useCallback, useEffect, useRef } from 'react';
@@ -17,7 +14,6 @@ interface TerminalPanelProps {
   onClose: () => void;
 }
 
-// 深色主题终端配色（Dracula 风格）
 const darkTheme = {
   background: '#1e1e1e',
   foreground: '#d4d4d4',
@@ -42,7 +38,6 @@ const darkTheme = {
   brightWhite: '#ffffff',
 };
 
-// 浅色主题终端配色（Solarized Light 风格）
 const lightTheme = {
   background: '#ffffff',
   foreground: '#333333',
@@ -67,11 +62,16 @@ const lightTheme = {
   brightWhite: '#a5a5a5',
 };
 
+function isNearBottom(term: Terminal, threshold = 3): boolean {
+  const buffer = term.buffer.active;
+  return buffer.baseY + term.rows >= buffer.length - threshold;
+}
+
 export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon>(new FitAddon());
-  // 终端 store — 用于右键菜单「新建 Tab」
+  const autoScrollRef = useRef(true);
   const addTab = useTerminalStore((s) => s.addTab);
   const isDark = useThemeStore((s) => {
     const theme = s.theme;
@@ -81,7 +81,6 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
     );
   });
 
-  // 初始化 xterm.js 实例
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -89,31 +88,33 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
 
     const term = new Terminal({
       fontSize: 13,
-      fontFamily: 'Menlo, Monaco, "Courier New", monospace',
+      fontFamily: 'Menlo, Consolas, monospace',
       theme: currentTheme,
       scrollback: 10000,
       cursorBlink: true,
       allowProposedApi: true,
     });
 
-    // 加载 addons
     term.loadAddon(fitAddonRef.current);
     term.loadAddon(new WebLinksAddon());
-
-    // 挂载到 DOM
     term.open(containerRef.current);
     fitAddonRef.current.fit();
 
-    // 接收 Channel 数据（PTY 输出）
+    term.onScroll(() => {
+      autoScrollRef.current = isNearBottom(term);
+    });
+
     channel.onmessage = (data: Uint8Array) => {
       const text = new TextDecoder().decode(data);
-      term.write(text);
+      term.write(text, () => {
+        if (autoScrollRef.current) {
+          term.scrollToBottom();
+        }
+      });
     };
 
-    // 用户输入 → Rust backend
     term.onData(async (data: string) => {
       try {
-        const { invoke } = await import('@tauri-apps/api/core');
         await invoke('write_to_terminal', { id: terminalId, data });
       } catch (e) {
         console.error('[TerminalPanel] 写入终端失败:', e);
@@ -122,50 +123,60 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
 
     terminalRef.current = term;
 
-    // 键盘事件：终端聚焦时所有输入发送给终端
-    const handleKeyDown = () => {
-      if (document.activeElement?.closest('.xterm-helper-textarea')) {
-        // 终端已聚焦，不拦截任何键盘事件
-        return;
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-
-    // 窗口 resize 自适应
     const resizeObserver = new ResizeObserver(() => {
       fitAddonRef.current.fit();
-      // 通知 Rust 后端 PTY 尺寸变化
       if (term.cols > 0 && term.rows > 0) {
-        import('@tauri-apps/api/core').then(({ invoke }) => {
-          invoke('resize_terminal', {
-            id: terminalId,
-            cols: term.cols,
-            rows: term.rows,
-          }).catch(() => {});
-        });
+        invoke('resize_terminal', {
+          id: terminalId,
+          cols: term.cols,
+          rows: term.rows,
+        }).catch(() => {});
       }
     });
     resizeObserver.observe(containerRef.current);
 
+    const unlistenPromises = [
+      listen<string>('pty-eof', async (event) => {
+        if (event.payload !== terminalId) return;
+        try {
+          await invoke('restart_terminal', { id: terminalId, channel });
+          term.write('\r\n[进程已重启]\r\n');
+        } catch (e) {
+          console.error('[TerminalPanel] restart_terminal 失败:', e);
+        }
+      }),
+      listen<string>('pty-error', async (event) => {
+        if (event.payload !== terminalId) return;
+        try {
+          await invoke('restart_terminal', { id: terminalId, channel });
+          term.write('\r\n[进程已重启]\r\n');
+        } catch (e) {
+          console.error('[TerminalPanel] restart_terminal 失败:', e);
+        }
+      }),
+    ];
+
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
       resizeObserver.disconnect();
       term.dispose();
+      terminalRef.current = null;
+      void Promise.all(unlistenPromises).then((unlisteners) => {
+        for (const unlisten of unlisteners) {
+          unlisten();
+        }
+      });
     };
-  }, [terminalId, isDark]);
+  }, [terminalId, channel, isDark]);
 
-  // 主题变化时更新终端配色
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.options.theme = isDark ? darkTheme : lightTheme;
     }
   }, [isDark]);
 
-  // 右键菜单处理
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      // 基础右键菜单：复制、粘贴、新建Tab、关闭Tab
       const menu = document.createElement('div');
       menu.className =
         'fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-50';
@@ -186,16 +197,18 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
           label: '粘贴',
           action: async () => {
             const text = await navigator.clipboard.readText();
-            if (text && terminalRef.current) {
-              const { invoke } = await import('@tauri-apps/api/core');
+            if (text) {
               await invoke('write_to_terminal', { id: terminalId, data: text });
             }
           },
         },
-        { label: '新建 Tab', action: () => {
-          const id = `term-${Date.now()}`;
-          addTab({ id, title: 'zsh', cwd: '' });
-        } },
+        {
+          label: '新建 Tab',
+          action: () => {
+            const id = `term-${Date.now()}`;
+            addTab({ id, title: 'zsh', cwd: '' });
+          },
+        },
         { label: '关闭 Tab', action: onClose },
       ];
 
@@ -213,7 +226,6 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
 
       document.body.appendChild(menu);
 
-      // 点击其他地方关闭菜单
       const closeMenu = () => {
         if (document.body.contains(menu)) {
           document.body.removeChild(menu);
@@ -226,10 +238,6 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
   );
 
   return (
-    <div
-      ref={containerRef}
-      className="h-full w-full"
-      onContextMenu={handleContextMenu}
-    />
+    <div ref={containerRef} className="h-full w-full" onContextMenu={handleContextMenu} />
   );
 }

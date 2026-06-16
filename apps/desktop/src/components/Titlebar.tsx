@@ -80,7 +80,6 @@ export function Titlebar({
       {/* Right: controls */}
       <div className="flex-1 flex items-center justify-end gap-0.5 pr-1">
         <ChatToggle onClick={onToggleChat} />
-        <ThemeToggle />
         {/* 终端按钮 */}
         <button
           type="button"
@@ -107,6 +106,7 @@ export function Titlebar({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
           </svg>
         </button>
+        <ThemeToggle />
         <button
           type="button"
           onClick={minimize}

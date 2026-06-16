@@ -1,28 +1,24 @@
 import { useTerminalStore } from '@/stores/terminal';
 import { useCallback, useEffect, useRef } from 'react';
 
-// 可拖拽分隔条 — 调整底部面板高度，4px 分隔线, hover 显示手柄光标
+// 可拖拽分隔条 — 调整右侧面板宽度，4px 分隔线
 
 export function ResizeHandle() {
-  const setPanelHeight = useTerminalStore((s) => s.setPanelHeight);
+  const setPanelWidth = useTerminalStore((s) => s.setPanelWidth);
   const isDragging = useRef(false);
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      isDragging.current = true;
-      document.body.style.cursor = 'ns-resize';
-      document.body.style.userSelect = 'none';
-    },
-    [],
-  );
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
-      // 面板高度 = 窗口高度 - 鼠标 Y 坐标
-      const newHeight = window.innerHeight - e.clientY;
-      setPanelHeight(newHeight);
+      const newWidth = window.innerWidth - e.clientX;
+      setPanelWidth(newWidth);
     };
 
     const handleMouseUp = () => {
@@ -40,15 +36,15 @@ export function ResizeHandle() {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [setPanelHeight]);
+  }, [setPanelWidth]);
 
   return (
     <div
-      className="h-1 bg-gray-300 dark:bg-gray-600 hover:bg-blue-400 dark:hover:bg-blue-500 cursor-ns-resize transition-colors flex-shrink-0"
+      className="w-1 bg-gray-300 dark:bg-gray-600 hover:bg-blue-400 dark:hover:bg-blue-500 cursor-ew-resize transition-colors flex-shrink-0"
       onMouseDown={handleMouseDown}
       role="separator"
-      aria-orientation="horizontal"
-      aria-label="拖拽调整面板高度"
+      aria-orientation="vertical"
+      aria-label="拖拽调整面板宽度"
     />
   );
 }

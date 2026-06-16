@@ -1,7 +1,7 @@
 import { ChatView } from '@/components/ChatView';
 import { ConversationList } from '@/components/ConversationList';
 import { ErrorToast } from '@/components/ErrorToast';
-import { BottomPanel } from '@/components/layout/BottomPanel';
+import { RightDrawer } from '@/components/layout/RightDrawer';
 import { StatusBar } from '@/components/StatusBar';
 import { Titlebar } from '@/components/Titlebar';
 import { useAgentHealth } from '@/hooks/useAgentHealth';
@@ -167,18 +167,13 @@ function App() {
           onToggleDiff={handleToggleDiff}
         />
         <div className="flex-1 flex overflow-hidden">
-          {/* 对话列表侧边栏 */}
           <aside className="w-64 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-800 overflow-hidden">
             <ConversationList />
           </aside>
-          {/* 主内容区域：聊天 + 终端面板 */}
-          <div className="flex-1 flex flex-col min-w-0">
-            <div className="flex-1 flex items-center justify-center overflow-hidden">
-              <ChatView />
-            </div>
-            {/* 底部终端/Diff 面板 */}
-            <BottomPanel />
+          <div className="flex-1 flex items-center justify-center overflow-hidden min-w-0">
+            <ChatView />
           </div>
+          <RightDrawer />
         </div>
         {/* 底部状态栏 */}
         <StatusBar />
