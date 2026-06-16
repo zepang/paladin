@@ -54,6 +54,11 @@
 ### Phase 5: Terminal + Diff
 **Goal:** 内嵌终端 + 代码变更可视化
 **Requirements:** TRM-01~04, DIF-01~03
+**Plans:** 1 plan
+
+Plans:
+- [x] 05-01-PLAN.md — Terminal + Diff core (PTY Channel, right drawer, chat-embedded DiffView)
+
 - Rust portable-pty 终端
 - Tauri IPC 传输到 xterm.js
 - 多 tab 终端
