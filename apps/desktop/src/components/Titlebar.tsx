@@ -1,56 +1,7 @@
 import { useWindowStore } from '@/stores/window';
+import { GitBranch, Maximize2, Minus, Terminal, X } from 'lucide-react';
 import { ChatToggle } from './ChatToggle';
 import { ThemeToggle } from './ThemeToggle';
-
-function MinimizeIcon() {
-  return (
-    <svg
-      className="w-4 h-4"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <title>Minimize</title>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-    </svg>
-  );
-}
-
-function MaximizeIcon() {
-  return (
-    <svg
-      className="w-4 h-4"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <title>Maximize</title>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"
-      />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg
-      className="w-4 h-4"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
-      <title>Close</title>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  );
-}
 
 export function Titlebar({
   onToggleChat,
@@ -88,10 +39,7 @@ export function Titlebar({
           aria-label="切换终端面板"
           title="终端 (Ctrl+`)"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <title>终端</title>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
+          <Terminal className="size-4" />
         </button>
         {/* Diff 按钮 */}
         <button
@@ -101,10 +49,7 @@ export function Titlebar({
           aria-label="切换 Diff 面板"
           title="Diff (Ctrl+Shift+D)"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <title>Diff</title>
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
-          </svg>
+          <GitBranch className="size-4" />
         </button>
         <ThemeToggle />
         <button
@@ -113,7 +58,7 @@ export function Titlebar({
           className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           aria-label="Minimize"
         >
-          <MinimizeIcon />
+          <Minus className="size-4" />
         </button>
         <button
           type="button"
@@ -121,7 +66,7 @@ export function Titlebar({
           className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           aria-label="Maximize"
         >
-          <MaximizeIcon />
+          <Maximize2 className="size-4" />
         </button>
         <button
           type="button"
@@ -129,7 +74,7 @@ export function Titlebar({
           className="p-1.5 rounded hover:bg-red-500 hover:text-white transition-colors"
           aria-label="Close"
         >
-          <CloseIcon />
+          <X className="size-4" />
         </button>
       </div>
     </div>
