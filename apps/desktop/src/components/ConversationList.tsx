@@ -1,4 +1,5 @@
 import { useChatStore } from '@/stores/chat';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -87,7 +88,7 @@ export function ConversationList() {
       </div>
 
       {/* 对话列表 */}
-      <div className="flex-1 overflow-y-auto">
+      <ScrollArea className="flex-1">
         {conversations.length === 0 ? (
           <div className="p-4 text-center text-sm text-gray-400 dark:text-gray-500">暂无对话</div>
         ) : (
@@ -173,7 +174,7 @@ export function ConversationList() {
             );
           })
         )}
-      </div>
+      </ScrollArea>
     </div>
   );
 }
