@@ -1,4 +1,4 @@
-import { ResizeHandle } from '@/components/layout/ResizeHandle';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { TerminalTabBar } from '@/components/terminal/TerminalTabBar';
 import { useTerminalStore } from '@/stores/terminal';
@@ -6,15 +6,16 @@ import { Channel, invoke } from '@tauri-apps/api/core';
 import { useEffect, useMemo, useRef } from 'react';
 
 // 右侧面板容器 — 终端 + Diff 可切换面板
+// 使用 shadcn Sheet 组件，modal={false} 避免拦截终端键盘输入
 
 export function RightDrawer() {
   const isOpen = useTerminalStore((s) => s.isOpen);
-  const panelWidth = useTerminalStore((s) => s.panelWidth);
   const activePanel = useTerminalStore((s) => s.activePanel);
   const tabs = useTerminalStore((s) => s.tabs);
   const activeTabId = useTerminalStore((s) => s.activeTabId);
   const addTab = useTerminalStore((s) => s.addTab);
   const setTerminalRunning = useTerminalStore((s) => s.setTerminalRunning);
+  const closePanel = useTerminalStore((s) => s.closePanel);
 
   const isJustOpened = useRef(false);
   useEffect(() => {
@@ -72,38 +73,40 @@ export function RightDrawer() {
   };
 
   return (
-    <div
-      className="flex flex-shrink-0 border-l border-gray-300 dark:border-gray-700 overflow-hidden"
-      style={{
-        width: isOpen ? `${panelWidth}px` : '0px',
-        transition: 'width 200ms ease-in-out',
+    <Sheet
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) closePanel();
       }}
+      modal={false}
     >
-      {isOpen && (
-        <>
-          <ResizeHandle />
-          <div className="flex-1 flex flex-col min-w-0">
-            {activePanel === 'terminal' && <TerminalTabBar onCloseTab={handleCloseTab} />}
+      <SheetContent side="right" className="w-[400px] sm:max-w-[600px] p-0 flex flex-col">
+        <SheetHeader className="px-3 py-2 border-b border-border">
+          <SheetTitle className="text-xs font-medium">
+            {activePanel === 'terminal' ? '终端' : '代码变更'}
+          </SheetTitle>
+        </SheetHeader>
+        <div className="flex-1 flex flex-col min-h-0">
+          {activePanel === 'terminal' && <TerminalTabBar onCloseTab={handleCloseTab} />}
 
-            <div className="flex-1 min-h-0">
-              {activePanel === 'terminal' && activeTabId && (
-                <TerminalPanel
-                  key={activeTabId}
-                  terminalId={activeTabId}
-                  channel={channel}
-                  onClose={() => handleCloseTab(activeTabId)}
-                />
-              )}
+          <div className="flex-1 min-h-0">
+            {activePanel === 'terminal' && activeTabId && (
+              <TerminalPanel
+                key={activeTabId}
+                terminalId={activeTabId}
+                channel={channel}
+                onClose={() => handleCloseTab(activeTabId)}
+              />
+            )}
 
-              {activePanel === 'diff' && (
-                <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400 text-sm p-4 text-center">
-                  Diff 面板 — 在聊天消息中查看代码变更
-                </div>
-              )}
-            </div>
+            {activePanel === 'diff' && (
+              <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400 text-sm p-4 text-center">
+                Diff 面板 — 在聊天消息中查看代码变更
+              </div>
+            )}
           </div>
-        </>
-      )}
-    </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
