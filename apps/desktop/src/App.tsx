@@ -1,6 +1,6 @@
 import { ChatView } from '@/components/ChatView';
 import { ConversationList } from '@/components/ConversationList';
-import { ErrorToast } from '@/components/ErrorToast';
+import { Toaster } from '@/components/ui/sonner';
 import { RightDrawer } from '@/components/layout/RightDrawer';
 import { StatusBar } from '@/components/StatusBar';
 import { Titlebar } from '@/components/Titlebar';
@@ -10,6 +10,7 @@ import { useTerminalStore } from '@/stores/terminal';
 import { HttpAgent } from '@ag-ui/client';
 import { CopilotKitProvider, CopilotSidebar } from '@copilotkit/react-core/v2';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 // 应用根组件
 // 集成 CopilotKit 聊天、底部终端/Diff 面板、全局键盘快捷键
@@ -28,6 +29,15 @@ function App() {
   useEffect(() => {
     initWindowEvents();
   }, []);
+
+  // 未连接时显示警告 toast（带重试按钮）
+  useEffect(() => {
+    if (!isOnline && !isLoading && error) {
+      toast.warning(error || 'Agent 服务未启动', {
+        action: { label: '重试', onClick: () => retry() },
+      });
+    }
+  }, [isOnline, isLoading, error, retry]);
 
   // ChatToggle 回调 — 切换侧边栏开关状态
   const toggleSidebar = useCallback(() => {
@@ -98,15 +108,13 @@ function App() {
       };
       const friendly = errorMessages[event.code] || event.error.message;
       console.error(`[CopilotKit ${event.code}]`, friendly, event.error);
+      toast.error(friendly);
     },
-    [],
+    []
   );
 
   // AG-UI HttpAgent — 直连 Pydantic AI 端点
-  const agUiAgent = useMemo(
-    () => new HttpAgent({ url: 'http://localhost:9877/copilotkit' }),
-    [],
-  );
+  const agUiAgent = useMemo(() => new HttpAgent({ url: 'http://localhost:9877/copilotkit' }), []);
 
   // 加载状态
   if (isLoading) {
@@ -147,7 +155,7 @@ function App() {
           </div>
         </main>
         <StatusBar />
-        <ErrorToast message={error || 'Agent 服务未启动'} type="warning" onRetry={retry} />
+        <Toaster position="bottom-center" />
       </div>
     );
   }
@@ -179,6 +187,7 @@ function App() {
         <StatusBar />
       </div>
       <CopilotSidebar key={sidebarOpen ? 'open' : 'closed'} defaultOpen={sidebarOpen} width={400} />
+      <Toaster position="bottom-center" />
     </CopilotKitProvider>
   );
 }

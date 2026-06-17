@@ -1,4 +1,5 @@
 import { useThemeStore } from '@/stores/theme';
+import { Button } from '@/components/ui/button';
 import { Monitor, Moon, Sun } from 'lucide-react';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -19,13 +20,8 @@ export function ThemeToggle() {
   const label = labelMap[theme] ?? 'System';
 
   return (
-    <button
-      type="button"
-      onClick={toggleTheme}
-      className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-      title={`Theme: ${label}`}
-    >
+    <Button variant="ghost" size="icon" onClick={toggleTheme} title={`Theme: ${label}`}>
       <Icon className="size-4" />
-    </button>
+    </Button>
   );
 }

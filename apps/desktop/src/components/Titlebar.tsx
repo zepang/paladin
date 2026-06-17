@@ -1,4 +1,5 @@
 import { useWindowStore } from '@/stores/window';
+import { Button } from '@/components/ui/button';
 import { GitBranch, Maximize2, Minus, Terminal, X } from 'lucide-react';
 import { ChatToggle } from './ChatToggle';
 import { ThemeToggle } from './ThemeToggle';
@@ -32,50 +33,41 @@ export function Titlebar({
       <div className="flex-1 flex items-center justify-end gap-0.5 pr-1">
         <ChatToggle onClick={onToggleChat} />
         {/* 终端按钮 */}
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onToggleTerminal}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400"
           aria-label="切换终端面板"
           title="终端 (Ctrl+`)"
         >
-          <Terminal className="size-4" />
-        </button>
+          <Terminal className="size-4 text-gray-500 dark:text-gray-400" />
+        </Button>
         {/* Diff 按钮 */}
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={onToggleDiff}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400"
           aria-label="切换 Diff 面板"
           title="Diff (Ctrl+Shift+D)"
         >
-          <GitBranch className="size-4" />
-        </button>
+          <GitBranch className="size-4 text-gray-500 dark:text-gray-400" />
+        </Button>
         <ThemeToggle />
-        <button
-          type="button"
-          onClick={minimize}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          aria-label="Minimize"
-        >
+        <Button variant="ghost" size="icon" onClick={minimize} aria-label="Minimize">
           <Minus className="size-4" />
-        </button>
-        <button
-          type="button"
-          onClick={toggleMaximize}
-          className="p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-          aria-label="Maximize"
-        >
+        </Button>
+        <Button variant="ghost" size="icon" onClick={toggleMaximize} aria-label="Maximize">
           <Maximize2 className="size-4" />
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={close}
-          className="p-1.5 rounded hover:bg-red-500 hover:text-white transition-colors"
           aria-label="Close"
+          className="hover:bg-red-500 hover:text-white"
         >
           <X className="size-4" />
-        </button>
+        </Button>
       </div>
     </div>
   );
