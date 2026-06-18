@@ -15,7 +15,9 @@ import { toast } from 'sonner';
 // 应用根组件
 // 集成 CopilotKit 聊天、底部终端/Diff 面板、全局键盘快捷键
 function App() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // CopilotSidebar 的 key 计数器 — 每次点击 ChatToggle 递增，强制重新挂载以同步开/关
+  // 不使用 boolean state 同步，因为 CopilotSidebar 是内部管理开/关的非受控组件
+  const [sidebarKey, setSidebarKey] = useState(0);
 
   // Agent 健康检查
   const { isOnline, isLoading, error, retry } = useAgentHealth();
@@ -39,9 +41,9 @@ function App() {
     }
   }, [isOnline, isLoading, error, retry]);
 
-  // ChatToggle 回调 — 切换侧边栏开关状态
+  // ChatToggle 回调 — 递增 key 强制 CopilotSidebar 重新挂载以打开
   const toggleSidebar = useCallback(() => {
-    setSidebarOpen((prev) => !prev);
+    setSidebarKey((prev) => prev + 1);
   }, []);
 
   // 终端切换回调 — 三态：关闭→打开终端 / diff面板→切换到终端 / 终端面板→关闭
@@ -186,7 +188,9 @@ function App() {
         {/* 底部状态栏 */}
         <StatusBar />
       </div>
-      <CopilotSidebar key={sidebarOpen ? 'open' : 'closed'} defaultOpen={sidebarOpen} width={400} />
+      {sidebarKey > 0 && (
+        <CopilotSidebar key={sidebarKey} defaultOpen={true} width={400} />
+      )}
       <Toaster position="bottom-center" />
     </CopilotKitProvider>
   );
