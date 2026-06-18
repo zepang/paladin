@@ -11,9 +11,7 @@ import { useEffect, useMemo, useRef } from 'react';
 export function RightDrawer() {
   const isOpen = useTerminalStore((s) => s.isOpen);
   const activePanel = useTerminalStore((s) => s.activePanel);
-  const tabs = useTerminalStore((s) => s.tabs);
   const activeTabId = useTerminalStore((s) => s.activeTabId);
-  const addTab = useTerminalStore((s) => s.addTab);
   const setTerminalRunning = useTerminalStore((s) => s.setTerminalRunning);
   const closePanel = useTerminalStore((s) => s.closePanel);
 
@@ -30,13 +28,6 @@ export function RightDrawer() {
       isJustOpened.current = false;
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen && tabs.length === 0 && activePanel === 'terminal') {
-      const id = `term-${Date.now()}`;
-      addTab({ id, title: 'zsh', cwd: '' });
-    }
-  }, [isOpen, tabs.length, activePanel, addTab]);
 
   const channelRef = useRef<Channel<Uint8Array> | null>(null);
   const channel = useMemo(() => {

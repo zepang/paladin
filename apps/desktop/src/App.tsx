@@ -27,6 +27,8 @@ function App() {
   const setActivePanel = useTerminalStore((s) => s.setActivePanel);
   const isOpen = useTerminalStore((s) => s.isOpen);
   const activePanel = useTerminalStore((s) => s.activePanel);
+  const tabs = useTerminalStore((s) => s.tabs);
+  const addTab = useTerminalStore((s) => s.addTab);
 
   useEffect(() => {
     initWindowEvents();
@@ -47,8 +49,13 @@ function App() {
   }, []);
 
   // 终端切换回调 — 三态：关闭→打开终端 / diff面板→切换到终端 / 终端面板→关闭
+  // 打开终端前先创建 Tab，避免 useEffect 延迟导致的 1-2 秒空白
   const handleToggleTerminal = useCallback(() => {
     if (!isOpen) {
+      if (tabs.length === 0) {
+        const id = `term-${Date.now()}`;
+        addTab({ id, title: 'zsh', cwd: '' });
+      }
       setActivePanel('terminal');
       togglePanel();
     } else if (activePanel !== 'terminal') {
@@ -56,7 +63,7 @@ function App() {
     } else {
       togglePanel();
     }
-  }, [isOpen, activePanel, togglePanel, setActivePanel]);
+  }, [isOpen, activePanel, tabs.length, togglePanel, setActivePanel, addTab]);
 
   // Diff 面板切换回调 — 三态：关闭→打开diff / 终端面板→切换到diff / diff面板→关闭
   const handleToggleDiff = useCallback(() => {
@@ -80,8 +87,7 @@ function App() {
       // Ctrl+` 切换终端面板
       if (e.ctrlKey && e.key === '`') {
         e.preventDefault();
-        setActivePanel('terminal');
-        togglePanel();
+        handleToggleTerminal();
         return;
       }
 
@@ -95,7 +101,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePanel, setActivePanel, handleToggleDiff]);
+  }, [handleToggleTerminal, handleToggleDiff]);
 
   // CopilotKit 错误处理回调
   const handleCopilotError = useCallback(
