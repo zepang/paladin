@@ -14,7 +14,7 @@ progress:
 
 # Project State: Paladin
 
-**Phase:** 05.1-UI Library Upgrade (Planned)
+**Phase:** Phase 5.1 UI Library Upgrade (Complete)
 **Last Updated:** 2026-06-17
 
 ## Project Reference
@@ -22,7 +22,7 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 05.1 — UI Library Upgrade (5 plans, ready to execute)
+**Current focus:** Phase 06 — Agent Tools (next phase)
 
 ## Phase Status
 
@@ -33,7 +33,7 @@ See: .planning/PROJECT.md
 | 3 | AI Agent Core | Complete |
 | 4 | Agent ↔ Desktop | Complete |
 | 5 | Terminal + Diff | Complete |
-| 5.1 | UI Library Upgrade | Planned (5 plans) |
+| 5.1 | UI Library Upgrade | Complete |
 | 6 | Agent Tools | Pending |
 | 7 | HITL + Sidecar | Pending |
 | 8 | Go Server | Pending |
@@ -42,12 +42,12 @@ See: .planning/PROJECT.md
 
 ## Roadmap Evolution
 
-- Phase 05.1 (URGENT) inserted after Phase 5 — 引入 shadcn/ui + lucide-icons 图标库，替换手写 SVG 和自定义组件
+- Phase 05.1 (URGENT) inserted after Phase 5 — 引入 shadcn/ui + lucide-icons 图标库，替换手写 SVG 和自定义组件 — COMPLETED
 
 ## Recent Activity
 
-- 2026-06-17: Phase 05.1 planned — 5 waves (lucide, shadcn init, Button+Sonner, ScrollArea, Sheet)
-- 2026-06-17: Phase 05.1 discuss-phase completed — decisions captured in CONTEXT.md
+- 2026-06-17: Phase 05.1 completed — 5 waves executed (lucide, shadcn init, Button+Sonner, ScrollArea, Sheet)
+- 2026-06-17: Phase 05.1 planned — 5 waves of UI library upgrade
 - 2026-06-15: Phase 5 completed — Terminal + Diff integration (Wave 6 polish)
 - 2026-06-15: Rust portable-pty backend + Tauri Channel streaming to xterm.js
 - 2026-06-15: Multi-tab terminal with resize, Tab switching (Ctrl+Tab), rename
@@ -60,5 +60,4 @@ See: .planning/PROJECT.md
 
 ## Next Actions
 
-1. Run `/gsd-execute-phase 05.1` to execute 5 waves of UI Library Upgrade
-2. Continue development with Phase 5.1 (shadcn/ui + lucide-icons)
+1. Phase 5.1 complete — next: Phase 6 Agent Tools development
