@@ -17,19 +17,21 @@ export function Titlebar({
 
   return (
     <div
-      data-tauri-drag-region
       className="flex items-center justify-between h-9 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 select-none flex-shrink-0"
       style={{ backgroundColor: 'var(--titlebar-bg, #f3f4f6)' }}
     >
       {/* Left: drag region spacer */}
       <div className="flex-1" data-tauri-drag-region />
 
-      {/* Center: app name */}
-      <div className="text-xs font-medium text-gray-500 dark:text-gray-400 select-none">
+      {/* Center: app name — also drag region */}
+      <div
+        className="text-xs font-medium text-gray-500 dark:text-gray-400 select-none"
+        data-tauri-drag-region
+      >
         Paladin
       </div>
 
-      {/* Right: controls */}
+      {/* Right: controls — NO drag region, 避免拦截 Button 点击事件 */}
       <div className="flex-1 flex items-center justify-end gap-0.5 pr-1">
         <ChatToggle onClick={onToggleChat} />
         {/* 终端按钮 */}
