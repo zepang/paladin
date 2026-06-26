@@ -48,7 +48,7 @@ export function ChatToolbar() {
   };
 
   return (
-    <aside className="w-56 border-l border-border flex-shrink-0 bg-muted/30 flex flex-col overflow-hidden">
+    <aside className="w-56 border-l border-border/50 flex-shrink-0 bg-background/50 flex flex-col overflow-hidden">
       {/* 上下文信息 */}
       <div className="p-3 border-b border-border">
         <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">

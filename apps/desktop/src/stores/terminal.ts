@@ -8,6 +8,7 @@ export interface TerminalTab {
 
 interface TerminalState {
   isOpen: boolean;
+  isFullscreen: boolean;
   panelWidth: number;
   activePanel: 'terminal' | 'file-preview' | 'diff';
   tabs: TerminalTab[];
@@ -17,6 +18,8 @@ interface TerminalState {
   closePanel: () => void;
   togglePanel: () => void;
   setPanelWidth: (w: number) => void;
+  setFullscreen: (fs: boolean) => void;
+  toggleFullscreen: () => void;
   setActivePanel: (panel: 'terminal' | 'file-preview' | 'diff') => void;
   addTab: (tab: TerminalTab) => void;
   removeTab: (id: string) => void;
@@ -27,16 +30,19 @@ interface TerminalState {
 
 export const useTerminalStore = create<TerminalState>((set, get) => ({
   isOpen: false,
-  panelWidth: 400,
+  isFullscreen: false,
+  panelWidth: 480,
   activePanel: 'terminal',
   tabs: [],
   activeTabId: null,
   isTerminalRunning: false,
 
   openPanel: () => set({ isOpen: true }),
-  closePanel: () => set({ isOpen: false }),
+  closePanel: () => set({ isOpen: false, isFullscreen: false }),
   togglePanel: () => set((s) => ({ isOpen: !s.isOpen })),
-  setPanelWidth: (w) => set({ panelWidth: Math.max(300, Math.min(w, 800)) }),
+  setPanelWidth: (w) => set({ panelWidth: Math.max(300, w) }),
+  setFullscreen: (fs) => set({ isFullscreen: fs }),
+  toggleFullscreen: () => set((s) => ({ isFullscreen: !s.isFullscreen })),
 
   setActivePanel: (panel) => set({ activePanel: panel }),
 

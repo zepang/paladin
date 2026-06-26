@@ -4,7 +4,6 @@
  * 集成 CopilotKit 聊天、底部终端/Diff 面板、全局键盘快捷键
  */
 import { ChatArea } from '@/components/ChatArea';
-import { ChatToolbar } from '@/components/ChatToolbar';
 import { ConversationList } from '@/components/ConversationList';
 import { SidebarToggle } from '@/components/SidebarToggle';
 import { StatusBar } from '@/components/StatusBar';
@@ -14,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { useAgentHealth } from '@/hooks/useAgentHealth';
 import { useTerminalStore } from '@/stores/terminal';
-import { useUIStore } from '@/stores/ui';
+import { getBreakpoint, useUIStore, WIDTH_CONFIG } from '@/stores/ui';
 import { initWindowEvents } from '@/stores/window';
 import { HttpAgent } from '@ag-ui/client';
 import { CopilotKitProvider } from '@copilotkit/react-core/v2';
@@ -25,6 +24,12 @@ function App() {
   // 侧边栏折叠状态
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const sidebarDrawerMode = useUIStore((s) => s.sidebarDrawerMode);
+  const sidebarDrawerOpen = useUIStore((s) => s.sidebarDrawerOpen);
+  const toggleSidebarDrawer = useUIStore((s) => s.toggleSidebarDrawer);
+  const setSidebarDrawerOpen = useUIStore((s) => s.setSidebarDrawerOpen);
+  const setBreakpoint = useUIStore((s) => s.setBreakpoint);
+  const breakpoint = useUIStore((s) => s.breakpoint);
 
   // Agent 健康检查
   const { isOnline, isLoading, error, retry } = useAgentHealth();
@@ -33,9 +38,29 @@ function App() {
   const togglePanel = useTerminalStore((s) => s.togglePanel);
   const setActivePanel = useTerminalStore((s) => s.setActivePanel);
   const isOpen = useTerminalStore((s) => s.isOpen);
+  const isFullscreen = useTerminalStore((s) => s.isFullscreen);
   const activePanel = useTerminalStore((s) => s.activePanel);
   const tabs = useTerminalStore((s) => s.tabs);
   const addTab = useTerminalStore((s) => s.addTab);
+
+  // 响应式断点检测
+  useEffect(() => {
+    const updateBreakpoint = () => setBreakpoint(getBreakpoint(window.innerWidth));
+    updateBreakpoint();
+    window.addEventListener('resize', updateBreakpoint);
+    return () => window.removeEventListener('resize', updateBreakpoint);
+  }, [setBreakpoint]);
+
+  const widths = WIDTH_CONFIG[breakpoint];
+
+  // 统一的侧边栏切换 — 根据模式选择
+  const handleToggleChat = useCallback(() => {
+    if (sidebarDrawerMode) {
+      toggleSidebarDrawer();
+    } else {
+      toggleSidebar();
+    }
+  }, [sidebarDrawerMode, toggleSidebarDrawer, toggleSidebar]);
 
   useEffect(() => {
     initWindowEvents();
@@ -143,7 +168,7 @@ function App() {
     return (
       <div className="flex flex-col h-screen bg-background">
         <Titlebar
-          onToggleChat={toggleSidebar}
+          onToggleChat={handleToggleChat}
           onToggleTerminal={handleToggleTerminal}
           onToggleDiff={handleToggleDiff}
         />
@@ -171,28 +196,58 @@ function App() {
     >
       <div className="flex flex-col h-screen bg-background text-foreground">
         <Titlebar
-          onToggleChat={toggleSidebar}
+          onToggleChat={handleToggleChat}
           onToggleTerminal={handleToggleTerminal}
           onToggleDiff={handleToggleDiff}
         />
-        <div className="flex-1 flex overflow-hidden">
-          {/* 左侧：对话列表（可折叠） */}
-          <aside
-            className={`border-r border-border flex-shrink-0 bg-muted/50 overflow-hidden transition-all duration-200 ${
-              sidebarCollapsed ? 'w-0' : 'w-64'
-            }`}
-          >
-            <ConversationList />
-          </aside>
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* 左侧：对话列表 */}
+          {sidebarDrawerMode ? (
+            // 抽屉模式（<1440px）— 浮层，不挤压空间
+            sidebarDrawerOpen && (
+              <>
+                {/* 遮罩 */}
+                <div
+                  className="absolute inset-0 bg-black/20 z-20"
+                  onClick={() => setSidebarDrawerOpen(false)}
+                />
+                <aside
+                  className="absolute left-0 top-0 bottom-0 z-30 bg-muted/50 border-r border-border overflow-hidden shadow-lg"
+                  style={{ width: `${widths.sidebar}px` }}
+                >
+                  <ConversationList />
+                </aside>
+              </>
+            )
+          ) : (
+            // 正常模式 — 占据空间
+            <aside
+              className="border-r border-border flex-shrink-0 bg-muted/50 overflow-hidden transition-all duration-200"
+              style={{
+                width: sidebarCollapsed ? 0 : `${widths.sidebar}px`,
+                minWidth: sidebarCollapsed ? 0 : `${widths.sidebar}px`,
+              }}
+            >
+              <ConversationList />
+            </aside>
+          )}
 
-          {/* 中间：对话区域（含折叠时的展开按钮） */}
-          <div className="flex-1 flex items-center justify-center overflow-hidden min-w-0 relative">
-            {sidebarCollapsed && <SidebarToggle onClick={toggleSidebar} />}
-            <ChatArea />
-          </div>
+          {/* 折叠/抽屉模式下的展开按钮 */}
+          {(sidebarCollapsed || sidebarDrawerMode) && !sidebarDrawerOpen && (
+            <SidebarToggle
+              onClick={sidebarDrawerMode ? toggleSidebarDrawer : toggleSidebar}
+            />
+          )}
 
-          {/* 右侧：对话工具栏 */}
-          <ChatToolbar />
+          {/* 中间：对话区域（全屏时隐藏） */}
+          {!isFullscreen && (
+            <div
+              className="flex-1 flex overflow-hidden min-w-0 relative"
+              style={{ minWidth: `${widths.chat}px` }}
+            >
+              <ChatArea />
+            </div>
+          )}
 
           {/* 最右：多视图面板（终端/文件/Diff） */}
           <RightPanel />

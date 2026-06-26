@@ -10,11 +10,13 @@ import { TerminalTabBar } from '@/components/terminal/TerminalTabBar';
 import { Button } from '@/components/ui/button';
 import { useTerminalStore } from '@/stores/terminal';
 import { Channel, invoke } from '@tauri-apps/api/core';
-import { FileCode, GitBranch, Terminal as TerminalIcon, X } from 'lucide-react';
+import { FileCode, GitBranch, Maximize2, Minimize2, Terminal as TerminalIcon, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useCallback } from 'react';
 
 export function RightPanel() {
   const isOpen = useTerminalStore((s) => s.isOpen);
+  const isFullscreen = useTerminalStore((s) => s.isFullscreen);
+  const toggleFullscreen = useTerminalStore((s) => s.toggleFullscreen);
   const activePanel = useTerminalStore((s) => s.activePanel);
   const panelWidth = useTerminalStore((s) => s.panelWidth);
   const setPanelWidth = useTerminalStore((s) => s.setPanelWidth);
@@ -113,15 +115,17 @@ export function RightPanel() {
 
   return (
     <>
-      {/* 拖拽 handle */}
-      <div
-        className="w-1 cursor-col-resize bg-transparent hover:bg-border transition-colors flex-shrink-0"
-        onMouseDown={handleMouseDown}
-      />
+      {/* 拖拽 handle（全屏时隐藏） */}
+      {!isFullscreen && (
+        <div
+          className="w-1 cursor-col-resize bg-transparent hover:bg-border transition-colors flex-shrink-0"
+          onMouseDown={handleMouseDown}
+        />
+      )}
 
       <aside
         className="border-l border-border flex-shrink-0 bg-background flex flex-col overflow-hidden"
-        style={{ width: `${panelWidth}px` }}
+        style={{ width: isFullscreen ? '100%' : `${panelWidth}px` }}
       >
         {/* Tab 切换栏 */}
         <div className="flex items-center justify-between border-b border-border px-1 h-9">
@@ -144,15 +148,27 @@ export function RightPanel() {
               );
             })}
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={closePanel}
-            className="h-7 w-7"
-            aria-label="关闭面板"
-          >
-            <X className="size-3.5" />
-          </Button>
+          <div className="flex items-center gap-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleFullscreen}
+              className="h-7 w-7"
+              aria-label={isFullscreen ? '退出全屏' : '全屏'}
+              title={isFullscreen ? '退出全屏' : '全屏'}
+            >
+              {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={closePanel}
+              className="h-7 w-7"
+              aria-label="关闭面板"
+            >
+              <X className="size-3.5" />
+            </Button>
+          </div>
         </div>
 
         {/* 内容区域 */}
