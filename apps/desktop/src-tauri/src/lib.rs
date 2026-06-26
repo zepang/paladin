@@ -5,6 +5,7 @@ use tauri::{
 };
 
 mod terminal;
+mod file_commands;
 use crate::terminal::TerminalManager;
 
 #[tauri::command]
@@ -23,6 +24,7 @@ pub fn run() {
             terminal::commands::resize_terminal,
             terminal::commands::close_terminal,
             terminal::commands::restart_terminal,
+            file_commands::read_text_file,
         ])
         .setup(|app| {
             // 管理 TerminalManager 实例

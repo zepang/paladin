@@ -9,7 +9,7 @@ export interface TerminalTab {
 interface TerminalState {
   isOpen: boolean;
   panelWidth: number;
-  activePanel: 'terminal' | 'diff';
+  activePanel: 'terminal' | 'file-preview' | 'diff';
   tabs: TerminalTab[];
   activeTabId: string | null;
   isTerminalRunning: boolean;
@@ -17,7 +17,7 @@ interface TerminalState {
   closePanel: () => void;
   togglePanel: () => void;
   setPanelWidth: (w: number) => void;
-  setActivePanel: (panel: 'terminal' | 'diff') => void;
+  setActivePanel: (panel: 'terminal' | 'file-preview' | 'diff') => void;
   addTab: (tab: TerminalTab) => void;
   removeTab: (id: string) => void;
   setActiveTab: (id: string | null) => void;

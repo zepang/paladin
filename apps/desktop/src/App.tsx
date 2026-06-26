@@ -9,7 +9,7 @@ import { ConversationList } from '@/components/ConversationList';
 import { SidebarToggle } from '@/components/SidebarToggle';
 import { StatusBar } from '@/components/StatusBar';
 import { Titlebar } from '@/components/Titlebar';
-import { RightDrawer } from '@/components/layout/RightDrawer';
+import { RightPanel } from '@/components/layout/RightPanel';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { useAgentHealth } from '@/hooks/useAgentHealth';
@@ -194,8 +194,8 @@ function App() {
           {/* 右侧：对话工具栏 */}
           <ChatToolbar />
 
-          {/* 最右：终端/Diff 面板 */}
-          <RightDrawer />
+          {/* 最右：多视图面板（终端/文件/Diff） */}
+          <RightPanel />
         </div>
         {/* 底部状态栏 */}
         <StatusBar />
