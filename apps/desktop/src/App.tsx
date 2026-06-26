@@ -203,16 +203,17 @@ function App() {
         <div className="flex-1 flex overflow-hidden relative">
           {/* 左侧：对话列表 */}
           {sidebarDrawerMode ? (
-            // 抽屉模式（<1440px）— 浮层，不挤压空间
+            // 抽屉模式（<1440px）— fixed 浮层，不挤压空间，不被裁剪
             sidebarDrawerOpen && (
               <>
-                {/* 遮罩 */}
+                {/* 遮罩 — 覆盖整个窗口 */}
                 <div
-                  className="absolute inset-0 bg-black/20 z-20"
+                  className="fixed inset-0 bg-black/20 z-40"
                   onClick={() => setSidebarDrawerOpen(false)}
                 />
+                {/* 抽屉 — fixed 定位脱离父容器，高 z-index 确保在最上层 */}
                 <aside
-                  className="absolute left-0 top-0 bottom-0 z-30 bg-muted/50 border-r border-border overflow-hidden shadow-lg"
+                  className="fixed left-0 top-9 bottom-7 z-50 bg-muted/50 border-r border-border overflow-y-auto shadow-xl"
                   style={{ width: `${widths.sidebar}px` }}
                 >
                   <ConversationList />
