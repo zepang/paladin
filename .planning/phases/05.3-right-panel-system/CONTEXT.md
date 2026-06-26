@@ -30,9 +30,23 @@
 - **约束**：最小 300px，最大 800px
 - **实现**：右侧边缘添加 resize handle，mousedown/mousemove/mouseup 事件
 
-### D6: 面板可隐藏
+### D6: 面板可隐藏 + 全屏
 - **决策**：面板可通过 Titlebar 按钮隐藏/显示（`isOpen` 控制，w-0 过渡动画）
-- **实现**：复用 `useTerminalStore.isOpen`，改为通用的面板开/关状态
+- **全屏模式**：`isFullscreen` 状态，全屏时隐藏左侧会话列表 + 中间对话区域 + ChatToolbar，右侧面板占满整个窗口宽度
+- **实现**：复用 `useTerminalStore.isOpen`，新增 `isFullscreen` 状态
+
+### D9: ChatToolbar 嵌入 ChatArea
+- **决策**：ChatToolbar 从独立列变为 ChatArea 内部的右侧边条
+- **原因**：让对话区域和工具栏视觉上是一个整体（同背景、无间距、无边框分隔）
+- **影响**：ChatToolbar 不再作为 App.tsx 中的独立列，而是 ChatArea 组件内部的子组件
+- **收起行为**：当右侧面板打开时，ChatToolbar 可以收起（隐藏），释放空间给对话区域
+
+### D10: 响应式宽度方案（三档断点）
+- **1366px（最小笔记本）**：会话列表 180px / 对话区域 360px / 右侧面板 320px
+- **1440px（主流笔记本）**：会话列表 200px / 对话区域 400px / 右侧面板 360px
+- **1920px+（外接显示器）**：会话列表 220px / 对话区域 480px / 右侧面板 400px
+- **实现**：使用 Tailwind 响应式断点 + `min-w-*` 约束 + JS 检测窗口宽度选择档位
+- **拖拽范围**：面板宽度仍可在 min-max 之间拖拽调整（300-800px）
 
 ### D7: 视图切换触发
 - **Titlebar 按钮**：终端按钮 → terminal 视图，Diff 按钮 → diff 视图
