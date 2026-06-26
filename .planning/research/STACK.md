@@ -23,7 +23,8 @@
 | **Vite** | 6.x | HIGH | Tauri 官方推荐，HMR 极快 |
 | **Tailwind CSS 4** | 4.x | HIGH | 2025 年底发布，CSS 变量主题系统，构建体积更小，原生暗色模式 |
 | **Zustand** | 5.x | HIGH | 轻量状态管理，TypeScript 友好，比 Redux 简洁 |
-| **shadcn/ui** | latest | MEDIUM | 2026 年 React 生态最热门 UI 库（75k+ stars），copy-paste 模式零冗余，Tailwind CSS 4 原生兼容。但非本项目核心需求 |
+| **shadcn/ui** | latest | HIGH | 2026 年 React 生态最热门 UI 库（75k+ stars），copy-paste 模式零冗余，Tailwind CSS 4 原生兼容。Phase 5.1 正式引入 |
+| **lucide-react** | latest | HIGH | shadcn/ui 官方图标库，统一替代手写 inline SVG。Phase 5.1 同步引入 |
 
 ### AI Agent 层
 
