@@ -22,7 +22,7 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 05.2 — Chat Area Redesign (next phase)
+**Current focus:** Phase 05.3 — Right Panel System (next phase)
 
 ## Phase Status
 
@@ -34,7 +34,7 @@ See: .planning/PROJECT.md
 | 4 | Agent ↔ Desktop | Complete |
 | 5 | Terminal + Diff | Complete |
 | 5.1 | UI Library Upgrade | Complete |
-| 5.2 | Chat Area Redesign | Pending |
+| 5.2 | Chat Area Redesign | Complete |
 | 5.3 | Right Panel System | Pending |
 | 6 | Agent Tools | Pending |
 | 7 | HITL + Sidecar | Pending |
@@ -45,11 +45,12 @@ See: .planning/PROJECT.md
 ## Roadmap Evolution
 
 - Phase 05.1 (URGENT) inserted after Phase 5 — 引入 shadcn/ui + lucide-icons 图标库，替换手写 SVG 和自定义组件 — COMPLETED
-- Phase 05.2 inserted after Phase 5.1 — 对话区域重构：CopilotChat 替换 + 侧边栏折叠 + Agent 状态条 + 右侧工具栏 — PENDING
+- Phase 05.2 inserted after Phase 5.1 — 对话区域重构：CopilotChat 替换 + 侧边栏折叠 + Agent 状态条 + 右侧工具栏 — COMPLETED
 - Phase 05.3 inserted after Phase 5.2 — 右侧多视图面板：终端/文件预览/Diff审查 — PENDING
 
 ## Recent Activity
 
+- 2026-06-26: Phase 05.2 completed — CopilotChat replaced ChatView/MessageList/MessageBubble/WelcomePage, sidebar collapsible, ChatToolbar added, AgentStatusBar removed (redundant with CopilotChat intelligence indicator)
 - 2026-06-26: Phase 05.3 inserted — Right Panel System (terminal/file preview/diff review)
 
 - 2026-06-18: Phase 05.2 inserted — Chat Area Redesign (CopilotChat + sidebar collapse + agent status + right toolbar)
@@ -69,4 +70,4 @@ See: .planning/PROJECT.md
 
 ## Next Actions
 
-1. Phase 05.2 planned — next: /gsd-discuss-phase 05.2 to discuss scope and design
+1. Phase 05.2 complete — next: Phase 05.3 Right Panel System planning
