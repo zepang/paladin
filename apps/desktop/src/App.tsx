@@ -213,7 +213,7 @@ function App() {
                 />
                 {/* 抽屉 — fixed 定位脱离父容器，高 z-index 确保在最上层 */}
                 <aside
-                  className="fixed left-0 top-9 bottom-7 z-50 bg-muted/50 border-r border-border overflow-y-auto shadow-xl"
+                  className="fixed left-0 top-9 bottom-7 z-50 bg-background border-r border-border overflow-y-auto shadow-xl"
                   style={{ width: `${widths.sidebar}px` }}
                 >
                   <ConversationList />
