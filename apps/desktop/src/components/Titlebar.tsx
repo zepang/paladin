@@ -1,5 +1,5 @@
-import { useWindowStore } from '@/stores/window';
 import { Button } from '@/components/ui/button';
+import { useWindowStore } from '@/stores/window';
 import { GitBranch, Maximize2, Minus, Terminal, X } from 'lucide-react';
 import { ChatToggle } from './ChatToggle';
 import { ThemeToggle } from './ThemeToggle';
@@ -24,10 +24,7 @@ export function Titlebar({
       <div className="flex-1" data-tauri-drag-region />
 
       {/* Center: app name — also drag region */}
-      <div
-        className="text-xs font-medium text-muted-foreground select-none"
-        data-tauri-drag-region
-      >
+      <div className="text-xs font-medium text-muted-foreground select-none" data-tauri-drag-region>
         Paladin
       </div>
 

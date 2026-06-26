@@ -55,9 +55,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       set({ tabs: [], activeTabId: null, isOpen: false, isTerminalRunning: false });
     } else {
       const newActiveId =
-        state.activeTabId === id
-          ? (newTabs[newTabs.length - 1]?.id ?? null)
-          : state.activeTabId;
+        state.activeTabId === id ? (newTabs[newTabs.length - 1]?.id ?? null) : state.activeTabId;
       set({ tabs: newTabs, activeTabId: newActiveId });
     }
   },

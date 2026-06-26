@@ -178,8 +178,7 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
     (e: React.MouseEvent) => {
       e.preventDefault();
       const menu = document.createElement('div');
-      menu.className =
-        'fixed bg-background border border-border rounded-lg shadow-lg py-1 z-50';
+      menu.className = 'fixed bg-background border border-border rounded-lg shadow-lg py-1 z-50';
       menu.style.left = `${e.clientX}px`;
       menu.style.top = `${e.clientY}px`;
 
@@ -214,8 +213,7 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
 
       for (const item of items) {
         const btn = document.createElement('button');
-        btn.className =
-          'w-full text-left px-3 py-1 text-sm text-foreground hover:bg-muted';
+        btn.className = 'w-full text-left px-3 py-1 text-sm text-foreground hover:bg-muted';
         btn.textContent = item.label;
         btn.onclick = () => {
           document.body.removeChild(menu);
@@ -234,10 +232,8 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
       };
       setTimeout(() => document.addEventListener('click', closeMenu), 0);
     },
-    [terminalId, onClose, addTab],
+    [terminalId, onClose, addTab]
   );
 
-  return (
-    <div ref={containerRef} className="h-full w-full" onContextMenu={handleContextMenu} />
-  );
+  return <div ref={containerRef} className="h-full w-full" onContextMenu={handleContextMenu} />;
 }

@@ -64,9 +64,7 @@ export function parseDiffData(rawDiff: string): {
 }
 
 export function isBinaryDiff(rawDiff: string): boolean {
-  return (
-    rawDiff.includes('Binary files') || rawDiff.includes('GIT binary patch')
-  );
+  return rawDiff.includes('Binary files') || rawDiff.includes('GIT binary patch');
 }
 
 const EXT_LANG_MAP: Record<string, string> = {

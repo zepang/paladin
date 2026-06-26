@@ -1,5 +1,5 @@
-import { useTerminalStore } from '@/stores/terminal';
 import { Button } from '@/components/ui/button';
+import { useTerminalStore } from '@/stores/terminal';
 import { useCallback } from 'react';
 
 // 底部状态栏 — 显示终端运行状态指示器

@@ -1,4 +1,3 @@
-import { useChatStore } from '@/stores/chat';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,6 +9,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useChatStore } from '@/stores/chat';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -117,9 +117,7 @@ export function ConversationList() {
                   <div
                     key={conv.id}
                     className={`group flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
-                      conv.id === currentThreadId
-                        ? 'bg-primary/10'
-                        : 'hover:bg-muted'
+                      conv.id === currentThreadId ? 'bg-primary/10' : 'hover:bg-muted'
                     }`}
                     onClick={() => setCurrentThreadId(conv.id)}
                     onKeyDown={(e) => {
@@ -146,9 +144,7 @@ export function ConversationList() {
                           onClick={(e) => e.stopPropagation()}
                         />
                       ) : (
-                        <span className="text-sm truncate block text-foreground">
-                          {conv.title}
-                        </span>
+                        <span className="text-sm truncate block text-foreground">{conv.title}</span>
                       )}
                     </div>
 
@@ -195,9 +191,7 @@ export function ConversationList() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>删除对话</AlertDialogTitle>
-            <AlertDialogDescription>
-              确定删除这个对话？此操作不可撤销。
-            </AlertDialogDescription>
+            <AlertDialogDescription>确定删除这个对话？此操作不可撤销。</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>

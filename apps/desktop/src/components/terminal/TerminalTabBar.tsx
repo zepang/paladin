@@ -18,7 +18,7 @@ export function TerminalTabBar({ onCloseTab }: { onCloseTab: (id: string) => voi
       e.stopPropagation();
       onCloseTab(id);
     },
-    [onCloseTab],
+    [onCloseTab]
   );
 
   const handleDoubleClick = useCallback(
@@ -28,7 +28,7 @@ export function TerminalTabBar({ onCloseTab }: { onCloseTab: (id: string) => voi
         renameTab(id, newName);
       }
     },
-    [tabs, renameTab],
+    [tabs, renameTab]
   );
 
   const handleKeyDown = useCallback(
@@ -45,7 +45,7 @@ export function TerminalTabBar({ onCloseTab }: { onCloseTab: (id: string) => voi
         }
       }
     },
-    [tabs, activeTabId, setActiveTab],
+    [tabs, activeTabId, setActiveTab]
   );
 
   return (
@@ -71,9 +71,7 @@ export function TerminalTabBar({ onCloseTab }: { onCloseTab: (id: string) => voi
           title="双击重命名"
         >
           <span className="truncate max-w-32">{tab.title}</span>
-          {tab.cwd && (
-            <span className="truncate max-w-32 text-muted-foreground/70">{tab.cwd}</span>
-          )}
+          {tab.cwd && <span className="truncate max-w-32 text-muted-foreground/70">{tab.cwd}</span>}
           <button
             type="button"
             className="ml-1 w-4 h-4 flex items-center justify-center rounded hover:bg-muted-foreground/30 text-muted-foreground"

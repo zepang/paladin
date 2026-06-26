@@ -1,24 +1,30 @@
-import { ChatView } from '@/components/ChatView';
+/**
+ * 应用根组件
+ * 三栏布局：折叠侧边栏 + 对话区域 + 右侧面板
+ * 集成 CopilotKit 聊天、底部终端/Diff 面板、全局键盘快捷键
+ */
+import { ChatArea } from '@/components/ChatArea';
+import { ChatToolbar } from '@/components/ChatToolbar';
 import { ConversationList } from '@/components/ConversationList';
-import { Button } from '@/components/ui/button';
-import { Toaster } from '@/components/ui/sonner';
-import { RightDrawer } from '@/components/layout/RightDrawer';
+import { SidebarToggle } from '@/components/SidebarToggle';
 import { StatusBar } from '@/components/StatusBar';
 import { Titlebar } from '@/components/Titlebar';
+import { RightDrawer } from '@/components/layout/RightDrawer';
+import { Button } from '@/components/ui/button';
+import { Toaster } from '@/components/ui/sonner';
 import { useAgentHealth } from '@/hooks/useAgentHealth';
-import { initWindowEvents } from '@/stores/window';
 import { useTerminalStore } from '@/stores/terminal';
+import { useUIStore } from '@/stores/ui';
+import { initWindowEvents } from '@/stores/window';
 import { HttpAgent } from '@ag-ui/client';
-import { CopilotKitProvider, CopilotSidebar } from '@copilotkit/react-core/v2';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CopilotKitProvider } from '@copilotkit/react-core/v2';
+import { useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 
-// 应用根组件
-// 集成 CopilotKit 聊天、底部终端/Diff 面板、全局键盘快捷键
 function App() {
-  // CopilotSidebar 的 key 计数器 — 每次点击 ChatToggle 递增，强制重新挂载以同步开/关
-  // 不使用 boolean state 同步，因为 CopilotSidebar 是内部管理开/关的非受控组件
-  const [sidebarKey, setSidebarKey] = useState(0);
+  // 侧边栏折叠状态
+  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
 
   // Agent 健康检查
   const { isOnline, isLoading, error, retry } = useAgentHealth();
@@ -43,11 +49,6 @@ function App() {
       });
     }
   }, [isOnline, isLoading, error, retry]);
-
-  // ChatToggle 回调 — 递增 key 强制 CopilotSidebar 重新挂载以打开
-  const toggleSidebar = useCallback(() => {
-    setSidebarKey((prev) => prev + 1);
-  }, []);
 
   // 终端切换回调 — 三态：关闭→打开终端 / diff面板→切换到终端 / 终端面板→关闭
   // 打开终端前先创建 Tab，避免 useEffect 延迟导致的 1-2 秒空白
@@ -149,15 +150,9 @@ function App() {
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center p-8">
             <div className="text-6xl mb-4">🤖</div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">
-              Agent 服务未启动
-            </h2>
-            <p className="text-muted-foreground mb-6">
-              {error || '请先启动 Agent 服务'}
-            </p>
-            <Button onClick={retry}>
-              重试连接
-            </Button>
+            <h2 className="text-2xl font-bold text-foreground mb-2">Agent 服务未启动</h2>
+            <p className="text-muted-foreground mb-6">{error || '请先启动 Agent 服务'}</p>
+            <Button onClick={retry}>重试连接</Button>
           </div>
         </main>
         <StatusBar />
@@ -166,7 +161,7 @@ function App() {
     );
   }
 
-  // 正常聊天界面 + 终端面板
+  // 正常聊天界面 — 三栏布局
   return (
     <CopilotKitProvider
       runtimeUrl="http://localhost:9876/copilotkit"
@@ -181,20 +176,30 @@ function App() {
           onToggleDiff={handleToggleDiff}
         />
         <div className="flex-1 flex overflow-hidden">
-          <aside className="w-64 border-r border-border flex-shrink-0 bg-muted/50 overflow-hidden">
+          {/* 左侧：对话列表（可折叠） */}
+          <aside
+            className={`border-r border-border flex-shrink-0 bg-muted/50 overflow-hidden transition-all duration-200 ${
+              sidebarCollapsed ? 'w-0' : 'w-64'
+            }`}
+          >
             <ConversationList />
           </aside>
-          <div className="flex-1 flex items-center justify-center overflow-hidden min-w-0">
-            <ChatView />
+
+          {/* 中间：对话区域（含折叠时的展开按钮） */}
+          <div className="flex-1 flex items-center justify-center overflow-hidden min-w-0 relative">
+            {sidebarCollapsed && <SidebarToggle onClick={toggleSidebar} />}
+            <ChatArea />
           </div>
+
+          {/* 右侧：对话工具栏 */}
+          <ChatToolbar />
+
+          {/* 最右：终端/Diff 面板 */}
           <RightDrawer />
         </div>
         {/* 底部状态栏 */}
         <StatusBar />
       </div>
-      {sidebarKey > 0 && (
-        <CopilotSidebar key={sidebarKey} defaultOpen={true} width={400} />
-      )}
       <Toaster position="bottom-center" />
     </CopilotKitProvider>
   );

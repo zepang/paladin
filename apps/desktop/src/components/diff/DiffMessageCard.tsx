@@ -44,8 +44,7 @@ export function DiffMessageCard({ rawDiff, fileName, language }: DiffMessageCard
     return parseDiffData(rawDiff);
   }, [expanded, isBinary, rawDiff]);
 
-  const fileList =
-    files.length > 1 ? `修改了 ${files.length} 个文件` : (files[0] ?? fileName);
+  const fileList = files.length > 1 ? `修改了 ${files.length} 个文件` : (files[0] ?? fileName);
 
   if (isBinary) {
     return (
@@ -66,9 +65,7 @@ export function DiffMessageCard({ rawDiff, fileName, language }: DiffMessageCard
         <span className="text-green-600 dark:text-green-400 text-xs font-mono">
           +{stats.additions}
         </span>
-        <span className="text-red-600 dark:text-red-400 text-xs font-mono">
-          -{stats.deletions}
-        </span>
+        <span className="text-red-600 dark:text-red-400 text-xs font-mono">-{stats.deletions}</span>
         <span className="text-xs text-muted-foreground truncate flex-1">
           {isLarge && !expanded ? `大文件变更（点击展开） — ${fileList}` : fileList}
         </span>

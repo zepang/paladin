@@ -1,6 +1,6 @@
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { TerminalTabBar } from '@/components/terminal/TerminalTabBar';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useTerminalStore } from '@/stores/terminal';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { useEffect, useMemo, useRef } from 'react';
