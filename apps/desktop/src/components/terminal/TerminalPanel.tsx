@@ -179,7 +179,7 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
       e.preventDefault();
       const menu = document.createElement('div');
       menu.className =
-        'fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-50';
+        'fixed bg-background border border-border rounded-lg shadow-lg py-1 z-50';
       menu.style.left = `${e.clientX}px`;
       menu.style.top = `${e.clientY}px`;
 
@@ -215,7 +215,7 @@ export function TerminalPanel({ terminalId, channel, onClose }: TerminalPanelPro
       for (const item of items) {
         const btn = document.createElement('button');
         btn.className =
-          'w-full text-left px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700';
+          'w-full text-left px-3 py-1 text-sm text-foreground hover:bg-muted';
         btn.textContent = item.label;
         btn.onclick = () => {
           document.body.removeChild(menu);

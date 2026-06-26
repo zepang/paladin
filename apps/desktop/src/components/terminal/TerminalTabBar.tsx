@@ -50,7 +50,7 @@ export function TerminalTabBar({ onCloseTab }: { onCloseTab: (id: string) => voi
 
   return (
     <div
-      className="flex items-center bg-gray-200 dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 px-1"
+      className="flex items-center bg-muted border-b border-border px-1"
       onKeyDown={handleKeyDown}
       tabIndex={0}
       role="tablist"
@@ -61,10 +61,10 @@ export function TerminalTabBar({ onCloseTab }: { onCloseTab: (id: string) => voi
           key={tab.id}
           role="tab"
           aria-selected={tab.id === activeTabId}
-          className={`flex items-center gap-1 px-3 py-1 text-xs cursor-pointer border-r border-gray-300 dark:border-gray-700 select-none ${
+          className={`flex items-center gap-1 px-3 py-1 text-xs cursor-pointer border-r border-border select-none ${
             tab.id === activeTabId
-              ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100'
-              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+              ? 'bg-background text-foreground'
+              : 'text-muted-foreground hover:bg-muted'
           }`}
           onClick={() => setActiveTab(tab.id)}
           onDoubleClick={() => handleDoubleClick(tab.id)}
@@ -72,11 +72,11 @@ export function TerminalTabBar({ onCloseTab }: { onCloseTab: (id: string) => voi
         >
           <span className="truncate max-w-32">{tab.title}</span>
           {tab.cwd && (
-            <span className="truncate max-w-32 text-gray-400 dark:text-gray-500">{tab.cwd}</span>
+            <span className="truncate max-w-32 text-muted-foreground/70">{tab.cwd}</span>
           )}
           <button
             type="button"
-            className="ml-1 w-4 h-4 flex items-center justify-center rounded hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400"
+            className="ml-1 w-4 h-4 flex items-center justify-center rounded hover:bg-muted-foreground/30 text-muted-foreground"
             onClick={(e) => handleRemoveTab(tab.id, e)}
             aria-label={`关闭 ${tab.title} 标签`}
           >
@@ -86,7 +86,7 @@ export function TerminalTabBar({ onCloseTab }: { onCloseTab: (id: string) => voi
       ))}
       <button
         type="button"
-        className="px-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-sm font-bold"
+        className="px-2 text-muted-foreground hover:text-foreground text-sm font-bold"
         onClick={handleAddTab}
         aria-label="新建终端标签"
       >

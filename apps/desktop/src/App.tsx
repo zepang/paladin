@@ -1,5 +1,6 @@
 import { ChatView } from '@/components/ChatView';
 import { ConversationList } from '@/components/ConversationList';
+import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
 import { RightDrawer } from '@/components/layout/RightDrawer';
 import { StatusBar } from '@/components/StatusBar';
@@ -127,9 +128,9 @@ function App() {
   // 加载状态
   if (isLoading) {
     return (
-      <div className="flex flex-col h-screen bg-white dark:bg-gray-900 items-center justify-center">
-        <div className="text-gray-500 dark:text-gray-400">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4" />
+      <div className="flex flex-col h-screen bg-background items-center justify-center">
+        <div className="text-muted-foreground">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4" />
           <p>正在连接到 Agent...</p>
         </div>
       </div>
@@ -139,7 +140,7 @@ function App() {
   // Agent 未在线
   if (!isOnline) {
     return (
-      <div className="flex flex-col h-screen bg-white dark:bg-gray-900">
+      <div className="flex flex-col h-screen bg-background">
         <Titlebar
           onToggleChat={toggleSidebar}
           onToggleTerminal={handleToggleTerminal}
@@ -148,18 +149,15 @@ function App() {
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center p-8">
             <div className="text-6xl mb-4">🤖</div>
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">
+            <h2 className="text-2xl font-bold text-foreground mb-2">
               Agent 服务未启动
             </h2>
-            <p className="text-gray-500 dark:text-gray-400 mb-6">
+            <p className="text-muted-foreground mb-6">
               {error || '请先启动 Agent 服务'}
             </p>
-            <button
-              onClick={retry}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-            >
+            <Button onClick={retry}>
               重试连接
-            </button>
+            </Button>
           </div>
         </main>
         <StatusBar />
@@ -176,14 +174,14 @@ function App() {
       onError={handleCopilotError}
       showDevConsole={import.meta.env.DEV}
     >
-      <div className="flex flex-col h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <div className="flex flex-col h-screen bg-background text-foreground">
         <Titlebar
           onToggleChat={toggleSidebar}
           onToggleTerminal={handleToggleTerminal}
           onToggleDiff={handleToggleDiff}
         />
         <div className="flex-1 flex overflow-hidden">
-          <aside className="w-64 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-800 overflow-hidden">
+          <aside className="w-64 border-r border-border flex-shrink-0 bg-muted/50 overflow-hidden">
             <ConversationList />
           </aside>
           <div className="flex-1 flex items-center justify-center overflow-hidden min-w-0">

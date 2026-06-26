@@ -17,7 +17,7 @@ export function Titlebar({
 
   return (
     <div
-      className="flex items-center justify-between h-9 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 select-none flex-shrink-0"
+      className="flex items-center justify-between h-9 bg-muted border-b border-border select-none flex-shrink-0"
       style={{ backgroundColor: 'var(--titlebar-bg, #f3f4f6)' }}
     >
       {/* Left: drag region spacer */}
@@ -25,7 +25,7 @@ export function Titlebar({
 
       {/* Center: app name — also drag region */}
       <div
-        className="text-xs font-medium text-gray-500 dark:text-gray-400 select-none"
+        className="text-xs font-medium text-muted-foreground select-none"
         data-tauri-drag-region
       >
         Paladin
@@ -42,7 +42,7 @@ export function Titlebar({
           aria-label="切换终端面板"
           title="终端 (Ctrl+`)"
         >
-          <Terminal className="size-4 text-gray-500 dark:text-gray-400" />
+          <Terminal className="size-4 text-muted-foreground" />
         </Button>
         {/* Diff 按钮 */}
         <Button
@@ -52,7 +52,7 @@ export function Titlebar({
           aria-label="切换 Diff 面板"
           title="Diff (Ctrl+Shift+D)"
         >
-          <GitBranch className="size-4 text-gray-500 dark:text-gray-400" />
+          <GitBranch className="size-4 text-muted-foreground" />
         </Button>
         <ThemeToggle />
         <Button variant="ghost" size="icon" onClick={minimize} aria-label="Minimize">

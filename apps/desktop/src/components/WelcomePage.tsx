@@ -27,12 +27,12 @@ export function WelcomePage() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
       {/* 问候语 */}
-      <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
+      <h1 className="text-3xl font-bold text-foreground">
         {greeting}，今天需要什么帮助？
       </h1>
 
       {/* 描述 */}
-      <p className="text-gray-500 dark:text-gray-400 text-center max-w-md">
+      <p className="text-muted-foreground text-center max-w-md">
         Paladin 是你的 AI 编程伙伴。选择左侧对话或创建新对话开始。
       </p>
 

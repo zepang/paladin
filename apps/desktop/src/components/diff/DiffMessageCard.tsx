@@ -49,17 +49,17 @@ export function DiffMessageCard({ rawDiff, fileName, language }: DiffMessageCard
 
   if (isBinary) {
     return (
-      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden my-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-400">
+      <div className="border border-border rounded-lg overflow-hidden my-2 px-3 py-2 bg-muted text-sm text-muted-foreground">
         二进制文件变更
       </div>
     );
   }
 
   return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden my-2">
+    <div className="border border-border rounded-lg overflow-hidden my-2">
       <button
         type="button"
-        className="w-full flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-750 transition-colors text-left"
+        className="w-full flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted/70 transition-colors text-left"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
       >
@@ -69,11 +69,11 @@ export function DiffMessageCard({ rawDiff, fileName, language }: DiffMessageCard
         <span className="text-red-600 dark:text-red-400 text-xs font-mono">
           -{stats.deletions}
         </span>
-        <span className="text-xs text-gray-600 dark:text-gray-400 truncate flex-1">
+        <span className="text-xs text-muted-foreground truncate flex-1">
           {isLarge && !expanded ? `大文件变更（点击展开） — ${fileList}` : fileList}
         </span>
         <svg
-          className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -85,14 +85,14 @@ export function DiffMessageCard({ rawDiff, fileName, language }: DiffMessageCard
       </button>
 
       {expanded && diffData && (
-        <div className="border-t border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-1 px-2 py-1 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="border-t border-border">
+          <div className="flex items-center gap-1 px-2 py-1 bg-muted border-b border-border">
             <button
               type="button"
               className={`px-2 py-0.5 text-xs rounded ${
                 viewMode === 'unified'
-                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               onClick={() => setViewMode('unified')}
             >
@@ -102,8 +102,8 @@ export function DiffMessageCard({ rawDiff, fileName, language }: DiffMessageCard
               type="button"
               className={`px-2 py-0.5 text-xs rounded ${
                 viewMode === 'split'
-                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
-                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               onClick={() => setViewMode('split')}
             >

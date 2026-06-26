@@ -27,7 +27,7 @@ export function MessageList({ messages, footer }: MessageListProps) {
   // 空列表占位
   if (messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
+      <div className="flex-1 flex items-center justify-center text-muted-foreground/70 text-sm">
         发送消息开始对话
       </div>
     );

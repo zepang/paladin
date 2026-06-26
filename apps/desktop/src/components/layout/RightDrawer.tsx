@@ -91,7 +91,7 @@ export function RightDrawer() {
             )}
 
             {activePanel === 'diff' && (
-              <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400 text-sm p-4 text-center">
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm p-4 text-center">
                 Diff 面板 — 在聊天消息中查看代码变更
               </div>
             )}

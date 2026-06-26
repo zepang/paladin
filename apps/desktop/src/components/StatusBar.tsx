@@ -15,7 +15,7 @@ export function StatusBar() {
   }, [togglePanel]);
 
   return (
-    <div className="flex items-center justify-between h-6 px-2 bg-gray-200 dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-400 select-none">
+    <div className="flex items-center justify-between h-6 px-2 bg-muted border-t border-border text-xs text-muted-foreground select-none">
       <div className="flex items-center gap-2">
         {/* 终端状态指示器 */}
         <Button
@@ -26,14 +26,14 @@ export function StatusBar() {
         >
           <span
             className={`inline-block w-2 h-2 rounded-full ${
-              isTerminalRunning ? 'bg-green-500' : 'bg-gray-400'
+              isTerminalRunning ? 'bg-green-500' : 'bg-muted-foreground'
             }`}
           />
           <span>{isTerminalRunning ? '终端运行中' : '终端未启动'}</span>
         </Button>
       </div>
       <div className="flex items-center gap-1">
-        <span className="text-gray-400 dark:text-gray-500">Ctrl+`</span>
+        <span className="text-muted-foreground/70">Ctrl+`</span>
       </div>
     </div>
   );

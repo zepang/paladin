@@ -1,4 +1,14 @@
 import { useChatStore } from '@/stores/chat';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -35,6 +45,8 @@ export function ConversationList() {
   // 编辑状态
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+  // 删除确认对话框 — 存储待删除的对话 ID
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 编辑模式下自动聚焦输入框
@@ -75,12 +87,12 @@ export function ConversationList() {
   return (
     <div className="flex flex-col h-full">
       {/* 顶部操作栏 */}
-      <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">对话</h2>
+      <div className="flex items-center justify-between p-3 border-b border-border">
+        <h2 className="text-sm font-semibold text-foreground">对话</h2>
         <button
           type="button"
           onClick={createConversation}
-          className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400"
+          className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
           aria-label="新建对话"
         >
           <Plus className="size-4" />
@@ -90,7 +102,7 @@ export function ConversationList() {
       {/* 对话列表 */}
       <ScrollArea className="flex-1">
         {conversations.length === 0 ? (
-          <div className="p-4 text-center text-sm text-gray-400 dark:text-gray-500">暂无对话</div>
+          <div className="p-4 text-center text-sm text-muted-foreground/70">暂无对话</div>
         ) : (
           groupOrder.map((group) => {
             const items = grouped[group];
@@ -98,7 +110,7 @@ export function ConversationList() {
             return (
               <div key={group}>
                 {/* 分组标签 */}
-                <div className="px-3 pt-3 pb-1 text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                <div className="px-3 pt-3 pb-1 text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
                   {group}
                 </div>
                 {items.map((conv) => (
@@ -106,8 +118,8 @@ export function ConversationList() {
                     key={conv.id}
                     className={`group flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
                       conv.id === currentThreadId
-                        ? 'bg-blue-50 dark:bg-blue-900/30'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-800'
+                        ? 'bg-primary/10'
+                        : 'hover:bg-muted'
                     }`}
                     onClick={() => setCurrentThreadId(conv.id)}
                     onKeyDown={(e) => {
@@ -130,11 +142,11 @@ export function ConversationList() {
                             if (e.key === 'Enter') commitEdit();
                             if (e.key === 'Escape') setEditingId(null);
                           }}
-                          className="w-full text-sm bg-white dark:bg-gray-700 border border-blue-400 rounded px-1.5 py-0.5 outline-none text-gray-900 dark:text-gray-100"
+                          className="w-full text-sm bg-background border border-ring rounded px-1.5 py-0.5 outline-none text-foreground"
                           onClick={(e) => e.stopPropagation()}
                         />
                       ) : (
-                        <span className="text-sm truncate block text-gray-700 dark:text-gray-300">
+                        <span className="text-sm truncate block text-foreground">
                           {conv.title}
                         </span>
                       )}
@@ -148,7 +160,7 @@ export function ConversationList() {
                           e.stopPropagation();
                           startEdit(conv.id, conv.title);
                         }}
-                        className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                         aria-label="重命名"
                       >
                         <Pencil className="size-3.5" />
@@ -157,12 +169,9 @@ export function ConversationList() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          // 简单确认后删除
-                          if (window.confirm('确定删除这个对话？')) {
-                            deleteConversation(conv.id);
-                          }
+                          setDeleteTargetId(conv.id);
                         }}
-                        className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-gray-400 hover:text-red-500"
+                        className="p-1 rounded hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
                         aria-label="删除"
                       >
                         <Trash2 className="size-4" />
@@ -175,6 +184,36 @@ export function ConversationList() {
           })
         )}
       </ScrollArea>
+
+      {/* 删除确认对话框 */}
+      <AlertDialog
+        open={deleteTargetId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除对话</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定删除这个对话？此操作不可撤销。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTargetId) {
+                  deleteConversation(deleteTargetId);
+                  setDeleteTargetId(null);
+                }
+              }}
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

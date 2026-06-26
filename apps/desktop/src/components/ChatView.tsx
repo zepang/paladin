@@ -31,8 +31,8 @@ export function ChatView() {
   return (
     <div className="flex-1 flex flex-col">
       {/* 对话标题栏 */}
-      <div className="flex items-center h-10 px-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+      <div className="flex items-center h-10 px-4 border-b border-border">
+        <h2 className="text-sm font-medium text-foreground truncate">
           {currentConversation.title}
         </h2>
         {/* Agent 运行状态指示 */}

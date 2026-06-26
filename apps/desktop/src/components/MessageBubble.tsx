@@ -104,7 +104,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${
               isUser
                 ? 'bg-blue-600 text-white rounded-tr-md'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-md'
+                : 'bg-muted text-foreground rounded-tl-md'
             }`}
           >
             {cleanText}
