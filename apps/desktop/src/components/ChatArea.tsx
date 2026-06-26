@@ -34,6 +34,7 @@ export function ChatArea() {
       <CopilotChat
         className="flex-1"
         threadId={currentConversation.threadId}
+        autoScroll="none"
         labels={{
           welcomeMessageText: 'Paladin — AI 编程伙伴',
           chatInputPlaceholder: '输入消息...',
