@@ -5,24 +5,24 @@ milestone_name: milestone
 status: executing
 last_updated: "2026-06-17T03:00:18.892Z"
 progress:
-  total_phases: 11
+  total_phases: 12
   completed_phases: 4
   total_plans: 6
   completed_plans: 5
-  percent: 36
+  percent: 33
 ---
 
 # Project State: Paladin
 
-**Phase:** Phase 5.1 UI Library Upgrade (Complete)
-**Last Updated:** 2026-06-17
+**Phase:** Phase 5.2 Chat Area Redesign (Planned)
+**Last Updated:** 2026-06-18
 
 ## Project Reference
 
 See: .planning/PROJECT.md
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 06 — Agent Tools (next phase)
+**Current focus:** Phase 05.2 — Chat Area Redesign (next phase)
 
 ## Phase Status
 
@@ -34,6 +34,7 @@ See: .planning/PROJECT.md
 | 4 | Agent ↔ Desktop | Complete |
 | 5 | Terminal + Diff | Complete |
 | 5.1 | UI Library Upgrade | Complete |
+| 5.2 | Chat Area Redesign | Pending |
 | 6 | Agent Tools | Pending |
 | 7 | HITL + Sidecar | Pending |
 | 8 | Go Server | Pending |
@@ -43,8 +44,12 @@ See: .planning/PROJECT.md
 ## Roadmap Evolution
 
 - Phase 05.1 (URGENT) inserted after Phase 5 — 引入 shadcn/ui + lucide-icons 图标库，替换手写 SVG 和自定义组件 — COMPLETED
+- Phase 05.2 inserted after Phase 5.1 — 对话区域重构：CopilotChat 替换 + 侧边栏折叠 + Agent 状态条 + 右侧工具栏 — PENDING
 
 ## Recent Activity
+
+- 2026-06-18: Phase 05.2 inserted — Chat Area Redesign (CopilotChat + sidebar collapse + agent status + right toolbar)
+- 2026-06-18: UI audit follow-up — migrated 50+ gray-* tokens to shadcn design system, replaced window.confirm with AlertDialog, deleted dead ResizeHandle.tsx
 
 - 2026-06-17: Phase 05.1 completed — 5 waves executed (lucide, shadcn init, Button+Sonner, ScrollArea, Sheet)
 - 2026-06-17: Phase 05.1 planned — 5 waves of UI library upgrade
@@ -60,4 +65,4 @@ See: .planning/PROJECT.md
 
 ## Next Actions
 
-1. Phase 5.1 complete — next: Phase 6 Agent Tools development
+1. Phase 05.2 planned — next: /gsd-discuss-phase 05.2 to discuss scope and design

@@ -13,6 +13,8 @@
 | 3 | AI Agent Core | Pydantic AI + AG-UI 端点 | — |
 | 4 | Agent ↔ Desktop | AG-UI 流式通信对接 | Phase 2 + 3 |
 | 5 | Terminal + Diff | PTY 终端面板 + 代码 Diff | Phase 1 |
+| 5.1 | UI Library Upgrade | shadcn/ui + lucide-icons | Phase 5 |
+| 5.2 | Chat Area Redesign | CopilotChat + 侧边栏折叠 + 状态条 + 工具栏 | Phase 5.1 |
 | 6 | Agent Tools | 文件/终端/MCP/Skills/子Agent | Phase 4 |
 | 7 | HITL + Sidecar | 权限审批 + 进程管理 | Phase 4 + 5 |
 | 8 | Go Server | 认证/数据库/WebSocket Hub | — |
@@ -84,6 +86,23 @@ Plans:
 Plans:
 
 - [ ] TBD (run /gsd-plan-phase 05.1 to break down)
+
+### Phase 05.2: Chat Area Redesign — 对话区域重构 (INSERTED)
+
+**Goal:** 用 CopilotChat 替换手写消息组件，新增侧边栏折叠、Agent 状态条、右侧工具栏
+**Requirements**: TBD
+**Depends on:** Phase 5.1
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 05.2 to break down)
+
+- 侧边栏可折叠（完全收起 + 展开按钮）
+- CopilotChat 组件替换 MessageList + MessageBubble + ChatView + WelcomePage
+- 对话区域居中窄列布局
+- Agent 状态条（运行状态、当前步骤、进度指示）
+- 右侧工具栏（上下文信息：模型/Token/工具调用 + 快捷操作：清空/导出/切换模型）
 
 ### Phase 6: Agent Tools
 
