@@ -5,11 +5,11 @@ milestone_name: milestone
 status: executing
 last_updated: "2026-06-17T03:00:18.892Z"
 progress:
-  total_phases: 12
+  total_phases: 13
   completed_phases: 4
   total_plans: 6
   completed_plans: 5
-  percent: 33
+  percent: 31
 ---
 
 # Project State: Paladin
@@ -35,6 +35,7 @@ See: .planning/PROJECT.md
 | 5 | Terminal + Diff | Complete |
 | 5.1 | UI Library Upgrade | Complete |
 | 5.2 | Chat Area Redesign | Pending |
+| 5.3 | Right Panel System | Pending |
 | 6 | Agent Tools | Pending |
 | 7 | HITL + Sidecar | Pending |
 | 8 | Go Server | Pending |
@@ -45,8 +46,11 @@ See: .planning/PROJECT.md
 
 - Phase 05.1 (URGENT) inserted after Phase 5 — 引入 shadcn/ui + lucide-icons 图标库，替换手写 SVG 和自定义组件 — COMPLETED
 - Phase 05.2 inserted after Phase 5.1 — 对话区域重构：CopilotChat 替换 + 侧边栏折叠 + Agent 状态条 + 右侧工具栏 — PENDING
+- Phase 05.3 inserted after Phase 5.2 — 右侧多视图面板：终端/文件预览/Diff审查 — PENDING
 
 ## Recent Activity
+
+- 2026-06-26: Phase 05.3 inserted — Right Panel System (terminal/file preview/diff review)
 
 - 2026-06-18: Phase 05.2 inserted — Chat Area Redesign (CopilotChat + sidebar collapse + agent status + right toolbar)
 - 2026-06-18: UI audit follow-up — migrated 50+ gray-* tokens to shadcn design system, replaced window.confirm with AlertDialog, deleted dead ResizeHandle.tsx

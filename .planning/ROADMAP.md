@@ -15,6 +15,7 @@
 | 5 | Terminal + Diff | PTY 终端面板 + 代码 Diff | Phase 1 |
 | 5.1 | UI Library Upgrade | shadcn/ui + lucide-icons | Phase 5 |
 | 5.2 | Chat Area Redesign | CopilotChat + 侧边栏折叠 + 状态条 + 工具栏 | Phase 5.1 |
+| 5.3 | Right Panel System | 多视图右侧面板：终端/文件预览/Diff审查 | Phase 5.2 |
 | 6 | Agent Tools | 文件/终端/MCP/Skills/子Agent | Phase 4 |
 | 7 | HITL + Sidecar | 权限审批 + 进程管理 | Phase 4 + 5 |
 | 8 | Go Server | 认证/数据库/WebSocket Hub | — |
@@ -103,6 +104,24 @@ Plans:
 - 对话区域居中窄列布局
 - Agent 状态条（运行状态、当前步骤、进度指示）
 - 右侧工具栏（上下文信息：模型/Token/工具调用 + 快捷操作：清空/导出/切换模型）
+
+### Phase 05.3: Right Panel System — 右侧多视图面板 (INSERTED)
+
+**Goal:** 新增可切换视图的右侧面板，支持终端/文件预览/Diff审查三种模式
+**Requirements**: TBD
+**Depends on:** Phase 5.2
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 05.3 to break down)
+
+- 保留 ChatToolbar，右侧面板在工具栏右边新增
+- Titlebar 按钮 → 终端/Diff 视图切换
+- Agent 回复含文件路径 → 自动打开文件预览
+- 手动点击文件 → 文件预览
+- 文件预览支持代码高亮 + Markdown 渲染 + 图片
+- 替换当前 RightDrawer (Sheet 浮层) 为固定面板
 
 ### Phase 6: Agent Tools
 
