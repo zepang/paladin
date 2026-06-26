@@ -21,10 +21,11 @@
 **任务：**
 1. `terminal.ts`：`activePanel` 类型从 `'terminal' | 'diff'` 改为 `'terminal' | 'file-preview' | 'diff'`
 2. 创建 `RightPanel.tsx`：
-   - 固定宽度 `w-[400px]` 面板（替代 Sheet 浮层）
+   - 可拖拽调整宽度的面板（默认 400px，min 300, max 800，复用 `panelWidth` store）
+   - 右侧边缘 resize handle（mousedown/mousemove/mouseup）
    - 顶部 Tab 栏：终端 / 文件 / Diff 三个图标按钮
    - 根据 `activePanel` 切换内容区域
-   - 面板可通过 `isOpen` 控制显示/隐藏
+   - 面板可通过 `isOpen` 控制显示/隐藏（w-0 过渡动画）
 3. 将 RightDrawer 中的终端 PTY 逻辑（spawn/write/channel）迁移到 RightPanel
 4. App.tsx 中用 `<RightPanel />` 替换 `<RightDrawer />`
 5. 删除 `RightDrawer.tsx`

@@ -26,13 +26,22 @@
 - **约束**：需验证 shiki 是否已作为传递依赖可用，否则需要安装
 
 ### D5: 面板宽度
-- **决策**：固定 400px，支持拖拽调整（复用已有 `panelWidth` store 状态）
+- **决策**：默认 400px，支持拖拽边缘调整（复用已有 `panelWidth` store 状态）
 - **约束**：最小 300px，最大 800px
+- **实现**：右侧边缘添加 resize handle，mousedown/mousemove/mouseup 事件
 
-### D6: 视图切换触发
+### D6: 面板可隐藏
+- **决策**：面板可通过 Titlebar 按钮隐藏/显示（`isOpen` 控制，w-0 过渡动画）
+- **实现**：复用 `useTerminalStore.isOpen`，改为通用的面板开/关状态
+
+### D7: 视图切换触发
 - **Titlebar 按钮**：终端按钮 → terminal 视图，Diff 按钮 → diff 视图
-- **Agent 文件路径**：Agent 回复中包含文件路径时，自动切换到 file-preview 视图
+- **Agent 文件路径**：Agent 回复中包含文件路径时，自动切换到 file-preview 视图（Phase 6）
 - **手动点击**：文件树中的文件点击（文件树本身不在本 Phase 范围，仅预留接口）
+
+### D8: Diff 视图数据源
+- **决策**：右侧 Diff 面板显示全局 diff 列表，从 `useDiffStore` 获取所有 diff 条目
+- **交互**：列表可点击查看详情，复用 `@git-diff-view/react` 的 DiffView 渲染
 
 ## 范围
 
@@ -47,7 +56,6 @@
 ### 不包含
 - 文件树组件（Phase 6 或更后）
 - Agent 自动检测文件路径并打开预览（需 Agent Tools 支持，留待 Phase 6）
-- 面板拖拽调整宽度（可选，优先级低）
 - Token 用量统计（Phase 6）
 
 ## 技术约束
