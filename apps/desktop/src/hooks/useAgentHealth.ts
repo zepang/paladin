@@ -34,7 +34,7 @@ export function useAgentHealth() {
     setState(prev => ({ ...prev, isLoading: true, error: null }));
     
     try {
-      const response = await fetch('http://localhost:9877/health');
+      const response = await fetch('http://localhost:9876/health');
       
       if (response.ok) {
         setState({ isOnline: true, isLoading: false, error: null });

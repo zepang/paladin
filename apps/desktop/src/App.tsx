@@ -122,7 +122,7 @@ function App() {
   );
 
   // AG-UI HttpAgent — 直连 Pydantic AI 端点
-  const agUiAgent = useMemo(() => new HttpAgent({ url: 'http://localhost:9877/copilotkit' }), []);
+  const agUiAgent = useMemo(() => new HttpAgent({ url: 'http://localhost:9876/copilotkit' }), []);
 
   // 加载状态
   if (isLoading) {
@@ -171,7 +171,7 @@ function App() {
   // 正常聊天界面 + 终端面板
   return (
     <CopilotKitProvider
-      runtimeUrl="http://localhost:9877/copilotkit"
+      runtimeUrl="http://localhost:9876/copilotkit"
       agents__unsafe_dev_only={{ default: agUiAgent }}
       onError={handleCopilotError}
       showDevConsole={import.meta.env.DEV}
