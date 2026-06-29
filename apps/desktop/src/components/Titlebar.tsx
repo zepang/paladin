@@ -5,11 +5,10 @@ import { GitBranch, Maximize2, Minus, Terminal, X } from 'lucide-react';
 import { ChatToggle } from './ChatToggle';
 import { ThemeToggle } from './ThemeToggle';
 
-/** 手动触发窗口拖拽 — 不依赖 Tauri 自动注入的 drag region 脚本（可能被 CSP 阻止） */
+/** 手动触发窗口拖拽 — 仅左键触发，不阻止默认行为以便 Tauri 原生 drag-region 处理 */
 function handleDragRegionMouseDown(e: React.MouseEvent) {
-  if (e.buttons === 1) {
-    getCurrentWebviewWindow().startDragging();
-  }
+  if (e.buttons !== 1) return;
+  getCurrentWebviewWindow().startDragging();
 }
 
 export function Titlebar({
@@ -25,17 +24,18 @@ export function Titlebar({
 
   return (
     <div
+      data-tauri-drag-region
       className="flex items-center justify-between h-9 bg-muted border-b border-border select-none flex-shrink-0"
       style={{ backgroundColor: 'var(--titlebar-bg, #f3f4f6)' }}
+      onMouseDown={handleDragRegionMouseDown}
     >
-      {/* Left: drag region spacer */}
-      <div className="flex-1" data-tauri-drag-region onMouseDown={handleDragRegionMouseDown} />
+      {/* Left: drag region spacer — select-none 防止文字选择，cursor-default 保持箭头光标 */}
+      <div className="flex-1 select-none cursor-default" data-tauri-drag-region />
 
       {/* Center: app name — also drag region */}
       <div
-        className="text-xs font-medium text-muted-foreground select-none"
+        className="text-xs font-medium text-muted-foreground select-none cursor-default"
         data-tauri-drag-region
-        onMouseDown={handleDragRegionMouseDown}
       >
         Paladin
       </div>
@@ -43,7 +43,6 @@ export function Titlebar({
       {/* Right: controls — NO drag region, 避免拦截 Button 点击事件 */}
       <div className="flex-1 flex items-center justify-end gap-0.5 pr-1">
         <ChatToggle onClick={onToggleChat} />
-        {/* 终端按钮 */}
         <Button
           variant="ghost"
           size="icon"
@@ -53,7 +52,6 @@ export function Titlebar({
         >
           <Terminal className="size-4 text-muted-foreground" />
         </Button>
-        {/* Diff 按钮 */}
         <Button
           variant="ghost"
           size="icon"
