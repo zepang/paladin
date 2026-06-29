@@ -1,8 +1,16 @@
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { Button } from '@/components/ui/button';
 import { useWindowStore } from '@/stores/window';
 import { GitBranch, Maximize2, Minus, Terminal, X } from 'lucide-react';
 import { ChatToggle } from './ChatToggle';
 import { ThemeToggle } from './ThemeToggle';
+
+/** 手动触发窗口拖拽 — 不依赖 Tauri 自动注入的 drag region 脚本（可能被 CSP 阻止） */
+function handleDragRegionMouseDown(e: React.MouseEvent) {
+  if (e.buttons === 1) {
+    getCurrentWebviewWindow().startDragging();
+  }
+}
 
 export function Titlebar({
   onToggleChat,
@@ -21,10 +29,14 @@ export function Titlebar({
       style={{ backgroundColor: 'var(--titlebar-bg, #f3f4f6)' }}
     >
       {/* Left: drag region spacer */}
-      <div className="flex-1" data-tauri-drag-region />
+      <div className="flex-1" data-tauri-drag-region onMouseDown={handleDragRegionMouseDown} />
 
       {/* Center: app name — also drag region */}
-      <div className="text-xs font-medium text-muted-foreground select-none" data-tauri-drag-region>
+      <div
+        className="text-xs font-medium text-muted-foreground select-none"
+        data-tauri-drag-region
+        onMouseDown={handleDragRegionMouseDown}
+      >
         Paladin
       </div>
 
