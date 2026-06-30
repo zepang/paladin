@@ -2,6 +2,8 @@
 Paladin Agent — FastAPI HTTP Server
 提供 /copilotkit (AG-UI SSE) 和 /health 端点
 """
+import asyncio
+import json
 import logging
 import os
 from pathlib import Path
@@ -10,11 +12,12 @@ import structlog
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, Response, StreamingResponse
 
 from pydantic_ai.ag_ui import handle_ag_ui_request
 
 from ..agent.paladin_agent import create_paladin_agent, get_fallback_models
+from ..agent import hitl
 
 # ---- 日志 ----
 logger = structlog.get_logger(__name__)
@@ -62,6 +65,131 @@ agent = create_paladin_agent(
     system_prompt_path=str(_prompt_path),
 )
 logger.info("Paladin Agent 已初始化")
+
+# ---- HITL: Queue 桥接 ----
+# 将 Plan 02 创建的 agent._hitl_sse_queue 连接到 Plan 01 的 hitl._sse_queue
+# approval_callback 写入此 queue → SSE 端点读取并推送到前端
+hitl._sse_queue = getattr(agent, '_hitl_sse_queue', None)
+logger.info("HITL SSE queue 已桥接")
+
+# 已连接 SSE 客户端列表（每个客户端一个本地 queue）
+_approval_queues: list[asyncio.Queue] = []
+
+
+def _broadcast_approval_event(event: dict) -> None:
+    """向所有已连接 SSE 客户端广播审批事件（非阻塞）。"""
+    dead_queues: list[asyncio.Queue] = []
+    for q in _approval_queues:
+        try:
+            q.put_nowait(event)
+        except asyncio.QueueFull:
+            dead_queues.append(q)
+    for q in dead_queues:
+        try:
+            _approval_queues.remove(q)
+        except ValueError:
+            pass
+
+
+# ---- 审批广播循环 ----
+@app.on_event("startup")
+async def _start_approval_broadcast():
+    """启动后台广播任务：从 hitl._sse_queue 读取事件并转发到 SSE 客户端。"""
+    async def _approval_broadcast_loop():
+        sse_queue = getattr(hitl, '_sse_queue', None)
+        if sse_queue is None:
+            return
+        while True:
+            try:
+                event = await sse_queue.get()
+                _broadcast_approval_event(event)
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                logger.exception("approval_broadcast_error")
+
+    asyncio.create_task(_approval_broadcast_loop())
+    logger.info("HITL broadcast loop started")
+
+
+# ---- HITL 审批端点 ----
+
+@app.get("/approval/stream")
+async def approval_stream(request: Request):
+    """SSE 审批事件推送通道
+
+    前端 EventSource 连接此端点，接收 real-time 审批请求事件。
+    事件格式（D-03）：data: {"type":"approval_request","request_id":"<uuid4>",...}
+
+    Returns:
+        text/event-stream 响应，15s 无事件时发送 keepalive 注释行。
+    """
+    import json as _json
+
+    local_queue: asyncio.Queue = asyncio.Queue()
+    _approval_queues.append(local_queue)
+
+    async def event_generator():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    event = await asyncio.wait_for(local_queue.get(), timeout=15.0)
+                    yield f"data: {_json.dumps(event, ensure_ascii=False)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            try:
+                _approval_queues.remove(local_queue)
+            except ValueError:
+                pass
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/approval/{request_id}")
+async def approval_decision(request_id: str, request: Request):
+    """HTTP 审批决策回调端点
+
+    前端用户点击「批准」或「拒绝」后 POST 到此端点。
+    调用 hitl.resolve_approval() 唤醒阻塞的 approval_callback。
+
+    Args:
+        request_id: 审批请求 UUID4
+    Body:
+        {"decision": true} 或 {"decision": false}
+
+    Returns:
+        200 {"status": "ok"} 成功，404 {"error": "..."} request_id 不存在
+    """
+    import json as _json
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid JSON body"}, status_code=400)
+
+    decision = body.get("decision")
+    if not isinstance(decision, bool):
+        return JSONResponse({"error": "decision must be boolean"}, status_code=400)
+
+    success = hitl.resolve_approval(request_id, decision)
+    if not success:
+        return JSONResponse(
+            {"error": f"request_id not found: {request_id}"},
+            status_code=404,
+        )
+
+    return JSONResponse({"status": "ok"})
 
 
 # ---- 端点 ----
@@ -185,6 +313,3 @@ async def threads(agentId: str = "default"):
     Returns:
         JSON: {"threads": []}
     """
-    return JSONResponse({
-        "threads": []
-    })

@@ -62,9 +62,8 @@ def create_approval_callback(timeout: float = 30.0) -> Callable:
                 })
             except Exception:
                 logger.warning(
-                    "hitl_sse_put_failed",
-                    request_id=request_id,
-                    tool_name=tool_name,
+                    "hitl_sse_put_failed request_id=%s tool_name=%s",
+                    request_id, tool_name,
                 )
 
         try:
@@ -73,10 +72,8 @@ def create_approval_callback(timeout: float = 30.0) -> Callable:
             return decision
         except asyncio.TimeoutError:
             logger.info(
-                "hitl_timeout",
-                request_id=request_id,
-                tool_name=tool_name,
-                timeout=timeout,
+                "hitl_timeout request_id=%s tool_name=%s timeout=%.1f",
+                request_id, tool_name, timeout,
             )
             return False
         finally:
@@ -112,9 +109,8 @@ def resolve_approval(request_id: str, decision: bool) -> bool:
     event = _pending_approvals.get(request_id)
     if event is None:
         logger.warning(
-            "hitl_resolve_missing_request",
-            request_id=request_id,
-            decision=decision,
+            "hitl_resolve_missing_request request_id=%s decision=%s",
+            request_id, decision,
         )
         return False
 
@@ -152,18 +148,16 @@ def validate_hitl_config(
     for tool_name in require_approval:
         if tool_name not in known_set:
             logger.warning(
-                "hitl_config_unknown_tool",
-                tool_name=tool_name,
-                list_type="require_approval",
+                "hitl_config_unknown_tool tool_name=%s list_type=require_approval",
+                tool_name,
             )
 
     # 校验 blocked 中的工具名
     for tool_name in blocked:
         if tool_name not in known_set:
             logger.warning(
-                "hitl_config_unknown_tool",
-                tool_name=tool_name,
-                list_type="blocked",
+                "hitl_config_unknown_tool tool_name=%s list_type=blocked",
+                tool_name,
             )
 
     return {
