@@ -6,7 +6,7 @@ current_phase: 5.2
 current_phase_name: Planned
 status: executing
 stopped_at: Phase 07 planned
-last_updated: "2026-06-30T16:43:26.412Z"
+last_updated: "2026-06-30T16:44:23.236Z"
 progress:
   total_phases: 13
   completed_phases: 9
@@ -25,7 +25,7 @@ progress:
 See: .planning/PROJECT.md
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 05.3 — Right Panel System (next phase)
+**Current focus:** Phase 07 — hitl-sidecar
 
 ## Phase Status
 
