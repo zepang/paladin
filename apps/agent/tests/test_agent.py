@@ -10,6 +10,29 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 
+# ---- Fixtures ----
+
+@pytest.fixture
+def tmp_skills_dir(tmp_path):
+    """创建临时 skills 目录含一个有效技能"""
+    skills = tmp_path / "skills"
+    review = skills / "review"
+    review.mkdir(parents=True)
+    (review / "code-review.md").write_text("""---
+name: code-review
+description: "Code review guidance"
+license: MIT
+compatibility: universal
+---
+
+# Code Review
+## Review Checklist
+### Security
+- Check for hardcoded secrets
+""")
+    return skills
+
+
 # ---- 测试辅助函数 ----
 
 def write_config_json(tmpdir: Path, data: dict) -> Path:
@@ -257,3 +280,152 @@ class TestDeepAgentIntegration:
             )
             assert ws_dir.exists()
             assert ws_dir.is_dir()
+
+
+# ---- RED Tests: 工具集激活（Plan 06-04） ----
+
+class TestToolsetActivation:
+    """测试 create_paladin_agent() 5 个工具集激活 + MCP 按需加载"""
+
+    def test_agent_has_skills_toolset(self, tmp_path, tmp_skills_dir):
+        """include_skills=True 后 Agent 注册 SkillsToolset"""
+        config_json = write_config_json(tmp_path, {"models": [make_model_config()], "mcp_servers": []})
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are helpful.")
+
+        with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
+            from src.agent.paladin_agent import create_paladin_agent
+
+            agent = create_paladin_agent(
+                models_config_path=str(config_json),
+                system_prompt_path=str(prompt_md),
+                skills_dir=str(tmp_skills_dir),
+            )
+            assert agent is not None
+
+    def test_no_mcp_servers_normal_startup(self, tmp_path):
+        """config.json 无 mcp_servers → Agent 正常启动"""
+        config_json = write_config_json(tmp_path, {"models": [make_model_config()]})
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are helpful.")
+
+        with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
+            from src.agent.paladin_agent import create_paladin_agent
+
+            agent = create_paladin_agent(
+                models_config_path=str(config_json),
+                system_prompt_path=str(prompt_md),
+            )
+            assert agent is not None
+
+    def test_mcp_servers_sdk_missing_raises_import_error(self, tmp_path):
+        """config.json 有 mcp_servers 但 mcp SDK 缺失 → ImportError"""
+        config_json = write_config_json(tmp_path, {
+            "models": [make_model_config()],
+            "mcp_servers": [{"name": "test", "transport": "stdio", "command": "echo", "args": []}],
+        })
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are helpful.")
+
+        with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
+            # Mock _load_mcp_servers 抛出 ImportError
+            with patch("src.agent.paladin_agent._load_mcp_servers", side_effect=ImportError("pydantic-ai-slim[mcp] 未安装")):
+                from src.agent.paladin_agent import create_paladin_agent
+
+                with pytest.raises(ImportError, match="pydantic-ai-slim\\[mcp\\] 未安装"):
+                    create_paladin_agent(
+                        models_config_path=str(config_json),
+                        system_prompt_path=str(prompt_md),
+                    )
+
+    def test_mcp_server_enabled(self, tmp_path):
+        """config.json 含 enabled MCP server → Agent 注册 MCPToolset"""
+        config_json = write_config_json(tmp_path, {
+            "models": [make_model_config()],
+            "mcp_servers": [{"name": "test-mcp", "transport": "stdio", "command": "echo", "args": [], "enabled": True}],
+        })
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are helpful.")
+
+        mock_toolset = MagicMock()
+        with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
+            with patch("src.agent.paladin_agent._load_mcp_servers", return_value=[mock_toolset]) as mock_load:
+                from src.agent.paladin_agent import create_paladin_agent
+
+                agent = create_paladin_agent(
+                    models_config_path=str(config_json),
+                    system_prompt_path=str(prompt_md),
+                )
+                assert agent is not None
+                mock_load.assert_called_once()
+
+    def test_mcp_server_disabled_skipped(self, tmp_path):
+        """config.json 含 enabled=false MCP server → 跳过"""
+        config_json = write_config_json(tmp_path, {
+            "models": [make_model_config()],
+            "mcp_servers": [{"name": "test-mcp", "transport": "stdio", "command": "echo", "args": [], "enabled": False}],
+        })
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are helpful.")
+
+        with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
+            with patch("src.agent.paladin_agent._load_mcp_servers", return_value=[]) as mock_load:
+                from src.agent.paladin_agent import create_paladin_agent
+
+                agent = create_paladin_agent(
+                    models_config_path=str(config_json),
+                    system_prompt_path=str(prompt_md),
+                )
+                assert agent is not None
+
+    def test_skills_dir_auto_created(self, tmp_path):
+        """skills/ 目录不存在时自动创建"""
+        config_json = write_config_json(tmp_path, {"models": [make_model_config()]})
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are helpful.")
+        new_skills = tmp_path / "auto-skills"
+
+        with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
+            from src.agent.paladin_agent import create_paladin_agent
+
+            assert not new_skills.exists()
+            create_paladin_agent(
+                models_config_path=str(config_json),
+                system_prompt_path=str(prompt_md),
+                skills_dir=str(new_skills),
+            )
+            assert new_skills.exists()
+            assert new_skills.is_dir()
+
+    def test_include_plan_and_web_search_enabled(self, tmp_path):
+        """create_deep_agent 调用 include_plan=True, web_search=True"""
+        config_json = write_config_json(tmp_path, {"models": [make_model_config()]})
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are helpful.")
+
+        with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
+            with patch("src.agent.paladin_agent.create_deep_agent") as mock_create:
+                from src.agent.paladin_agent import create_paladin_agent
+
+                create_paladin_agent(
+                    models_config_path=str(config_json),
+                    system_prompt_path=str(prompt_md),
+                )
+                call_kwargs = mock_create.call_args.kwargs
+                assert call_kwargs.get("include_plan") is True
+                assert call_kwargs.get("web_search") is True
+
+    def test_skills_dir_empty_no_error(self, tmp_path):
+        """skills/ 目录为空时 Agent 正常启动"""
+        config_json = write_config_json(tmp_path, {"models": [make_model_config()]})
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are helpful.")
+
+        with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
+            from src.agent.paladin_agent import create_paladin_agent
+
+            agent = create_paladin_agent(
+                models_config_path=str(config_json),
+                system_prompt_path=str(prompt_md),
+            )
+            assert agent is not None
