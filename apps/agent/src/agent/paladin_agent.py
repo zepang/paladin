@@ -3,16 +3,16 @@ Paladin Agent Core — Agent 创建、模型加载、fallback 链
 
 提供核心函数:
 - load_system_prompt(): 从 Markdown 文件加载 System Prompt
-- load_models(): 从 YAML 解析模型配置列表
+- load_models(): 从 JSON 解析模型配置列表
 - create_paladin_agent(): 创建完整的 Paladin Agent 实例（含 TodoToolset + FilesystemToolset）
 """
 import os
+import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-import yaml
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -63,26 +63,26 @@ def load_system_prompt(path: str) -> str:
 
 def load_models(config_path: str) -> list[ModelConfig]:
     """
-    从 config/models.yaml 解析模型配置列表
+    从 config/config.json 解析模型配置列表
 
     Args:
-        config_path: models.yaml 路径
+        config_path: config.json 路径
 
     Returns:
         按 priority 升序排列的 ModelConfig 列表
 
     Raises:
         FileNotFoundError: 配置文件不存在
-        ValueError: YAML 格式错误或必需字段缺失
+        ValueError: JSON 格式错误或必需字段缺失
     """
     config_file = Path(config_path)
     if not config_file.exists():
         raise FileNotFoundError(f"模型配置文件不存在: {config_path}")
 
     try:
-        raw = yaml.safe_load(config_file.read_text(encoding="utf-8"))
-    except yaml.YAMLError as e:
-        raise ValueError(f"模型配置 YAML 解析失败: {e}") from e
+        raw = json.loads(config_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"模型配置 JSON 解析失败: {e}") from e
 
     if not raw or "models" not in raw:
         raise ValueError(f"模型配置文件缺少 'models' 顶层字段: {config_path}")
@@ -174,7 +174,7 @@ def _create_model(config: ModelConfig) -> OpenAIChatModel:
 
 
 def create_paladin_agent(
-    models_config_path: str = "config/models.yaml",
+    models_config_path: str = "config/config.json",
     system_prompt_path: str = "prompts/system.md",
     workspace_dir: Optional[str] = None,
 ) -> Agent:
