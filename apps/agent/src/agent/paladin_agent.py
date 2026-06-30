@@ -317,7 +317,7 @@ def create_paladin_agent(
         include_plan=True,                  # 启用计划工具集
         include_skills=True,                # 启用 SkillsToolset
         include_execute=True,               # 启用终端命令执行
-        web_search=True,                    # 启用 WebSearch
+        web_search=False,                   # WebSearch 与 OpenAIChatModel 不兼容，延后
         skill_directories=[str(skills_path)],
         max_nesting_depth=1,                # 子 Agent 不可递归创建
         mcp_servers=mcp_toolsets if mcp_toolsets else None,

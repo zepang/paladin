@@ -398,7 +398,7 @@ class TestToolsetActivation:
             assert new_skills.is_dir()
 
     def test_include_plan_and_web_search_enabled(self, tmp_path):
-        """create_deep_agent 调用 include_plan=True, web_search=True"""
+        """create_deep_agent 调用 include_plan=True, web_search=False（OpenAIChatModel 不兼容）"""
         config_json = write_config_json(tmp_path, {"models": [make_model_config()]})
         prompt_md = tmp_path / "system.md"
         prompt_md.write_text("You are helpful.")
@@ -413,7 +413,7 @@ class TestToolsetActivation:
                 )
                 call_kwargs = mock_create.call_args.kwargs
                 assert call_kwargs.get("include_plan") is True
-                assert call_kwargs.get("web_search") is True
+                assert call_kwargs.get("web_search") is False
 
     def test_skills_dir_empty_no_error(self, tmp_path):
         """skills/ 目录为空时 Agent 正常启动"""
