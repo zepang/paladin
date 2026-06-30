@@ -146,14 +146,29 @@ Plans:
 
 ### Phase 7: HITL + Sidecar
 
-**Goal:** 危险操作需审批，进程管理稳定
-**Requirements:** HIT-01~03, SDC-01~03
+**Goal:** Agent 危险操作需审批确认后才能执行，Agent 具备桌面操作能力（截图、键鼠）
+**Requirements:** HIT-01~03 (7a), SDC-01~03 (7b — deferred)
+**Plans:** 6 plans (Phase 7a only)
 
-- CopilotKit HITL 审批流
-- Computer Use (pyautogui)
-- Tauri sidecar 管理 Python Agent
-- Tauri sidecar 管理 Go Server
-- 健康检查 + 自动重启
+Plans:
+
+- [ ] 07-01-PLAN.md — HITL 审批回调工厂 + asyncio.Event 状态管理 (TDD)
+- [ ] 07-02-PLAN.md — config.json hitl 段 + ToolGuard 集成到 create_paladin_agent()
+- [ ] 07-03-PLAN.md — GET /approval/stream SSE 端点 + POST /approval/{id} HTTP 回调
+- [ ] 07-04-PLAN.md — Computer Use @tool 函数（screenshot/click/typewrite）+ pyautogui
+- [ ] 07-05-PLAN.md — 前端审批 UI：ApprovalBridge + ApprovalCard + ApprovalDialog
+- [ ] 07-06-PLAN.md — ChatToolbar 审批状态栏升级 + App.tsx 集成
+
+**Phase 7a (this phase):**
+- CopilotKit HITL 审批流（SSE + HTTP 回调 + asyncio.Event 等待）
+- config.json 驱动工具审批列表 + ToolGuard 守卫
+- Computer Use (pyautogui screenshot / click / typewrite)
+- 前端审批卡片（聊天流内嵌 + AlertDialog 弹窗）+ ChatToolbar 审批状态
+
+**Phase 7b (deferred):**
+- Tauri sidecar 管理 Python Agent (SDC-01)
+- Tauri sidecar 管理 Go Server (SDC-02) — deferred after Phase 8
+- 健康检查 + 自动重启 (SDC-03)
 
 ### Phase 8: Go Server
 
