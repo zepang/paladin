@@ -3,7 +3,7 @@ Agent Core 测试套件 — TDD RED Phase
 测试 Agent 创建、模型配置加载、fallback 链
 """
 import pytest
-import yaml
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -12,10 +12,10 @@ from unittest.mock import patch, MagicMock
 
 # ---- 测试辅助函数 ----
 
-def write_models_yaml(tmpdir: Path, models: list[dict]) -> Path:
-    """写入临时 models.yaml"""
-    path = tmpdir / "models.yaml"
-    path.write_text(yaml.dump({"models": models}))
+def write_config_json(tmpdir: Path, data: dict) -> Path:
+    """写入临时 config.json"""
+    path = tmpdir / "config.json"
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
     return path
 
 
@@ -43,7 +43,7 @@ class TestAgentCreation:
         """创建 Agent 返回有效的 Pydantic AI Agent 实例"""
         from pydantic_ai import Agent
 
-        models_yaml = write_models_yaml(tmp_path, [make_model_config()])
+        config_json = write_config_json(tmp_path, {"models": [make_model_config()], "mcp_servers": []})
         prompt_md = tmp_path / "system.md"
         prompt_md.write_text("You are a helpful assistant.")
 
@@ -51,7 +51,7 @@ class TestAgentCreation:
             from src.agent.paladin_agent import create_paladin_agent
 
             agent = create_paladin_agent(
-                models_config_path=str(models_yaml),
+                models_config_path=str(config_json),
                 system_prompt_path=str(prompt_md),
             )
             assert isinstance(agent, Agent)
@@ -64,7 +64,7 @@ class TestAgentCreation:
         不会因 Prompt 内容异常而抛出错误。
         详细的 System Prompt 加载逻辑由 TestLoadSystemPrompt 覆盖。
         """
-        models_yaml = write_models_yaml(tmp_path, [make_model_config()])
+        config_json = write_config_json(tmp_path, {"models": [make_model_config()], "mcp_servers": []})
         prompt_md = tmp_path / "system.md"
         prompt_md.write_text("You are Paladin, an AI partner.")
 
@@ -72,14 +72,14 @@ class TestAgentCreation:
             from src.agent.paladin_agent import create_paladin_agent
 
             agent = create_paladin_agent(
-                models_config_path=str(models_yaml),
+                models_config_path=str(config_json),
                 system_prompt_path=str(prompt_md),
             )
             # 验证 Agent 被正确创建
             assert agent is not None
 
-    def test_missing_models_yaml_raises_clear_error(self, tmp_path):
-        """models.yaml 不存在时抛出清晰的 FileNotFoundError"""
+    def test_missing_config_json_raises_clear_error(self, tmp_path):
+        """config.json 不存在时抛出清晰的 FileNotFoundError"""
         prompt_md = tmp_path / "system.md"
         prompt_md.write_text("Hello.")
 
@@ -88,13 +88,13 @@ class TestAgentCreation:
 
             with pytest.raises(FileNotFoundError):
                 create_paladin_agent(
-                    models_config_path=str(tmp_path / "nonexistent.yaml"),
+                    models_config_path=str(tmp_path / "nonexistent.json"),
                     system_prompt_path=str(prompt_md),
                 )
 
     def test_missing_api_key_env_raises_clear_error(self, tmp_path):
         """api_key 引用未设置的环境变量时抛出清晰错误"""
-        models_yaml = write_models_yaml(tmp_path, [make_model_config()])
+        config_json = write_config_json(tmp_path, {"models": [make_model_config()], "mcp_servers": []})
         prompt_md = tmp_path / "system.md"
         prompt_md.write_text("Hello.")
 
@@ -103,75 +103,93 @@ class TestAgentCreation:
 
             with pytest.raises(ValueError, match="TEST_API_KEY"):
                 create_paladin_agent(
-                    models_config_path=str(models_yaml),
+                    models_config_path=str(config_json),
                     system_prompt_path=str(prompt_md),
                 )
 
 
-# ---- RED Tests: 模型配置加载 ----
+# ---- RED Tests: 模型配置加载 (JSON) ----
 
 class TestLoadModels:
-    """测试 load_models() 函数"""
+    """测试 load_models() 函数 — JSON config"""
 
     def test_load_models_returns_correct_count(self, tmp_path):
         """加载正确数量的模型"""
-        models_yaml = write_models_yaml(
+        config_json = write_config_json(
             tmp_path,
-            [
+            {"models": [
                 make_model_config(id="m1", priority=1),
                 make_model_config(id="m2", priority=2),
                 make_model_config(id="m3", priority=3),
-            ],
+            ], "mcp_servers": []},
         )
 
         with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
             from src.agent.paladin_agent import load_models, ModelConfig
 
-            configs = load_models(str(models_yaml))
+            configs = load_models(str(config_json))
             assert len(configs) == 3
             assert all(isinstance(c, ModelConfig) for c in configs)
 
     def test_models_sorted_by_priority(self, tmp_path):
         """模型按 priority 升序排列"""
-        models_yaml = write_models_yaml(
+        config_json = write_config_json(
             tmp_path,
-            [
+            {"models": [
                 make_model_config(id="low", priority=99),
                 make_model_config(id="high", priority=1),
                 make_model_config(id="mid", priority=50),
-            ],
+            ], "mcp_servers": []},
         )
 
         with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
             from src.agent.paladin_agent import load_models
 
-            configs = load_models(str(models_yaml))
+            configs = load_models(str(config_json))
             priorities = [c.priority for c in configs]
             assert priorities == [1, 50, 99]
 
-    def test_invalid_yaml_raises_clear_error(self, tmp_path):
-        """无效 YAML 抛出清晰错误"""
-        bad_yaml = tmp_path / "bad.yaml"
-        bad_yaml.write_text(": invalid: yaml: [[")
+    def test_invalid_json_raises_clear_error(self, tmp_path):
+        """无效 JSON 抛出清晰错误"""
+        bad_json = tmp_path / "config.json"
+        bad_json.write_text("{ invalid json [[[")
 
         from src.agent.paladin_agent import load_models
 
-        with pytest.raises(ValueError, match="YAML"):
-            load_models(str(bad_yaml))
+        with pytest.raises(ValueError, match="JSON 解析失败"):
+            load_models(str(bad_json))
+
+    def test_missing_models_key_raises_error(self, tmp_path):
+        """缺少 'models' 顶层字段时抛出 ValueError"""
+        config_json = write_config_json(tmp_path, {"mcp_servers": []})
+
+        from src.agent.paladin_agent import load_models
+
+        with pytest.raises(ValueError, match="缺少 'models' 顶层字段"):
+            load_models(str(config_json))
 
     def test_missing_required_field_raises_error(self, tmp_path):
-        """缺少必需字段（如 model_id）时抛出 ValidationError"""
-        models_yaml = write_models_yaml(
+        """缺少必需字段时抛出 ValueError"""
+        config_json = write_config_json(
             tmp_path,
-            [{"id": "bad", "provider": "openai", "api_key": "$X"}],
+            {"models": [
+                {"id": "bad", "provider": "openai", "api_key": "$X"},
+            ], "mcp_servers": []},
             # 缺少 model_id, api_base, priority
         )
 
         with patch.dict(os.environ, {"X": "fake"}):
             from src.agent.paladin_agent import load_models
 
-            with pytest.raises((ValueError, TypeError)):
-                load_models(str(models_yaml))
+            with pytest.raises(ValueError, match="缺少必需字段"):
+                load_models(str(config_json))
+
+    def test_file_not_found_raises_error(self, tmp_path):
+        """配置文件不存在时抛出 FileNotFoundError"""
+        from src.agent.paladin_agent import load_models
+
+        with pytest.raises(FileNotFoundError):
+            load_models(str(tmp_path / "nonexistent.json"))
 
 
 # ---- RED Tests: System Prompt 加载 ----
@@ -205,7 +223,7 @@ class TestDeepAgentIntegration:
 
     def test_agent_includes_deepagent_toolsets(self, tmp_path):
         """Agent 创建后包含 TodoToolset 和 FilesystemToolset"""
-        models_yaml = write_models_yaml(tmp_path, [make_model_config()])
+        config_json = write_config_json(tmp_path, {"models": [make_model_config()], "mcp_servers": []})
         prompt_md = tmp_path / "system.md"
         prompt_md.write_text("You are helpful.")
 
@@ -213,7 +231,7 @@ class TestDeepAgentIntegration:
             from src.agent.paladin_agent import create_paladin_agent
 
             agent = create_paladin_agent(
-                models_config_path=str(models_yaml),
+                models_config_path=str(config_json),
                 system_prompt_path=str(prompt_md),
             )
             # 验证 Agent 创建成功（deepagents 工具集在内部注册）
@@ -224,7 +242,7 @@ class TestDeepAgentIntegration:
 
     def test_workspace_dir_is_created(self, tmp_path):
         """workspace 目录自动创建"""
-        models_yaml = write_models_yaml(tmp_path, [make_model_config()])
+        config_json = write_config_json(tmp_path, {"models": [make_model_config()], "mcp_servers": []})
         prompt_md = tmp_path / "system.md"
         prompt_md.write_text("You are helpful.")
         ws_dir = tmp_path / "workspace"
@@ -233,7 +251,7 @@ class TestDeepAgentIntegration:
             from src.agent.paladin_agent import create_paladin_agent
 
             create_paladin_agent(
-                models_config_path=str(models_yaml),
+                models_config_path=str(config_json),
                 system_prompt_path=str(prompt_md),
                 workspace_dir=str(ws_dir),
             )
