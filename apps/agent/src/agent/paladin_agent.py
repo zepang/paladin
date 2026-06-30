@@ -6,6 +6,7 @@ Paladin Agent Core — Agent 创建、模型加载、fallback 链
 - load_models(): 从 JSON 解析模型配置列表
 - create_paladin_agent(): 创建完整的 Paladin Agent 实例（含 TodoToolset + FilesystemToolset）
 """
+import asyncio
 import os
 import json
 import logging
@@ -17,9 +18,12 @@ from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.providers.deepseek import DeepSeekProvider
+from pydantic_ai_shields import ToolGuard
 from pydantic_deep import create_deep_agent
 from pydantic_deep import LocalBackend
 from pydantic_deep import create_default_deps
+
+from src.agent.hitl import create_approval_callback, validate_hitl_config
 
 # ---- 日志 ----
 logger = logging.getLogger(__name__)
@@ -306,10 +310,32 @@ def create_paladin_agent(
     # 按需加载 MCP 服务器
     mcp_toolsets = _load_mcp_servers(raw_config)
 
+    # ---- HITL 初始化 ----
+    hitl_config = raw_config.get("hitl", {})
+    hitl_parsed = validate_hitl_config(hitl_config, [])
+    require_approval = hitl_parsed["require_approval"]
+    blocked = hitl_parsed["blocked"]
+    timeout = hitl_parsed["timeout_seconds"]
+
+    approval_callback = create_approval_callback(timeout=timeout)
+
+    guard = ToolGuard(
+        blocked=blocked,
+        require_approval=require_approval,
+        approval_callback=approval_callback,
+    )
+    logger.info(
+        "hitl_initialized",
+        require_approval=require_approval,
+        blocked=blocked,
+        timeout=timeout,
+    )
+
     # 使用 pydantic-deep 创建 Agent，集成全部内建工具集 (D-01, D-02, D-04)
     agent = create_deep_agent(
         model=primary_model,
         system_prompt=instructions,
+        capabilities=[guard],
         include_todo=True,                  # 启用 TodoToolset
         include_filesystem=True,            # 启用 FilesystemToolset
         include_subagents=True,             # 启用 SubAgentToolset
@@ -331,6 +357,9 @@ def create_paladin_agent(
 
     # 将模型配置列表附加到 agent 上，供 server 层 fallback 使用
     agent._model_configs = model_configs  # type: ignore[attr-defined]
+
+    # 创建 SSE 队列供 server 层注入到 hitl._sse_queue（Plan 03 桥接）
+    agent._hitl_sse_queue = asyncio.Queue()  # type: ignore[attr-defined]
 
     return agent
 
