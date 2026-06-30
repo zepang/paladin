@@ -11,6 +11,7 @@ dependencies = [
     "pydantic-ai-slim[ag-ui]>=1.107.0",
     "pydantic-ai-slim[mcp]>=1.107.0",
     "pydantic-deep>=0.3.29",
+    "pyautogui>=0.9.54",
     "python-dotenv>=1.2.2",
     "pyyaml>=6.0.3",
     "structlog>=26.1.0",

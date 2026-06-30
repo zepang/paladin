@@ -24,6 +24,7 @@ from pydantic_deep import LocalBackend
 from pydantic_deep import create_default_deps
 
 from src.agent.hitl import create_approval_callback, validate_hitl_config
+from src.agent.computer_use import _create_computer_use_tools
 
 # ---- 日志 ----
 logger = logging.getLogger(__name__)
@@ -317,6 +318,16 @@ def create_paladin_agent(
     blocked = hitl_parsed["blocked"]
     timeout = hitl_parsed["timeout_seconds"]
 
+    # ---- Computer Use 工具 ----
+    computer_tools = _create_computer_use_tools()
+    if computer_tools:
+        logger.info("computer_use_tools_loaded", count=len(computer_tools))
+        # 永久标记 Computer Use 工具 require_approval（D-07b, SPEC 禁止绕过）
+        computer_use_names = ["computer_screenshot", "computer_click", "computer_type"]
+        require_approval = list(set(require_approval + computer_use_names))
+    else:
+        logger.warning("computer_use_tools_unavailable")
+
     approval_callback = create_approval_callback(timeout=timeout)
 
     guard = ToolGuard(
@@ -336,6 +347,7 @@ def create_paladin_agent(
         model=primary_model,
         system_prompt=instructions,
         capabilities=[guard],
+        tools=computer_tools if computer_tools else None,
         include_todo=True,                  # 启用 TodoToolset
         include_filesystem=True,            # 启用 FilesystemToolset
         include_subagents=True,             # 启用 SubAgentToolset
