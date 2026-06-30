@@ -127,6 +127,16 @@ Plans:
 
 **Goal:** Agent 具备完整工具链
 **Requirements:** TLS-01~05
+**Plans:** 6 plans
+
+Plans:
+
+- [ ] 06-01-PLAN.md — Config 迁移：models.yaml → config.json + load_models() JSON 重写 (TDD)
+- [ ] 06-02-PLAN.md — Skills 目录 + code-review.md 示例技能 + system.md 更新
+- [ ] 06-03-PLAN.md — MCP 依赖安装：pydantic-ai-slim[mcp]
+- [ ] 06-04-PLAN.md — Agent 工具激活：5 个工具集一键启用 + MCP 按需加载 (TDD)
+- [ ] 06-05-PLAN.md — 综合测试套件：test_tools.py + test_agent.py + test_server.py
+- [ ] 06-06-PLAN.md — Prohibition 验证：沙箱越权禁止测试
 
 - 文件系统操作工具
 - 终端命令执行
