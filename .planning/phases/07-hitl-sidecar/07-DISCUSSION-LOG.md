@@ -55,7 +55,7 @@
 | 保持现状 | 不修改 ChatToolbar | |
 
 **User's choice:** 两者结合 + 完整上下文 + 显示队列提示 + 升级 ChatToolbar
-**Notes:** 使用 CopilotKit v2 `useHumanInTheLoop` + shadcn `AlertDialog`。
+**Notes:** [修订 2026-07-01] D-07 修订：因 SSE+HTTP 架构（D-01）与 useHumanInTheLoop 不兼容，改用自定义 `useApprovalBridge` hook（EventSource + fetch POST），审批卡片通过 CopilotKit 自定义消息类型嵌入 CopilotChat 消息流。AlertDialog 仍使用 shadcn。
 
 ---
 

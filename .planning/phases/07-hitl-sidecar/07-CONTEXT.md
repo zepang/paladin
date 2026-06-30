@@ -53,7 +53,7 @@ Downstream agents MUST read `07-SPEC.md` before planning or implementing. Requir
 ### 审批 UI 设计
 - **D-05:** 聊天流内嵌审批卡片（主 UI）+ AlertDialog 弹窗（注意力提醒）——两者结合
 - **D-06:** 审批卡片展示完整上下文：工具名 + 完整参数 + Agent 调用原因
-- **D-07:** 使用 CopilotKit v2 `useHumanInTheLoop` hook + shadcn `AlertDialog` 组件
+- **D-07:** 使用自定义 `useApprovalBridge` hook（EventSource + fetch POST）管理审批通道，审批卡片通过 CopilotKit 自定义消息类型嵌入 CopilotChat 消息流（非固定覆盖层），AlertDialog 使用 shadcn `AlertDialog` 组件
 - **D-08:** 多个审批请求排队时，卡片底部显示「还有 N 个待审批操作」队列提示
 - **D-09:** `ChatToolbar` 升级为审批状态栏——新增「等待审批中…」状态行 + 当前待审批工具名称
 
