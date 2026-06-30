@@ -54,7 +54,7 @@ project_root = _find_project_root()
 load_dotenv(project_root / ".env")
 
 # 创建 Agent（模块加载时初始化）
-_config_path = project_root / "config" / "models.yaml"
+_config_path = project_root / "config" / "config.json"
 _prompt_path = project_root / "prompts" / "system.md"
 
 agent = create_paladin_agent(

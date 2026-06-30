@@ -173,38 +173,106 @@ def _create_model(config: ModelConfig) -> OpenAIChatModel:
     return OpenAIChatModel(resolved_model, provider=provider)
 
 
+# ---- MCP 按需加载 ----
+
+def _load_mcp_servers(raw_config: dict) -> list:
+    """
+    从 config.json 按需加载 MCP 服务器工具集
+
+    仅在 raw_config 包含非空 "mcp_servers" 字段时才导入 MCP 依赖。
+    按 enabled 字段过滤，连接失败时记录 warning 日志但不影响启动。
+
+    Args:
+        raw_config: config.json 解析后的完整字典
+
+    Returns:
+        MCP toolset 列表（可能为空）
+
+    Raises:
+        ImportError: MCP SDK 未安装但配置了 mcp_servers
+    """
+    mcp_entries = raw_config.get("mcp_servers", [])
+    if not mcp_entries:
+        return []
+
+    # 按需导入 MCP 依赖
+    try:
+        from pydantic_deep import MCPServerConfig, build_mcp_server
+    except ImportError as e:
+        raise ImportError(
+            "pydantic-ai-slim[mcp] 未安装，无法加载 MCP 服务器配置。"
+            "请运行: uv add 'pydantic-ai-slim[mcp]'"
+        ) from e
+
+    toolsets = []
+    for entry in mcp_entries:
+        if not entry.get("enabled", True):
+            logger.info("MCP 服务器已禁用，跳过: %s", entry.get("name", "unknown"))
+            continue
+
+        try:
+            server_config = MCPServerConfig(
+                name=entry["name"],
+                transport=entry.get("transport", "stdio"),
+                command=entry.get("command"),
+                args=entry.get("args", []),
+                env=entry.get("env"),
+                url=entry.get("url"),
+                headers=entry.get("headers"),
+                description=entry.get("description"),
+            )
+            toolset = build_mcp_server(server_config)
+            toolsets.append(toolset)
+            logger.info("MCP 服务器已加载: %s (transport=%s)", entry["name"], entry.get("transport", "stdio"))
+        except Exception as e:
+            logger.warning("mcp_server_unavailable name=%s error=%s", entry.get("name", "unknown"), e)
+
+    return toolsets
+
+
 def create_paladin_agent(
     models_config_path: str = "config/config.json",
     system_prompt_path: str = "prompts/system.md",
     workspace_dir: Optional[str] = None,
+    skills_dir: Optional[str] = None,
 ) -> Agent:
     """
     创建完整的 Paladin Agent 实例
 
-    集成 pydantic-deep 的 TodoToolset 和 FilesystemToolset，
-    使用 LocalBackend 沙箱限制文件访问范围。
+    集成 pydantic-deep 的 TodoToolset、FilesystemToolset、SkillsToolset、
+    SubAgentToolset、ExecuteToolset、PlanToolset 和 WebSearch 能力。
 
     流程:
     1. 加载 System Prompt
     2. 加载模型配置（按 priority 排序）
     3. 创建 LocalBackend 沙箱
-    4. 用 create_deep_agent() 创建 Agent（含内建工具集）
+    4. 按需加载 MCP 服务器工具集
+    5. 用 create_deep_agent() 创建 Agent（含全部内建工具集）
 
     Args:
-        models_config_path: models.yaml 路径
+        models_config_path: config.json 路径
         system_prompt_path: system.md 路径
         workspace_dir: Agent 工作区根目录，默认在项目 root 下的 workspace/
+        skills_dir: Skills 目录路径，默认在项目 root 下的 skills/
 
     Returns:
-        Pydantic AI Agent 实例（含 deepagents 工具集）
+        Pydantic AI Agent 实例（含 deepagents 全套工具集）
 
     Raises:
         FileNotFoundError: 配置文件缺失
         ValueError: 配置格式错误或 API Key 缺失
+        ImportError: MCP SDK 未安装但配置了 mcp_servers
     """
     # 加载 System Prompt
     instructions = load_system_prompt(system_prompt_path)
     logger.info("System Prompt 已加载 (%d 字符)", len(instructions))
+
+    # 加载 JSON 完整配置
+    config_file = Path(models_config_path)
+    try:
+        raw_config = json.loads(config_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"模型配置 JSON 解析失败: {e}") from e
 
     # 加载模型配置
     model_configs = load_models(models_config_path)
@@ -229,19 +297,33 @@ def create_paladin_agent(
     backend = LocalBackend(root_dir=str(workspace))
     logger.info("工作区沙箱: %s", workspace)
 
-    # 使用 pydantic-deep 创建 Agent，集成 TodoToolset + FilesystemToolset
+    # Skills 目录
+    skills_path = Path(skills_dir) if skills_dir else (
+        Path(models_config_path).resolve().parent.parent / "skills"
+    )
+    skills_path.mkdir(parents=True, exist_ok=True)
+
+    # 按需加载 MCP 服务器
+    mcp_toolsets = _load_mcp_servers(raw_config)
+
+    # 使用 pydantic-deep 创建 Agent，集成全部内建工具集 (D-01, D-02, D-04)
     agent = create_deep_agent(
         model=primary_model,
         system_prompt=instructions,
-        include_todo=True,          # 启用 TodoToolset
-        include_filesystem=True,    # 启用 FilesystemToolset
-        include_subagents=False,    # Phase 3: 暂不启用子 Agent
-        include_plan=False,         # Phase 3: 暂不启用计划工具集
-        include_skills=False,       # Phase 3: 暂不启用技能工具集
-        web_search=False,           # WebSearch 与 OpenAIChatModel 不兼容
+        include_todo=True,                  # 启用 TodoToolset
+        include_filesystem=True,            # 启用 FilesystemToolset
+        include_subagents=True,             # 启用 SubAgentToolset
+        include_builtin_subagents=True,     # 使用内置子 Agent
+        include_plan=True,                  # 启用计划工具集
+        include_skills=True,                # 启用 SkillsToolset
+        include_execute=True,               # 启用终端命令执行
+        web_search=True,                    # 启用 WebSearch
+        skill_directories=[str(skills_path)],
+        max_nesting_depth=1,                # 子 Agent 不可递归创建
+        mcp_servers=mcp_toolsets if mcp_toolsets else None,
         backend=backend,
     )
-    logger.info("Agent 已创建（含 TodoToolset + FilesystemToolset）")
+    logger.info("Agent 已创建（含 Todo + Filesystem + Skills + SubAgents + Execute + Plan）")
 
     # 创建默认 deps（pydantic-deep 的 @agent.instructions 动态函数需要）
     # ctx.deps 是 DeepAgentDeps，不传 deps= 时为 None，导致 get_uploads_summary() 崩溃
