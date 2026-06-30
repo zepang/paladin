@@ -8,11 +8,14 @@ import { ChatToolbar } from '@/components/ChatToolbar';
 import { useChatStore } from '@/stores/chat';
 import { useTerminalStore } from '@/stores/terminal';
 import { CopilotChat } from '@copilotkit/react-core/v2';
+import { useApprovalContext } from '@/components/approval/ApprovalBridge';
+import { ApprovalCard } from '@/components/approval/ApprovalCard';
 
 export function ChatArea() {
   const currentThreadId = useChatStore((s) => s.currentThreadId);
   const conversations = useChatStore((s) => s.conversations);
   const rightPanelOpen = useTerminalStore((s) => s.isOpen);
+  const { current, approve, deny } = useApprovalContext();
 
   // 查找当前对话，获取 CopilotKit threadId
   const currentConversation = conversations.find((c) => c.id === currentThreadId);
@@ -36,14 +39,26 @@ export function ChatArea() {
   // 对话区域 = CopilotChat（自带输入框、欢迎屏、消息列表）+ 嵌入的 ChatToolbar
   return (
     <div className="flex-1 flex min-w-0">
-      <CopilotChat
-        className="flex-1 min-w-0"
-        threadId={currentConversation.threadId}
-        labels={{
-          welcomeMessageText: 'Paladin — AI 编程伙伴',
-          chatInputPlaceholder: '输入消息...',
-        }}
-      />
+      <div className="flex-1 flex flex-col min-w-0">
+        <CopilotChat
+          className="flex-1 min-w-0"
+          threadId={currentConversation.threadId}
+          labels={{
+            welcomeMessageText: 'Paladin — AI 编程伙伴',
+            chatInputPlaceholder: '输入消息...',
+          }}
+        />
+        {/* HITL 审批卡片——normal flow 嵌入消息流下方 (D-07 修订) */}
+        {current && (
+          <div className="px-4">
+            <ApprovalCard
+              request={current}
+              onApprove={approve}
+              onDeny={deny}
+            />
+          </div>
+        )}
+      </div>
       {/* 右侧面板打开时隐藏 ChatToolbar */}
       {!rightPanelOpen && <ChatToolbar />}
     </div>
