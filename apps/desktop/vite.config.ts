@@ -17,6 +17,12 @@ export default defineConfig(async () => ({
   test: {
     globals: false,
     environment: 'jsdom',
+    server: {
+      deps: {
+        // CopilotKit v2 imports CSS; inline it so Vitest lets Vite process that import.
+        inline: ['@copilotkit/react-core'],
+      },
+    },
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
