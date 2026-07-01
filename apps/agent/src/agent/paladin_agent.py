@@ -321,7 +321,7 @@ def create_paladin_agent(
     # ---- Computer Use 工具 ----
     computer_tools = _create_computer_use_tools()
     if computer_tools:
-        logger.info("computer_use_tools_loaded", count=len(computer_tools))
+        logger.info("computer_use_tools_loaded count=%d", len(computer_tools))
         # 永久标记 Computer Use 工具 require_approval（D-07b, SPEC 禁止绕过）
         computer_use_names = ["computer_screenshot", "computer_click", "computer_type"]
         require_approval = list(set(require_approval + computer_use_names))
@@ -336,10 +336,8 @@ def create_paladin_agent(
         approval_callback=approval_callback,
     )
     logger.info(
-        "hitl_initialized",
-        require_approval=require_approval,
-        blocked=blocked,
-        timeout=timeout,
+        "hitl_initialized require_approval=%s blocked=%s timeout=%d",
+        require_approval, blocked, timeout,
     )
 
     # 使用 pydantic-deep 创建 Agent，集成全部内建工具集 (D-01, D-02, D-04)
