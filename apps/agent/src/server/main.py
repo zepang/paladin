@@ -75,6 +75,12 @@ logger.info("HITL SSE queue 已桥接")
 # 已连接 SSE 客户端列表（每个客户端一个本地 queue）
 _approval_queues: list[asyncio.Queue] = []
 
+# 优雅关闭信号 — SSE generator 检查此 Event 以快速退出
+_shutdown_event = asyncio.Event()
+
+# 后台广播任务引用 — 供 shutdown 取消
+_broadcast_task: asyncio.Task | None = None
+
 
 def _broadcast_approval_event(event: dict) -> None:
     """向所有已连接 SSE 客户端广播审批事件（非阻塞）。"""
@@ -99,17 +105,40 @@ async def _start_approval_broadcast():
         sse_queue = getattr(hitl, '_sse_queue', None)
         if sse_queue is None:
             return
-        while True:
+        while not _shutdown_event.is_set():
             try:
-                event = await sse_queue.get()
+                event = await asyncio.wait_for(sse_queue.get(), timeout=1.0)
                 _broadcast_approval_event(event)
+            except asyncio.TimeoutError:
+                continue  # 检查 _shutdown_event
             except asyncio.CancelledError:
                 break
             except Exception:
                 logger.exception("approval_broadcast_error")
 
-    asyncio.create_task(_approval_broadcast_loop())
+    global _broadcast_task
+    _broadcast_task = asyncio.create_task(_approval_broadcast_loop())
     logger.info("HITL broadcast loop started")
+
+
+@app.on_event("shutdown")
+async def _stop_approval_broadcast():
+    """优雅关闭：取消广播任务，通知所有 SSE 客户端断开。"""
+    _shutdown_event.set()
+    if _broadcast_task is not None and not _broadcast_task.done():
+        _broadcast_task.cancel()
+        try:
+            await asyncio.wait_for(_broadcast_task, timeout=2.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            pass
+    # 向所有 SSE 客户端队列放入 None sentinel 以解除阻塞
+    for q in list(_approval_queues):
+        try:
+            q.put_nowait(None)
+        except asyncio.QueueFull:
+            pass
+    _approval_queues.clear()
+    logger.info("HITL broadcast loop stopped")
 
 
 # ---- HITL 审批端点 ----
@@ -131,11 +160,13 @@ async def approval_stream(request: Request):
 
     async def event_generator():
         try:
-            while True:
+            while not _shutdown_event.is_set():
                 if await request.is_disconnected():
                     break
                 try:
                     event = await asyncio.wait_for(local_queue.get(), timeout=15.0)
+                    if event is None:  # shutdown sentinel
+                        break
                     yield f"data: {_json.dumps(event, ensure_ascii=False)}\n\n"
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"
