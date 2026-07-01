@@ -19,8 +19,8 @@ import { HttpAgent } from '@ag-ui/client';
 import { CopilotKitProvider } from '@copilotkit/react-core/v2';
 import { useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { ApprovalProvider, useApprovalContext } from '@/components/approval/ApprovalBridge';
-import { ApprovalDialog } from '@/components/approval/ApprovalDialog';
+import { ApprovalProvider } from '@/components/approval/ApprovalBridge';
+// import { ApprovalDialog } from '@/components/approval/ApprovalDialog';  // 暂时隐藏
 
 function App() {
   // 侧边栏折叠状态
@@ -259,17 +259,17 @@ function App() {
           {/* 底部状态栏 */}
           <StatusBar />
         </div>
-        <ApprovalContextDialog />
+{/* <ApprovalContextDialog /> */}
         <Toaster position="bottom-center" />
       </ApprovalProvider>
     </CopilotKitProvider>
   );
 }
 
-/** 子组件——在 ApprovalProvider 内部消费 context */
-function ApprovalContextDialog() {
+/** 子组件——在 ApprovalProvider 内部消费 context（暂时隐藏以测试审批卡片） */
+/* function ApprovalContextDialog() {
   const { current } = useApprovalContext();
   return <ApprovalDialog request={current} />;
-}
+} */
 
 export default App;
