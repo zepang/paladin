@@ -5,7 +5,8 @@ AG-UI Server 测试套件
 import os
 from unittest.mock import patch
 
-import pytest
+from fastapi import Request
+from starlette.responses import Response
 
 
 # ---- Tests: /health 端点 ----
@@ -61,9 +62,15 @@ class TestCopilotkitEndpoint:
             from fastapi.testclient import TestClient
 
             client = TestClient(app)
-            response = client.options("/copilotkit")
+            response = client.options(
+                "/copilotkit",
+                headers={
+                    "Origin": "http://localhost:5173",
+                    "Access-Control-Request-Method": "POST",
+                },
+            )
             # FastAPI 的 CORSMiddleware 会在 OPTIONS 上设置 CORS 头
-            assert "access-control-allow-origin" in response.headers or True
+            assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
 
 
 class TestAguiDispatchEntrypoint:
@@ -72,3 +79,44 @@ class TestAguiDispatchEntrypoint:
 
         assert hasattr(main, "AGUIAdapter")
         assert not hasattr(main, "handle_ag_ui_request")
+
+    def test_copilotkit_dispatches_with_request_agent_and_deps(self, monkeypatch):
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+            from fastapi.testclient import TestClient
+            from src.server import main
+
+            captured = {}
+
+            async def fake_dispatch_request(*, request, agent, deps):
+                captured["request"] = request
+                captured["agent"] = agent
+                captured["deps"] = deps
+                return Response("adapter-ok", status_code=202)
+
+            monkeypatch.setattr(
+                main.AGUIAdapter,
+                "dispatch_request",
+                fake_dispatch_request,
+            )
+
+            client = TestClient(main.app)
+            response = client.post("/copilotkit", json={"messages": []})
+
+            assert response.status_code == 202
+            assert response.text == "adapter-ok"
+            assert isinstance(captured["request"], Request)
+            assert captured["agent"] is main.agent
+            assert captured["deps"] is getattr(main.agent, "_default_deps", None)
+
+
+class TestThreadsEndpoint:
+    def test_threads_returns_empty_thread_list(self):
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+            from fastapi.testclient import TestClient
+            from src.server.main import app
+
+            client = TestClient(app)
+            response = client.get("/threads")
+
+            assert response.status_code == 200
+            assert response.json() == {"threads": []}

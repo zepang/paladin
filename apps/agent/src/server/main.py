@@ -344,3 +344,6 @@ async def threads(agentId: str = "default"):
     Returns:
         JSON: {"threads": []}
     """
+    return JSONResponse({
+        "threads": []
+    })
