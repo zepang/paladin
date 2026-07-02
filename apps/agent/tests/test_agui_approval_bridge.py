@@ -86,6 +86,28 @@ def test_resume_entry_object_approved_maps_to_tool_approved():
     assert isinstance(approval, ToolApproved)
 
 
+def test_resume_none_entry_fails_closed_as_tool_denied():
+    results = resume_entries_to_deferred_tool_results([None])
+
+    approval = results.approvals["malformed-0"]
+    assert isinstance(approval, ToolDenied)
+    assert "Malformed resume entry" in approval.message
+    assert results.metadata["malformed-0"]["entry"] is None
+    assert results.metadata["malformed-0"]["payload"] == {}
+    assert "unsupported resume entry type" in results.metadata["malformed-0"]["error"]
+
+
+def test_resume_string_entry_fails_closed_as_tool_denied():
+    results = resume_entries_to_deferred_tool_results(["bad"])
+
+    approval = results.approvals["malformed-0"]
+    assert isinstance(approval, ToolDenied)
+    assert "Malformed resume entry" in approval.message
+    assert results.metadata["malformed-0"]["entry"] == "bad"
+    assert results.metadata["malformed-0"]["payload"] == {}
+    assert "unsupported resume entry type" in results.metadata["malformed-0"]["error"]
+
+
 def test_resume_approved_with_malformed_override_args_maps_to_tool_denied():
     results = resume_entries_to_deferred_tool_results([
         {
@@ -173,6 +195,20 @@ def test_resume_missing_status_fails_closed_as_tool_denied():
     assert results.metadata["call-1"]["interrupt_id"] == "int-call-1"
     assert results.metadata["call-1"]["entry"] == entry
     assert "status" in results.metadata["call-1"]["error"]
+
+
+def test_resume_raw_dict_accepts_snake_case_interrupt_id():
+    results = resume_entries_to_deferred_tool_results([
+        {
+            "interrupt_id": "int-call-1",
+            "status": "resolved",
+            "payload": {"decision": "approved"},
+        }
+    ])
+
+    approval = results.approvals["call-1"]
+    assert isinstance(approval, ToolApproved)
+    assert results.metadata["call-1"]["interrupt_id"] == "int-call-1"
 
 
 def test_resume_non_string_interrupt_id_fails_closed_with_synthetic_key():

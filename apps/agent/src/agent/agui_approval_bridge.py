@@ -39,7 +39,7 @@ def deferred_approvals_to_interrupt_outcome(
 
 
 def resume_entries_to_deferred_tool_results(
-    resume_entries: list[dict[str, Any] | ResumeEntry],
+    resume_entries: list[Any],
 ) -> DeferredToolResults:
     approvals: dict[str, ToolApproved | ToolDenied] = {}
     metadata: dict[str, dict[str, Any]] = {}
@@ -97,13 +97,15 @@ def _normalize_expires_at(expires_at: Any) -> str | None:
 
 
 def _normalize_resume_entry(
-    entry: dict[str, Any] | ResumeEntry,
+    entry: Any,
     index: int,
 ) -> dict[str, Any]:
     if isinstance(entry, dict):
         payload = entry.get("payload") or {}
         payload = payload if isinstance(payload, dict) else {}
         interrupt_id = entry.get("interruptId")
+        if interrupt_id is None and "interrupt_id" in entry:
+            interrupt_id = entry.get("interrupt_id")
         status = entry.get("status")
         error = _raw_resume_entry_error(interrupt_id, status)
         tool_call_id = (
@@ -125,6 +127,22 @@ def _normalize_resume_entry(
             "status": status,
             "payload": payload,
             "metadata": metadata,
+            "error": error,
+        }
+
+    if not isinstance(entry, ResumeEntry):
+        error = f"unsupported resume entry type: {type(entry).__name__}"
+        return {
+            "interrupt_id": None,
+            "tool_call_id": f"malformed-{index}",
+            "status": None,
+            "payload": {},
+            "metadata": {
+                "interrupt_id": None,
+                "payload": {},
+                "entry": entry,
+                "error": error,
+            },
             "error": error,
         }
 
