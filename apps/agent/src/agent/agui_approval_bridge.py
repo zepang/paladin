@@ -47,9 +47,9 @@ def resume_entries_to_deferred_tool_results(
         tool_call_id = _tool_call_id_from_interrupt_id(interrupt_id)
         payload = entry.get("payload") or {}
         decision = payload.get("decision")
-        metadata[tool_call_id] = {"interrupt_id": interrupt_id, "resume_entry": entry}
+        metadata[tool_call_id] = {"interrupt_id": interrupt_id, "payload": payload}
 
-        if entry.get("status") == "cancelled" or decision == "denied":
+        if entry.get("status") == "cancelled" or decision in {"cancelled", "denied"}:
             approvals[tool_call_id] = ToolDenied(
                 message=payload.get("message") or "The tool call was denied."
             )

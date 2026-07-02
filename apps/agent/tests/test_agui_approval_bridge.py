@@ -67,3 +67,32 @@ def test_resume_denied_maps_to_tool_denied():
     approval = results.approvals["call-1"]
     assert isinstance(approval, ToolDenied)
     assert approval.message == "User denied computer_click."
+
+
+def test_resume_cancelled_decision_maps_to_tool_denied():
+    results = resume_entries_to_deferred_tool_results([
+        {
+            "interruptId": "int-call-1",
+            "status": "resolved",
+            "payload": {"decision": "cancelled"},
+        }
+    ])
+
+    approval = results.approvals["call-1"]
+    assert isinstance(approval, ToolDenied)
+    assert approval.message == "The tool call was denied."
+
+
+def test_resume_metadata_includes_interrupt_id_and_payload():
+    payload = {"decision": "approved", "source": "user"}
+
+    results = resume_entries_to_deferred_tool_results([
+        {
+            "interruptId": "int-call-1",
+            "status": "resolved",
+            "payload": payload,
+        }
+    ])
+
+    assert results.metadata["call-1"]["interrupt_id"] == "int-call-1"
+    assert results.metadata["call-1"]["payload"] == payload
