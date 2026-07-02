@@ -87,6 +87,51 @@ def test_resume_entry_object_approved_maps_to_tool_approved():
     assert isinstance(approval, ToolApproved)
 
 
+def test_resume_entry_object_invalid_status_fails_closed_as_tool_denied():
+    entry = ResumeEntry.model_construct(
+        interrupt_id="int-call-1",
+        status="pending",
+        payload={"decision": "approved"},
+    )
+
+    results = resume_entries_to_deferred_tool_results([entry])
+
+    approval = results.approvals["call-1"]
+    assert isinstance(approval, ToolDenied)
+    assert "Malformed resume entry" in approval.message
+    assert "invalid status" in results.metadata["call-1"]["error"]
+
+
+def test_resume_entry_object_none_interrupt_id_fails_closed_with_synthetic_key():
+    entry = ResumeEntry.model_construct(
+        interrupt_id=None,
+        status="resolved",
+        payload={"decision": "approved"},
+    )
+
+    results = resume_entries_to_deferred_tool_results([entry])
+
+    approval = results.approvals["malformed-0"]
+    assert isinstance(approval, ToolDenied)
+    assert "Malformed resume entry" in approval.message
+    assert results.metadata["malformed-0"]["payload"] == {"decision": "approved"}
+    assert "interruptId" in results.metadata["malformed-0"]["error"]
+
+
+def test_resume_entry_object_missing_status_fails_closed_as_tool_denied():
+    entry = ResumeEntry.model_construct(
+        interrupt_id="int-call-1",
+        payload={"decision": "approved"},
+    )
+
+    results = resume_entries_to_deferred_tool_results([entry])
+
+    approval = results.approvals["call-1"]
+    assert isinstance(approval, ToolDenied)
+    assert "Malformed resume entry" in approval.message
+    assert "status" in results.metadata["call-1"]["error"]
+
+
 def test_resume_none_entry_fails_closed_as_tool_denied():
     results = resume_entries_to_deferred_tool_results([None])
 

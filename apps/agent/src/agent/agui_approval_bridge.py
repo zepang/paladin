@@ -103,18 +103,13 @@ def _normalize_resume_entry(
     index: int,
 ) -> dict[str, Any]:
     if isinstance(entry, dict):
-        payload = entry.get("payload") or {}
-        payload = payload if isinstance(payload, dict) else {}
         interrupt_id = entry.get("interruptId")
         if interrupt_id is None and "interrupt_id" in entry:
             interrupt_id = entry.get("interrupt_id")
         status = entry.get("status")
-        error = _raw_resume_entry_error(interrupt_id, status)
-        tool_call_id = (
-            _tool_call_id_from_interrupt_id(interrupt_id)
-            if isinstance(interrupt_id, str)
-            else f"malformed-{index}"
-        )
+        payload, payload_error = _normalize_resume_payload(entry.get("payload"))
+        error = _resume_entry_error(interrupt_id, status, payload_error)
+        tool_call_id = _normalized_tool_call_id(interrupt_id, index)
         metadata = {
             "interrupt_id": interrupt_id,
             "payload": payload,
@@ -148,20 +143,39 @@ def _normalize_resume_entry(
             "error": error,
         }
 
-    payload = entry.payload or {}
-    payload = payload if isinstance(payload, dict) else {}
+    interrupt_id = getattr(entry, "interrupt_id", None)
+    status = getattr(entry, "status", None)
+    payload, payload_error = _normalize_resume_payload(getattr(entry, "payload", None))
+    error = _resume_entry_error(interrupt_id, status, payload_error)
+    tool_call_id = _normalized_tool_call_id(interrupt_id, index)
+    metadata = {"interrupt_id": interrupt_id, "payload": payload}
+    if error is not None:
+        metadata["error"] = error
+
     return {
-        "interrupt_id": entry.interrupt_id,
-        "tool_call_id": _tool_call_id_from_interrupt_id(entry.interrupt_id),
-        "status": entry.status,
+        "interrupt_id": interrupt_id,
+        "tool_call_id": tool_call_id,
+        "status": status,
         "payload": payload,
-        "metadata": {"interrupt_id": entry.interrupt_id, "payload": payload},
-        "error": None,
+        "metadata": metadata,
+        "error": error,
     }
 
 
-def _raw_resume_entry_error(interrupt_id: Any, status: Any) -> str | None:
-    if not isinstance(interrupt_id, str):
+def _normalize_resume_payload(payload: Any) -> tuple[dict[str, Any], str | None]:
+    if payload is None:
+        return {}, None
+    if isinstance(payload, dict):
+        return payload, None
+    return {}, f"non-dict payload: got {type(payload).__name__}"
+
+
+def _resume_entry_error(
+    interrupt_id: Any,
+    status: Any,
+    payload_error: str | None = None,
+) -> str | None:
+    if not isinstance(interrupt_id, str) or interrupt_id == "":
         return "missing or non-string interruptId"
     if not isinstance(status, str):
         return "missing or non-string status"
@@ -170,4 +184,12 @@ def _raw_resume_entry_error(interrupt_id: Any, status: Any) -> str | None:
             "invalid status: expected 'resolved' or 'cancelled', "
             f"got {status!r}"
         )
+    if payload_error is not None:
+        return payload_error
     return None
+
+
+def _normalized_tool_call_id(interrupt_id: Any, index: int) -> str:
+    if isinstance(interrupt_id, str) and interrupt_id != "":
+        return _tool_call_id_from_interrupt_id(interrupt_id)
+    return f"malformed-{index}"
