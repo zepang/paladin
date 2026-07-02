@@ -288,3 +288,56 @@ def test_resume_non_string_interrupt_id_fails_closed_with_synthetic_key():
     assert results.metadata["malformed-0"]["entry"] == entry
     assert results.metadata["malformed-0"]["payload"] == {"decision": "approved"}
     assert "interruptId" in results.metadata["malformed-0"]["error"]
+
+
+def test_resume_raw_dict_without_interrupt_prefix_fails_closed_with_synthetic_key():
+    entry = {
+        "interruptId": "call-1",
+        "status": "resolved",
+        "payload": {"decision": "approved"},
+    }
+
+    results = resume_entries_to_deferred_tool_results([entry])
+
+    approval = results.approvals["malformed-0"]
+    assert isinstance(approval, ToolDenied)
+    assert "call-1" not in results.approvals
+    assert "Malformed resume entry" in approval.message
+    assert results.metadata["malformed-0"]["entry"] == entry
+    assert results.metadata["malformed-0"]["payload"] == {"decision": "approved"}
+    assert "interruptId" in results.metadata["malformed-0"]["error"]
+
+
+def test_resume_raw_dict_empty_interrupt_suffix_fails_closed_with_synthetic_key():
+    entry = {
+        "interruptId": "int-",
+        "status": "resolved",
+        "payload": {"decision": "approved"},
+    }
+
+    results = resume_entries_to_deferred_tool_results([entry])
+
+    approval = results.approvals["malformed-0"]
+    assert isinstance(approval, ToolDenied)
+    assert "" not in results.approvals
+    assert "Malformed resume entry" in approval.message
+    assert results.metadata["malformed-0"]["entry"] == entry
+    assert results.metadata["malformed-0"]["payload"] == {"decision": "approved"}
+    assert "interruptId" in results.metadata["malformed-0"]["error"]
+
+
+def test_resume_entry_object_without_interrupt_prefix_fails_closed_with_synthetic_key():
+    entry = ResumeEntry.model_construct(
+        interrupt_id="call-1",
+        status="resolved",
+        payload={"decision": "approved"},
+    )
+
+    results = resume_entries_to_deferred_tool_results([entry])
+
+    approval = results.approvals["malformed-0"]
+    assert isinstance(approval, ToolDenied)
+    assert "call-1" not in results.approvals
+    assert "Malformed resume entry" in approval.message
+    assert results.metadata["malformed-0"]["payload"] == {"decision": "approved"}
+    assert "interruptId" in results.metadata["malformed-0"]["error"]

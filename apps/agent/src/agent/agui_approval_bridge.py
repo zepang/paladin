@@ -87,6 +87,14 @@ def _tool_call_id_from_interrupt_id(interrupt_id: str) -> str:
     return interrupt_id.removeprefix("int-")
 
 
+def _is_valid_interrupt_id(interrupt_id: Any) -> bool:
+    return (
+        isinstance(interrupt_id, str)
+        and interrupt_id.startswith("int-")
+        and interrupt_id != "int-"
+    )
+
+
 def _normalize_expires_at(expires_at: Any) -> str | None:
     if expires_at is None or isinstance(expires_at, str):
         return expires_at
@@ -175,8 +183,11 @@ def _resume_entry_error(
     status: Any,
     payload_error: str | None = None,
 ) -> str | None:
-    if not isinstance(interrupt_id, str) or interrupt_id == "":
-        return "missing or non-string interruptId"
+    if not _is_valid_interrupt_id(interrupt_id):
+        return (
+            "missing or invalid interruptId: expected non-empty string with "
+            "'int-' prefix and non-empty suffix"
+        )
     if not isinstance(status, str):
         return "missing or non-string status"
     if status not in _VALID_RESUME_STATUSES:
@@ -190,6 +201,6 @@ def _resume_entry_error(
 
 
 def _normalized_tool_call_id(interrupt_id: Any, index: int) -> str:
-    if isinstance(interrupt_id, str) and interrupt_id != "":
+    if _is_valid_interrupt_id(interrupt_id):
         return _tool_call_id_from_interrupt_id(interrupt_id)
     return f"malformed-{index}"
