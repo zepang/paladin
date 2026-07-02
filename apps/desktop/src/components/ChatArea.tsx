@@ -5,6 +5,7 @@
  * ChatToolbar 嵌入内部右侧，与对话区域视觉一体化
  */
 import { ChatToolbar } from '@/components/ChatToolbar';
+import { AguiApprovalInterrupt } from '@/components/approval/AguiApprovalInterrupt';
 import { useChatStore } from '@/stores/chat';
 import { useTerminalStore } from '@/stores/terminal';
 import { CopilotChat } from '@copilotkit/react-core/v2';
@@ -34,14 +35,17 @@ export function ChatArea() {
 
   return (
     <div className="flex-1 flex min-w-0">
-      <CopilotChat
-        className="flex-1 min-w-0"
-        threadId={currentConversation.threadId}
-        labels={{
-          welcomeMessageText: 'Paladin — AI 编程伙伴',
-          chatInputPlaceholder: '输入消息...',
-        }}
-      />
+      <div className="flex flex-1 min-w-0">
+        <AguiApprovalInterrupt />
+        <CopilotChat
+          className="flex-1 min-w-0"
+          threadId={currentConversation.threadId}
+          labels={{
+            welcomeMessageText: 'Paladin — AI 编程伙伴',
+            chatInputPlaceholder: '输入消息...',
+          }}
+        />
+      </div>
       {!rightPanelOpen && <ChatToolbar />}
     </div>
   );
