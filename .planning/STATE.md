@@ -2,30 +2,30 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 5.2
-current_phase_name: Planned
+current_phase: 07.1
+current_phase_name: Inserted
 status: executing
-stopped_at: Phase 07 planned
-last_updated: "2026-06-30T16:44:23.236Z"
+stopped_at: Phase 07.1 context gathered
+last_updated: "2026-07-02T14:30:51.321Z"
 progress:
-  total_phases: 13
+  total_phases: 14
   completed_phases: 9
   total_plans: 25
-  completed_plans: 19
-  percent: 69
+  completed_plans: 20
+  percent: 64
 ---
 
 # Project State: Paladin
 
-**Phase:** Phase 5.2 Chat Area Redesign (Planned)
-**Last Updated:** 2026-06-18
+**Phase:** Phase 07.1 Official AG-UI Deferred Tool Approval (Inserted)
+**Last Updated:** 2026-07-02
 
 ## Project Reference
 
 See: .planning/PROJECT.md
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 07 — hitl-sidecar
+**Current focus:** Phase 07.1 — Official AG-UI Deferred Tool Approval
 
 ## Phase Status
 
@@ -41,6 +41,7 @@ See: .planning/PROJECT.md
 | 5.3 | Right Panel System | Pending |
 | 6 | Agent Tools | Pending |
 | 7 | HITL + Sidecar | Pending |
+| 7.1 | Official AG-UI Deferred Tool Approval | Pending |
 | 8 | Go Server | Pending |
 | 9 | Admin Systems | Pending |
 | 10 | Packaging | Pending |
@@ -73,10 +74,16 @@ See: .planning/PROJECT.md
 
 ## Next Actions
 
-1. Phase 05.2 complete — next: Phase 05.3 Right Panel System planning
+1. Plan Phase 07.1 — Official AG-UI Deferred Tool Approval
 
 ## Session
 
-**Last session:** 2026-06-30T16:43:26.404Z
-**Stopped at:** Phase 07 planned
-**Resume file:** .planning/phases/07-hitl-sidecar/07-01-PLAN.md
+**Last session:** 2026-07-02T14:30:51.309Z
+**Stopped at:** Phase 07.1 context gathered
+**Resume file:** .planning/phases/07.1-official-ag-ui-deferred-tool-approval/07.1-CONTEXT.md
+
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 07.1 inserted after Phase 7: Official AG-UI Deferred Tool Approval (URGENT)
