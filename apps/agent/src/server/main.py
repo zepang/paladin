@@ -14,7 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, Response, StreamingResponse
 
-from pydantic_ai.ag_ui import handle_ag_ui_request
+from pydantic_ai.ui.ag_ui import AGUIAdapter
 
 from ..agent.paladin_agent import create_paladin_agent, get_fallback_models
 from ..agent import hitl
@@ -257,14 +257,14 @@ async def copilotkit_endpoint(request: Request) -> Response:
     AG-UI 协议端点
     
     接收 CopilotKit 前端发来的 RunAgentInput，
-    通过 Pydantic AI 的 handle_ag_ui_request 处理并返回 SSE 事件流。
+    通过 Pydantic AI 的 AGUIAdapter 处理并返回 SSE 事件流。
     
     Returns:
         text/event-stream 响应，包含 AG-UI 事件
     """
-    return await handle_ag_ui_request(
-        agent=agent,
+    return await AGUIAdapter.dispatch_request(
         request=request,
+        agent=agent,
         deps=getattr(agent, '_default_deps', None),
     )
 

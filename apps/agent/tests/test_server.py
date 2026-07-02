@@ -64,3 +64,11 @@ class TestCopilotkitEndpoint:
             response = client.options("/copilotkit")
             # FastAPI 的 CORSMiddleware 会在 OPTIONS 上设置 CORS 头
             assert "access-control-allow-origin" in response.headers or True
+
+
+class TestAguiDispatchEntrypoint:
+    def test_server_imports_current_agui_adapter(self):
+        from src.server import main
+
+        assert hasattr(main, "AGUIAdapter")
+        assert not hasattr(main, "handle_ag_ui_request")
