@@ -1,3 +1,6 @@
+from datetime import datetime, timezone
+
+from ag_ui.core import ResumeEntry
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.tools import DeferredToolRequests, ToolApproved, ToolDenied
 
@@ -39,6 +42,24 @@ def test_deferred_approval_maps_to_interrupt_outcome():
     assert interrupt.metadata["risk_level"] == "high"
 
 
+def test_deferred_approval_datetime_expires_at_maps_to_iso_string():
+    expires_at = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    call = ToolCallPart(
+        tool_name="computer_click",
+        args={"x": 10, "y": 20},
+        tool_call_id="call-1",
+    )
+    requests = DeferredToolRequests(
+        calls=[],
+        approvals=[call],
+        metadata={"call-1": {"expires_at": expires_at}},
+    )
+
+    outcome = deferred_approvals_to_interrupt_outcome(requests)
+
+    assert outcome.interrupts[0].expires_at == expires_at.isoformat()
+
+
 def test_resume_approved_maps_to_tool_approved():
     results = resume_entries_to_deferred_tool_results([
         {
@@ -50,6 +71,36 @@ def test_resume_approved_maps_to_tool_approved():
 
     approval = results.approvals["call-1"]
     assert isinstance(approval, ToolApproved)
+
+
+def test_resume_entry_object_approved_maps_to_tool_approved():
+    results = resume_entries_to_deferred_tool_results([
+        ResumeEntry(
+            interruptId="int-call-1",
+            status="resolved",
+            payload={"decision": "approved"},
+        )
+    ])
+
+    approval = results.approvals["call-1"]
+    assert isinstance(approval, ToolApproved)
+
+
+def test_resume_approved_with_malformed_override_args_maps_to_tool_denied():
+    results = resume_entries_to_deferred_tool_results([
+        {
+            "interruptId": "int-call-1",
+            "status": "resolved",
+            "payload": {
+                "decision": "approved",
+                "override_args": ["not", "a", "dict"],
+            },
+        }
+    ])
+
+    approval = results.approvals["call-1"]
+    assert isinstance(approval, ToolDenied)
+    assert "Malformed override_args" in approval.message
 
 
 def test_resume_denied_maps_to_tool_denied():
