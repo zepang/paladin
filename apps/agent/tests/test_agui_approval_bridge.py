@@ -147,3 +147,46 @@ def test_resume_metadata_includes_interrupt_id_and_payload():
 
     assert results.metadata["call-1"]["interrupt_id"] == "int-call-1"
     assert results.metadata["call-1"]["payload"] == payload
+
+
+def test_resume_missing_interrupt_id_fails_closed_as_tool_denied():
+    entry = {"status": "resolved", "payload": {"decision": "approved"}}
+
+    results = resume_entries_to_deferred_tool_results([entry])
+
+    approval = results.approvals["malformed-0"]
+    assert isinstance(approval, ToolDenied)
+    assert "Malformed resume entry" in approval.message
+    assert results.metadata["malformed-0"]["entry"] == entry
+    assert results.metadata["malformed-0"]["payload"] == {"decision": "approved"}
+    assert "interruptId" in results.metadata["malformed-0"]["error"]
+
+
+def test_resume_missing_status_fails_closed_as_tool_denied():
+    entry = {"interruptId": "int-call-1", "payload": {"decision": "approved"}}
+
+    results = resume_entries_to_deferred_tool_results([entry])
+
+    approval = results.approvals["call-1"]
+    assert isinstance(approval, ToolDenied)
+    assert "Malformed resume entry" in approval.message
+    assert results.metadata["call-1"]["interrupt_id"] == "int-call-1"
+    assert results.metadata["call-1"]["entry"] == entry
+    assert "status" in results.metadata["call-1"]["error"]
+
+
+def test_resume_non_string_interrupt_id_fails_closed_with_synthetic_key():
+    entry = {
+        "interruptId": 123,
+        "status": "resolved",
+        "payload": {"decision": "approved"},
+    }
+
+    results = resume_entries_to_deferred_tool_results([entry])
+
+    approval = results.approvals["malformed-0"]
+    assert isinstance(approval, ToolDenied)
+    assert "Malformed resume entry" in approval.message
+    assert results.metadata["malformed-0"]["entry"] == entry
+    assert results.metadata["malformed-0"]["payload"] == {"decision": "approved"}
+    assert "interruptId" in results.metadata["malformed-0"]["error"]

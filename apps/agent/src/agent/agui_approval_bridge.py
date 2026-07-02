@@ -44,13 +44,19 @@ def resume_entries_to_deferred_tool_results(
     approvals: dict[str, ToolApproved | ToolDenied] = {}
     metadata: dict[str, dict[str, Any]] = {}
 
-    for entry in resume_entries:
-        normalized_entry = _normalize_resume_entry(entry)
+    for index, entry in enumerate(resume_entries):
+        normalized_entry = _normalize_resume_entry(entry, index)
         interrupt_id = normalized_entry["interrupt_id"]
-        tool_call_id = _tool_call_id_from_interrupt_id(interrupt_id)
+        tool_call_id = normalized_entry["tool_call_id"]
         payload = normalized_entry["payload"]
         decision = payload.get("decision")
-        metadata[tool_call_id] = {"interrupt_id": interrupt_id, "payload": payload}
+        metadata[tool_call_id] = normalized_entry["metadata"]
+
+        if error := normalized_entry.get("error"):
+            approvals[tool_call_id] = ToolDenied(
+                message=f"Malformed resume entry: {error}"
+            )
+            continue
 
         if normalized_entry["status"] == "cancelled" or decision in {"cancelled", "denied"}:
             approvals[tool_call_id] = ToolDenied(
@@ -92,18 +98,51 @@ def _normalize_expires_at(expires_at: Any) -> str | None:
 
 def _normalize_resume_entry(
     entry: dict[str, Any] | ResumeEntry,
+    index: int,
 ) -> dict[str, Any]:
     if isinstance(entry, dict):
         payload = entry.get("payload") or {}
+        payload = payload if isinstance(payload, dict) else {}
+        interrupt_id = entry.get("interruptId")
+        status = entry.get("status")
+        error = _raw_resume_entry_error(interrupt_id, status)
+        tool_call_id = (
+            _tool_call_id_from_interrupt_id(interrupt_id)
+            if isinstance(interrupt_id, str)
+            else f"malformed-{index}"
+        )
+        metadata = {
+            "interrupt_id": interrupt_id,
+            "payload": payload,
+            "entry": entry,
+        }
+        if error is not None:
+            metadata["error"] = error
+
         return {
-            "interrupt_id": entry["interruptId"],
-            "status": entry["status"],
-            "payload": payload if isinstance(payload, dict) else {},
+            "interrupt_id": interrupt_id,
+            "tool_call_id": tool_call_id,
+            "status": status,
+            "payload": payload,
+            "metadata": metadata,
+            "error": error,
         }
 
     payload = entry.payload or {}
+    payload = payload if isinstance(payload, dict) else {}
     return {
         "interrupt_id": entry.interrupt_id,
+        "tool_call_id": _tool_call_id_from_interrupt_id(entry.interrupt_id),
         "status": entry.status,
-        "payload": payload if isinstance(payload, dict) else {},
+        "payload": payload,
+        "metadata": {"interrupt_id": entry.interrupt_id, "payload": payload},
+        "error": None,
     }
+
+
+def _raw_resume_entry_error(interrupt_id: Any, status: Any) -> str | None:
+    if not isinstance(interrupt_id, str):
+        return "missing or non-string interruptId"
+    if not isinstance(status, str):
+        return "missing or non-string status"
+    return None
