@@ -7,6 +7,8 @@ from ag_ui.core import Interrupt, ResumeEntry
 from ag_ui.core.events import RunFinishedInterruptOutcome
 from pydantic_ai.tools import DeferredToolRequests, DeferredToolResults, ToolApproved, ToolDenied
 
+_VALID_RESUME_STATUSES = {"resolved", "cancelled"}
+
 
 def deferred_approvals_to_interrupt_outcome(
     requests: DeferredToolRequests,
@@ -163,4 +165,9 @@ def _raw_resume_entry_error(interrupt_id: Any, status: Any) -> str | None:
         return "missing or non-string interruptId"
     if not isinstance(status, str):
         return "missing or non-string status"
+    if status not in _VALID_RESUME_STATUSES:
+        return (
+            "invalid status: expected 'resolved' or 'cancelled', "
+            f"got {status!r}"
+        )
     return None

@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import pytest
 from ag_ui.core import ResumeEntry
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.tools import DeferredToolRequests, ToolApproved, ToolDenied
@@ -195,6 +196,22 @@ def test_resume_missing_status_fails_closed_as_tool_denied():
     assert results.metadata["call-1"]["interrupt_id"] == "int-call-1"
     assert results.metadata["call-1"]["entry"] == entry
     assert "status" in results.metadata["call-1"]["error"]
+
+
+@pytest.mark.parametrize("status", ["pending", "bad", ""])
+def test_resume_invalid_status_fails_closed_as_tool_denied(status):
+    entry = {
+        "interruptId": "int-call-1",
+        "status": status,
+        "payload": {"decision": "approved"},
+    }
+
+    results = resume_entries_to_deferred_tool_results([entry])
+
+    approval = results.approvals["call-1"]
+    assert isinstance(approval, ToolDenied)
+    assert "Malformed resume entry" in approval.message
+    assert "invalid status" in results.metadata["call-1"]["error"]
 
 
 def test_resume_raw_dict_accepts_snake_case_interrupt_id():
