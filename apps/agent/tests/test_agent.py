@@ -57,6 +57,25 @@ def make_model_config(**kwargs) -> dict:
     return defaults
 
 
+def test_hitl_mode_defaults_to_agui_interrupt():
+    from src.agent.paladin_agent import _approval_mode
+
+    assert _approval_mode({}) == "agui_interrupt"
+
+
+def test_hitl_mode_allows_legacy_sse_fallback():
+    from src.agent.paladin_agent import _approval_mode
+
+    assert _approval_mode({"hitl": {"mode": "legacy_sse"}}) == "legacy_sse"
+
+
+def test_hitl_mode_rejects_unsupported_value():
+    from src.agent.paladin_agent import _approval_mode
+
+    with pytest.raises(ValueError, match="Unsupported hitl.mode"):
+        _approval_mode({"hitl": {"mode": "unsupported"}})
+
+
 # ---- RED Tests: Agent 创建 ----
 
 class TestAgentCreation:

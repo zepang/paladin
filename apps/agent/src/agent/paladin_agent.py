@@ -235,6 +235,13 @@ def _load_mcp_servers(raw_config: dict) -> list:
     return toolsets
 
 
+def _approval_mode(raw_config: dict) -> str:
+    mode = raw_config.get("hitl", {}).get("mode", "agui_interrupt")
+    if mode not in {"agui_interrupt", "legacy_sse"}:
+        raise ValueError(f"Unsupported hitl.mode: {mode}")
+    return mode
+
+
 def create_paladin_agent(
     models_config_path: str = "config/config.json",
     system_prompt_path: str = "prompts/system.md",
@@ -317,6 +324,7 @@ def create_paladin_agent(
     require_approval = hitl_parsed["require_approval"]
     blocked = hitl_parsed["blocked"]
     timeout = hitl_parsed["timeout_seconds"]
+    mode = _approval_mode(raw_config)
 
     # ---- Computer Use 工具 ----
     computer_tools = _create_computer_use_tools()
@@ -328,16 +336,23 @@ def create_paladin_agent(
     else:
         logger.warning("computer_use_tools_unavailable")
 
-    approval_callback = create_approval_callback(timeout=timeout)
-
-    guard = ToolGuard(
-        blocked=blocked,
-        require_approval=require_approval,
-        approval_callback=approval_callback,
+    approval_callback = (
+        create_approval_callback(timeout=timeout)
+        if mode == "legacy_sse"
+        else None
     )
+
+    guard_kwargs = {
+        "blocked": blocked,
+        "require_approval": require_approval,
+    }
+    if approval_callback is not None:
+        guard_kwargs["approval_callback"] = approval_callback
+
+    guard = ToolGuard(**guard_kwargs)
     logger.info(
-        "hitl_initialized require_approval=%s blocked=%s timeout=%d",
-        require_approval, blocked, timeout,
+        "hitl_initialized mode=%s require_approval=%s blocked=%s timeout=%d",
+        mode, require_approval, blocked, timeout,
     )
 
     # 使用 pydantic-deep 创建 Agent，集成全部内建工具集 (D-01, D-02, D-04)
