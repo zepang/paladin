@@ -57,7 +57,7 @@ function getToolName(interrupt: ApprovalInterrupt): string {
 
 function getArgsSummary(interrupt: ApprovalInterrupt): string {
   const metadata = interrupt.metadata ?? {};
-  const args = metadata.args ?? metadata.arguments ?? metadata.parameters;
+  const args = metadata.tool_args ?? metadata.args ?? metadata.arguments ?? metadata.parameters;
   return truncate(stringify(args), 200);
 }
 

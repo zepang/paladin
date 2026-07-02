@@ -9,7 +9,7 @@ const interrupt: ApprovalInterrupt = {
   toolCallId: 'tool-call-1',
   metadata: {
     toolName: 'edit_file',
-    args: {
+    tool_args: {
       path: 'src/App.tsx',
       replacement: 'updated content',
     },
