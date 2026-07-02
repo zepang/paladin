@@ -161,6 +161,41 @@ class TestAguiDispatchEntrypoint:
             approval = captured["deferred_tool_results"].approvals["call-1"]
             assert isinstance(approval, ToolApproved)
 
+    def test_copilotkit_dispatches_non_object_json_without_deferred_results(
+        self,
+        monkeypatch,
+    ):
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+            from fastapi.testclient import TestClient
+            from src.server import main
+
+            captured = {}
+
+            async def fake_dispatch_request(
+                *,
+                request,
+                agent,
+                deps,
+                deferred_tool_results,
+            ):
+                captured["body"] = await request.json()
+                captured["deferred_tool_results"] = deferred_tool_results
+                return Response("ok")
+
+            monkeypatch.setattr(
+                main.AGUIAdapter,
+                "dispatch_request",
+                fake_dispatch_request,
+            )
+
+            client = TestClient(main.app)
+            response = client.post("/copilotkit", json=[])
+
+            assert response.status_code == 200
+            assert response.text == "ok"
+            assert captured["body"] == []
+            assert captured["deferred_tool_results"] is None
+
 
 class TestAguiResumeExtraction:
     def test_extract_resume_entries_from_run_agent_input(self):
@@ -189,6 +224,18 @@ class TestAguiResumeExtraction:
         from src.server.main import _extract_resume_entries
 
         assert _extract_resume_entries({"threadId": "thread-1"}) == []
+
+    def test_extract_resume_entries_defaults_to_empty_list_for_non_objects(self):
+        from src.server.main import _extract_resume_entries
+
+        assert _extract_resume_entries([]) == []
+        assert _extract_resume_entries("x") == []
+
+    def test_extract_resume_entries_defaults_to_empty_list_for_non_list_resume(self):
+        from src.server.main import _extract_resume_entries
+
+        assert _extract_resume_entries({"resume": "x"}) == []
+        assert _extract_resume_entries({"resume": {"interruptId": "int-call-1"}}) == []
 
 
 class TestThreadsEndpoint:

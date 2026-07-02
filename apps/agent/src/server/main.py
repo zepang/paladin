@@ -252,7 +252,9 @@ async def copilotkit_info():
     })
 
 
-def _extract_resume_entries(body: dict) -> list[dict]:
+def _extract_resume_entries(body: object) -> list[dict]:
+    if not isinstance(body, dict):
+        return []
     resume = body.get("resume")
     return resume if isinstance(resume, list) else []
 
