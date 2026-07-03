@@ -173,7 +173,7 @@ Run:
 
 ```bash
 cd apps/agent
-uv run pytest tests/test_agent.py tests/test_hitl.py -v
+uv run pytest tests/test_agent.py tests/test_server.py tests/test_agui_dependency_probe.py -v
 ```
 
 Expected: all tests pass. If `ToolGuard` requires `approval_callback` for `require_approval`, stop and keep `agui_interrupt` as the only supported mode until Task 8 verifies native Pydantic tool approval for the selected tools.
@@ -271,7 +271,6 @@ If no changes were needed, do not create an empty commit.
 - Modify: `apps/desktop/src/App.tsx`
 - Modify: `apps/agent/src/server/main.py`
 - Modify: `apps/agent/src/agent/paladin_agent.py`
-- Modify: `apps/agent/tests/test_hitl.py`
 - Modify: `apps/agent/tests/test_server.py`
 
 - [ ] **Step 1: Confirm frontend provider and dialog wiring is gone**

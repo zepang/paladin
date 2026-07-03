@@ -143,6 +143,28 @@ class TestAgentCreation:
             )
             assert isinstance(agent, Agent)
 
+    def test_create_agent_rejects_legacy_sse_before_api_key_validation(self, tmp_path):
+        """显式 legacy_sse 必须先于模型/API Key 初始化被拒绝"""
+        config_json = write_config_json(
+            tmp_path,
+            {
+                "models": [make_model_config(api_key="$PALADIN_MISSING_API_KEY")],
+                "mcp_servers": [],
+                "hitl": {"mode": "legacy_sse"},
+            },
+        )
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are a helpful assistant.")
+
+        from src.agent.paladin_agent import create_paladin_agent
+
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(ValueError, match="legacy_sse.*agui_interrupt"):
+                create_paladin_agent(
+                    models_config_path=str(config_json),
+                    system_prompt_path=str(prompt_md),
+                )
+
     def test_agent_has_system_prompt(self, tmp_path):
         """
         Agent 使用 prompts/system.md 中的 System Prompt

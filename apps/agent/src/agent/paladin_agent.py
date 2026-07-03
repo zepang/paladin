@@ -317,6 +317,8 @@ def create_paladin_agent(
     except json.JSONDecodeError as e:
         raise ValueError(f"模型配置 JSON 解析失败: {e}") from e
 
+    mode = _approval_mode(raw_config)
+
     # 加载模型配置
     model_configs = load_models(models_config_path)
     logger.info("已加载 %d 个模型配置", len(model_configs))
@@ -355,7 +357,6 @@ def create_paladin_agent(
     require_approval = hitl_parsed["require_approval"]
     blocked = hitl_parsed["blocked"]
     timeout_seconds = hitl_parsed["timeout_seconds"]
-    mode = _approval_mode(raw_config)
 
     # ---- Computer Use 工具 ----
     computer_tools = _create_computer_use_tools()

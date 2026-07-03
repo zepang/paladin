@@ -140,9 +140,7 @@ The existing `ApprovalCard` can provide visual and interaction direction, but it
 
 ### Toolbar and Dialog
 
-The toolbar may keep a lightweight pending-approval indicator, but it should not be the primary approval surface.
-
-`ApprovalDialog` should be removed from the main approval path after the message-stream card is working. If a modal remains useful for details, it should be opened from the card and should not own approval state.
+After Phase 07.2, `AguiApprovalInterrupt` and `ApprovalCard` in the chat stream are the only active approval surface. The toolbar must not own or mirror pending approval state, and `ApprovalDialog` must not render as an approval fallback or details modal.
 
 ### Resume Behavior
 
