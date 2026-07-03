@@ -81,6 +81,53 @@ def test_hitl_mode_rejects_unsupported_value():
 class TestAgentCreation:
     """测试 create_paladin_agent() 函数"""
 
+    def test_deepseek_model_uses_verified_tls_client(self, monkeypatch):
+        """DeepSeek 模型客户端不能禁用 TLS 证书校验"""
+        from src.agent.paladin_agent import ModelConfig, _create_model
+
+        captured = {}
+
+        class FakeAsyncClient:
+            def __init__(self, **kwargs):
+                captured["httpx_kwargs"] = kwargs
+
+        class FakeAsyncOpenAI:
+            def __init__(self, **kwargs):
+                captured["openai_kwargs"] = kwargs
+
+        class FakeDeepSeekProvider:
+            def __init__(self, **kwargs):
+                captured["provider_kwargs"] = kwargs
+
+        class FakeOpenAIChatModel:
+            def __init__(self, model_id, provider):
+                self.model_id = model_id
+                self.provider = provider
+
+        monkeypatch.setattr("httpx.AsyncClient", FakeAsyncClient)
+        monkeypatch.setattr("openai.AsyncOpenAI", FakeAsyncOpenAI)
+        monkeypatch.setattr(
+            "src.agent.paladin_agent.DeepSeekProvider",
+            FakeDeepSeekProvider,
+        )
+        monkeypatch.setattr(
+            "src.agent.paladin_agent.OpenAIChatModel",
+            FakeOpenAIChatModel,
+        )
+
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+            _create_model(ModelConfig(
+                id="deepseek",
+                provider="deepseek",
+                model_id="deepseek-chat",
+                api_base="https://api.deepseek.com/v1",
+                api_key="$DEEPSEEK_API_KEY",
+                priority=1,
+            ))
+
+        http_client = captured["openai_kwargs"].get("http_client")
+        assert getattr(http_client, "verify", None) is not False
+
     def test_create_agent_returns_valid_agent(self, tmp_path):
         """创建 Agent 返回有效的 Pydantic AI Agent 实例"""
         from pydantic_ai import Agent

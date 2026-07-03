@@ -29,6 +29,30 @@ class TestHealthEndpoint:
             assert data["agent"] == "paladin-agent"
             assert isinstance(data["models"], list)
 
+    def test_health_reads_model_ids_without_recreating_fallback_clients(self, monkeypatch):
+        """/health 只读取模型配置 ID，不重新创建模型客户端"""
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+            from fastapi.testclient import TestClient
+            from src.server import main
+
+            def fail_if_called(_agent):
+                raise AssertionError("/health must not recreate fallback model clients")
+
+            monkeypatch.setattr(
+                main,
+                "get_fallback_models",
+                fail_if_called,
+                raising=False,
+            )
+
+            client = TestClient(main.app)
+            response = client.get("/health")
+
+            assert response.status_code == 200
+            assert response.json()["models"] == [
+                config.id for config in main.agent._model_configs
+            ]
+
 
 # ---- Tests: /copilotkit 端点 ----
 

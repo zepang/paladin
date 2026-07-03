@@ -16,7 +16,7 @@ from starlette.responses import JSONResponse, Response, StreamingResponse
 
 from pydantic_ai.ui.ag_ui import AGUIAdapter
 
-from ..agent.paladin_agent import create_paladin_agent, get_fallback_models
+from ..agent.paladin_agent import create_paladin_agent
 from ..agent import hitl
 
 # ---- 日志 ----
@@ -292,8 +292,8 @@ async def health():
     Returns:
         JSON: {"status": "ok", "agent": "paladin-agent", "models": [...]}
     """
-    fallback = get_fallback_models(agent)
-    model_ids = [config.id for config, _ in fallback]
+    model_configs = getattr(agent, "_model_configs", [])
+    model_ids = [config.id for config in model_configs]
 
     return JSONResponse({
         "status": "ok",
