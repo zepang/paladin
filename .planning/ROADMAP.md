@@ -18,6 +18,7 @@
 | 5.3 | Right Panel System | 多视图右侧面板：终端/文件预览/Diff审查 | Phase 5.2 |
 | 6 | Agent Tools | 文件/终端/MCP/Skills/子Agent | Phase 4 |
 | 7 | HITL + Sidecar | 权限审批 + 进程管理 | Phase 4 + 5 |
+| 7.1 | Official AG-UI Deferred Tool Approval | 官方 AG-UI interrupt/resume 权限审批 | Phase 7 |
 | 8 | Go Server | 认证/数据库/WebSocket Hub | — |
 | 9 | Admin Systems | 审计日志 + 配额管理 | Phase 8 |
 | 10 | Packaging | 打包发布 + 文档 | Phase 1-9 |
@@ -160,15 +161,30 @@ Plans:
 - [ ] 07-06-PLAN.md — ChatToolbar 审批状态栏升级 + App.tsx 集成
 
 **Phase 7a (this phase):**
+
 - CopilotKit HITL 审批流（SSE + HTTP 回调 + asyncio.Event 等待）
 - config.json 驱动工具审批列表 + ToolGuard 守卫
 - Computer Use (pyautogui screenshot / click / typewrite)
 - 前端审批卡片（聊天流内嵌 + AlertDialog 弹窗）+ ChatToolbar 审批状态
 
 **Phase 7b (deferred):**
+
 - Tauri sidecar 管理 Python Agent (SDC-01)
 - Tauri sidecar 管理 Go Server (SDC-02) — deferred after Phase 8
 - 健康检查 + 自动重启 (SDC-03)
+
+### Phase 07.1: Official AG-UI Deferred Tool Approval (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 1 plan
+
+Plans:
+
+- [ ] 07.1-01-PLAN.md — Official AG-UI deferred approval consolidation + verification
+
+**Follow-up:** Phase 07.2 should remove the retained legacy SSE approval path after Phase 07.1 verification passes. Cleanup candidates are tracked in `07.1-07.2-HANDOFF.md`.
 
 ### Phase 8: Go Server
 
