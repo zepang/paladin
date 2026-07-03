@@ -19,7 +19,7 @@
 | 6 | Agent Tools | 文件/终端/MCP/Skills/子Agent | Phase 4 |
 | 7 | HITL + Sidecar | 权限审批 + 进程管理 | Phase 4 + 5 |
 | 7.1 | Official AG-UI Deferred Tool Approval | Pydantic AI 官方 interrupt/resume 审批路径 | Phase 7 |
-| 7.2 | Legacy SSE Approval Cleanup | 移除保留的 legacy SSE 审批 fallback | Phase 7.1 |
+| 7.2 | 2/5 | In Progress|  |
 | 8 | Go Server | 认证/数据库/WebSocket Hub | — |
 | 9 | Admin Systems | 审计日志 + 配额管理 | Phase 8 |
 | 10 | Packaging | 打包发布 + 文档 | Phase 1-9 |
@@ -192,14 +192,14 @@ Plans:
 **Goal:** Remove the retained legacy SSE approval fallback now that the official AG-UI interrupt/resume path is verified.
 **Requirements**: TBD
 **Depends on:** Phase 07.1
-**Plans:** 5 plans
+**Plans:** 2/5 plans executed
 
 Plans:
 
 **Wave 1**
 
-- [ ] 07.2-01-PLAN.md — Backend approval mode supports only `agui_interrupt`
-- [ ] 07.2-03-PLAN.md — Desktop legacy bridge/dialog/provider/status cleanup
+- [x] 07.2-01-PLAN.md — Backend approval mode supports only `agui_interrupt`
+- [x] 07.2-03-PLAN.md — Desktop legacy bridge/dialog/provider/status cleanup
 
 **Wave 2 *(blocked on Wave 1 backend completion)***
 

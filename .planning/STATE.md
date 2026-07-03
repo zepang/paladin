@@ -6,11 +6,11 @@ current_phase: 07.2
 current_phase_name: Legacy SSE Approval Cleanup
 status: Ready to plan
 stopped_at: Phase 07.2 UI-SPEC approved
-last_updated: "2026-07-03T08:50:46.630Z"
+last_updated: "2026-07-03T09:35:40.649Z"
 progress:
   total_phases: 15
   completed_phases: 10
-  total_plans: 26
+  total_plans: 31
   completed_plans: 21
   percent: 67
 ---
@@ -25,7 +25,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 07.2 — Legacy SSE Approval Cleanup
+**Current focus:** Phase 07.2 — legacy-sse-approval-cleanup
 
 ## Phase Status
 
