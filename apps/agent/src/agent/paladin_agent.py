@@ -349,12 +349,12 @@ def create_paladin_agent(
     # 按需加载 MCP 服务器
     mcp_toolsets = _load_mcp_servers(raw_config)
 
-    # ---- HITL 初始化 ----
+    # ---- HITL 配置初始化 ----
     hitl_config = raw_config.get("hitl", {})
     hitl_parsed = validate_hitl_config(hitl_config, [])
     require_approval = hitl_parsed["require_approval"]
     blocked = hitl_parsed["blocked"]
-    timeout = hitl_parsed["timeout_seconds"]
+    timeout_seconds = hitl_parsed["timeout_seconds"]
     mode = _approval_mode(raw_config)
 
     # ---- Computer Use 工具 ----
@@ -381,7 +381,7 @@ def create_paladin_agent(
     guard = ToolGuard(**guard_kwargs)
     logger.info(
         "hitl_initialized mode=%s require_approval=%s blocked=%s timeout=%d",
-        mode, require_approval, blocked, timeout,
+        mode, require_approval, blocked, timeout_seconds,
     )
 
     # 使用 pydantic-deep 创建 Agent，集成全部内建工具集 (D-01, D-02, D-04)

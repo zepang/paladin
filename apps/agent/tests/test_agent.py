@@ -1,7 +1,4 @@
-"""
-Agent Core 测试套件 — TDD RED Phase
-测试 Agent 创建、模型配置加载、fallback 链
-"""
+"""Agent Core 测试套件：Agent 创建、模型配置加载、fallback 链。"""
 import pytest
 import json
 import os
