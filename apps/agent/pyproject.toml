@@ -10,6 +10,7 @@ dependencies = [
     "openai>=2.41.1",
     "pydantic-ai[ag-ui]>=2.3.0",
     "pydantic-deep>=0.3.34",
+    "pillow>=11.3.0",
     "pyautogui>=0.9.54",
     "python-dotenv>=1.2.2",
     "pyyaml>=6.0.3",

@@ -7,8 +7,11 @@ import { ThemeToggle } from './ThemeToggle';
 
 /** 手动触发窗口拖拽 — 仅左键触发，不阻止默认行为以便 Tauri 原生 drag-region 处理 */
 function handleDragRegionMouseDown(e: React.MouseEvent) {
-  // if (e.buttons !== 1) return;
-  // getCurrentWebviewWindow().startDragging();
+  if (e.buttons !== 1) return;
+  if (!(e.target instanceof HTMLElement)) return;
+  if (!e.target.closest('[data-tauri-drag-region]')) return;
+
+  getCurrentWebviewWindow().startDragging();
 }
 
 export function Titlebar({
