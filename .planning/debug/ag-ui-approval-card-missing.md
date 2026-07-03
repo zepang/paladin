@@ -1,3 +1,10 @@
+---
+status: resolved
+phase: 07.1-official-ag-ui-deferred-tool-approval
+updated: 2026-07-03T06:13:29Z
+resolution: "Fix implemented and manual UAT retest passed."
+---
+
 # AG-UI Approval Card Missing Debug
 
 ## Context
