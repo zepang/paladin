@@ -6,7 +6,6 @@ Paladin Agent Core — Agent 创建、模型加载、fallback 链
 - load_models(): 从 JSON 解析模型配置列表
 - create_paladin_agent(): 创建完整的 Paladin Agent 实例（含 TodoToolset + FilesystemToolset）
 """
-import asyncio
 import os
 import json
 import logging
@@ -23,7 +22,6 @@ from pydantic_deep import create_deep_agent
 from pydantic_deep import LocalBackend
 from pydantic_deep import create_default_deps
 
-from src.agent.hitl import create_approval_callback, validate_hitl_config
 from src.agent.computer_use import _create_computer_use_tools
 
 # ---- 日志 ----
@@ -233,9 +231,46 @@ def _load_mcp_servers(raw_config: dict) -> list:
 
 def _approval_mode(raw_config: dict) -> str:
     mode = raw_config.get("hitl", {}).get("mode", "agui_interrupt")
-    if mode not in {"agui_interrupt", "legacy_sse"}:
+    if mode == "legacy_sse":
+        raise ValueError(
+            "Unsupported hitl.mode: legacy_sse. "
+            "The only supported approval mode is agui_interrupt."
+        )
+    if mode != "agui_interrupt":
         raise ValueError(f"Unsupported hitl.mode: {mode}")
     return mode
+
+
+def validate_hitl_config(
+    raw_config: dict,
+    known_tool_names: list[str],
+) -> dict:
+    """Normalize neutral HITL config without legacy approval transport state."""
+    require_approval = raw_config.get("require_approval", [])
+    blocked = raw_config.get("blocked", [])
+    timeout_seconds = raw_config.get("timeout_seconds", 30)
+
+    known_set = set(known_tool_names)
+
+    for tool_name in require_approval:
+        if tool_name not in known_set:
+            logger.warning(
+                "hitl_config_unknown_tool tool_name=%s list_type=require_approval",
+                tool_name,
+            )
+
+    for tool_name in blocked:
+        if tool_name not in known_set:
+            logger.warning(
+                "hitl_config_unknown_tool tool_name=%s list_type=blocked",
+                tool_name,
+            )
+
+    return {
+        "require_approval": require_approval,
+        "blocked": blocked,
+        "timeout_seconds": timeout_seconds,
+    }
 
 
 def create_paladin_agent(
@@ -332,25 +367,16 @@ def create_paladin_agent(
     else:
         logger.warning("computer_use_tools_unavailable")
 
-    if mode == "agui_interrupt":
-        interrupt_on = {tool_name: True for tool_name in require_approval}
-        guarded_require_approval: list[str] = []
-        approval_callback = None
-        approved_computer_tools = [
-            Tool(tool, requires_approval=True) for tool in computer_tools
-        ] if computer_tools else None
-    else:
-        interrupt_on = None
-        guarded_require_approval = require_approval
-        approval_callback = create_approval_callback(timeout=timeout)
-        approved_computer_tools = computer_tools if computer_tools else None
+    interrupt_on = {tool_name: True for tool_name in require_approval}
+    guarded_require_approval: list[str] = []
+    approved_computer_tools = [
+        Tool(tool, requires_approval=True) for tool in computer_tools
+    ] if computer_tools else None
 
     guard_kwargs = {
         "blocked": blocked,
         "require_approval": guarded_require_approval,
     }
-    if approval_callback is not None:
-        guard_kwargs["approval_callback"] = approval_callback
 
     guard = ToolGuard(**guard_kwargs)
     logger.info(
@@ -386,9 +412,6 @@ def create_paladin_agent(
 
     # 将模型配置列表附加到 agent 上，供 server 层 fallback 使用
     agent._model_configs = model_configs  # type: ignore[attr-defined]
-
-    # 创建 SSE 队列供 server 层注入到 hitl._sse_queue（Plan 03 桥接）
-    agent._hitl_sse_queue = asyncio.Queue()  # type: ignore[attr-defined]
 
     return agent
 
