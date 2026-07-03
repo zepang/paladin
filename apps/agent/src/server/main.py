@@ -17,7 +17,6 @@ from starlette.responses import JSONResponse, Response, StreamingResponse
 from pydantic_ai.ui.ag_ui import AGUIAdapter
 
 from ..agent.paladin_agent import create_paladin_agent, get_fallback_models
-from ..agent.agui_approval_bridge import resume_entries_to_deferred_tool_results
 from ..agent import hitl
 
 # ---- 日志 ----
@@ -252,13 +251,6 @@ async def copilotkit_info():
     })
 
 
-def _extract_resume_entries(body: object) -> list[dict]:
-    if not isinstance(body, dict):
-        return []
-    resume = body.get("resume")
-    return resume if isinstance(resume, list) else []
-
-
 @app.post("/copilotkit")
 async def copilotkit_endpoint(request: Request) -> Response:
     """
@@ -275,13 +267,6 @@ async def copilotkit_endpoint(request: Request) -> Response:
     except Exception:
         return JSONResponse({"detail": "Invalid JSON body"}, status_code=422)
 
-    resume_entries = _extract_resume_entries(body)
-    deferred_tool_results = (
-        resume_entries_to_deferred_tool_results(resume_entries)
-        if resume_entries
-        else None
-    )
-
     async def receive_once():
         return {
             "type": "http.request",
@@ -294,7 +279,6 @@ async def copilotkit_endpoint(request: Request) -> Response:
         request=replay_request,
         agent=agent,
         deps=getattr(agent, '_default_deps', None),
-        deferred_tool_results=deferred_tool_results,
     )
 
 

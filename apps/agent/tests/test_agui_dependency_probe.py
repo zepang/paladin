@@ -18,7 +18,7 @@ def test_agui_protocol_has_standard_interrupt_and_resume_types():
 
     interrupt = Interrupt(
         id="int-call-1",
-        reason="approval_required",
+        reason="tool_call",
         message="Approve tool call",
         toolCallId="call-1",
         metadata={"tool_name": "computer_click"},
@@ -32,7 +32,7 @@ def test_agui_protocol_has_standard_interrupt_and_resume_types():
     resume = ResumeEntry(
         interruptId="int-call-1",
         status="resolved",
-        payload={"decision": "approved"},
+        payload={"approved": True},
     )
     assert resume.interrupt_id == "int-call-1"
     assert resume.status == "resolved"

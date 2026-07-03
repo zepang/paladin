@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from pydantic_ai import Agent
+from pydantic_ai import Agent, Tool
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.providers.deepseek import DeepSeekProvider
@@ -336,15 +336,22 @@ def create_paladin_agent(
     else:
         logger.warning("computer_use_tools_unavailable")
 
-    approval_callback = (
-        create_approval_callback(timeout=timeout)
-        if mode == "legacy_sse"
-        else None
-    )
+    if mode == "agui_interrupt":
+        interrupt_on = {tool_name: True for tool_name in require_approval}
+        guarded_require_approval: list[str] = []
+        approval_callback = None
+        approved_computer_tools = [
+            Tool(tool, requires_approval=True) for tool in computer_tools
+        ] if computer_tools else None
+    else:
+        interrupt_on = None
+        guarded_require_approval = require_approval
+        approval_callback = create_approval_callback(timeout=timeout)
+        approved_computer_tools = computer_tools if computer_tools else None
 
     guard_kwargs = {
         "blocked": blocked,
-        "require_approval": require_approval,
+        "require_approval": guarded_require_approval,
     }
     if approval_callback is not None:
         guard_kwargs["approval_callback"] = approval_callback
@@ -360,7 +367,7 @@ def create_paladin_agent(
         model=primary_model,
         system_prompt=instructions,
         capabilities=[guard],
-        tools=computer_tools if computer_tools else None,
+        tools=approved_computer_tools,
         include_todo=True,                  # 启用 TodoToolset
         include_filesystem=True,            # 启用 FilesystemToolset
         include_subagents=True,             # 启用 SubAgentToolset
@@ -372,6 +379,7 @@ def create_paladin_agent(
         skill_directories=[str(skills_path)],
         max_nesting_depth=1,                # 子 Agent 不可递归创建
         mcp_servers=mcp_toolsets if mcp_toolsets else None,
+        interrupt_on=interrupt_on,
         backend=backend,
     )
     logger.info("Agent 已创建（含 Todo + Filesystem + Skills + SubAgents + Execute + Plan）")

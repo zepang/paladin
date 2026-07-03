@@ -92,12 +92,10 @@ class TestAguiDispatchEntrypoint:
                 request,
                 agent,
                 deps,
-                deferred_tool_results,
             ):
                 captured["request"] = request
                 captured["agent"] = agent
                 captured["deps"] = deps
-                captured["deferred_tool_results"] = deferred_tool_results
                 captured["body"] = await request.json()
                 return Response("adapter-ok", status_code=202)
 
@@ -115,13 +113,11 @@ class TestAguiDispatchEntrypoint:
             assert isinstance(captured["request"], Request)
             assert captured["agent"] is main.agent
             assert captured["deps"] is getattr(main.agent, "_default_deps", None)
-            assert captured["deferred_tool_results"] is None
             assert captured["body"] == {"messages": []}
 
-    def test_copilotkit_dispatches_resume_as_deferred_tool_results(self, monkeypatch):
+    def test_copilotkit_preserves_resume_for_official_agui_adapter(self, monkeypatch):
         with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
             from fastapi.testclient import TestClient
-            from pydantic_ai.tools import ToolApproved
             from src.server import main
 
             captured = {}
@@ -131,7 +127,7 @@ class TestAguiDispatchEntrypoint:
                     {
                         "interruptId": "int-call-1",
                         "status": "resolved",
-                        "payload": {"decision": "approved"},
+                        "payload": {"approved": True},
                     }
                 ],
             }
@@ -141,10 +137,8 @@ class TestAguiDispatchEntrypoint:
                 request,
                 agent,
                 deps,
-                deferred_tool_results,
             ):
                 captured["body"] = await request.json()
-                captured["deferred_tool_results"] = deferred_tool_results
                 return Response("adapter-ok", status_code=202)
 
             monkeypatch.setattr(
@@ -158,8 +152,6 @@ class TestAguiDispatchEntrypoint:
 
             assert response.status_code == 202
             assert captured["body"] == body
-            approval = captured["deferred_tool_results"].approvals["call-1"]
-            assert isinstance(approval, ToolApproved)
 
     def test_copilotkit_dispatches_non_object_json_without_deferred_results(
         self,
@@ -176,10 +168,8 @@ class TestAguiDispatchEntrypoint:
                 request,
                 agent,
                 deps,
-                deferred_tool_results,
             ):
                 captured["body"] = await request.json()
-                captured["deferred_tool_results"] = deferred_tool_results
                 return Response("ok")
 
             monkeypatch.setattr(
@@ -194,48 +184,6 @@ class TestAguiDispatchEntrypoint:
             assert response.status_code == 200
             assert response.text == "ok"
             assert captured["body"] == []
-            assert captured["deferred_tool_results"] is None
-
-
-class TestAguiResumeExtraction:
-    def test_extract_resume_entries_from_run_agent_input(self):
-        from src.server.main import _extract_resume_entries
-
-        body = {
-            "threadId": "thread-1",
-            "runId": "run-2",
-            "state": {},
-            "messages": [],
-            "tools": [],
-            "context": [],
-            "forwardedProps": {},
-            "resume": [
-                {
-                    "interruptId": "int-call-1",
-                    "status": "resolved",
-                    "payload": {"decision": "approved"},
-                }
-            ],
-        }
-
-        assert _extract_resume_entries(body) == body["resume"]
-
-    def test_extract_resume_entries_defaults_to_empty_list(self):
-        from src.server.main import _extract_resume_entries
-
-        assert _extract_resume_entries({"threadId": "thread-1"}) == []
-
-    def test_extract_resume_entries_defaults_to_empty_list_for_non_objects(self):
-        from src.server.main import _extract_resume_entries
-
-        assert _extract_resume_entries([]) == []
-        assert _extract_resume_entries("x") == []
-
-    def test_extract_resume_entries_defaults_to_empty_list_for_non_list_resume(self):
-        from src.server.main import _extract_resume_entries
-
-        assert _extract_resume_entries({"resume": "x"}) == []
-        assert _extract_resume_entries({"resume": {"interruptId": "int-call-1"}}) == []
 
 
 class TestThreadsEndpoint:

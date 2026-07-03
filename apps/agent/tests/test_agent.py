@@ -434,6 +434,65 @@ class TestToolsetActivation:
                 assert call_kwargs.get("include_plan") is True
                 assert call_kwargs.get("web_search") is False
 
+    def test_agui_interrupt_mode_passes_require_approval_to_deep_agent_interrupts(self, tmp_path):
+        """agui_interrupt 模式使用 Pydantic deferred approval，而不是 ToolGuard callback。"""
+        config_json = write_config_json(
+            tmp_path,
+            {
+                "models": [make_model_config()],
+                "hitl": {
+                    "mode": "agui_interrupt",
+                    "require_approval": ["write_file", "execute"],
+                },
+            },
+        )
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are helpful.")
+
+        with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
+            with patch("src.agent.paladin_agent._create_computer_use_tools", return_value=[]):
+                with patch("src.agent.paladin_agent.create_deep_agent") as mock_create:
+                    from src.agent.paladin_agent import create_paladin_agent
+
+                    create_paladin_agent(
+                        models_config_path=str(config_json),
+                        system_prompt_path=str(prompt_md),
+                    )
+
+        call_kwargs = mock_create.call_args.kwargs
+        assert call_kwargs["interrupt_on"] == {
+            "write_file": True,
+            "execute": True,
+        }
+        guard = call_kwargs["capabilities"][0]
+        assert guard.require_approval == []
+        assert guard.approval_callback is None
+
+    def test_computer_use_tools_are_registered_with_native_approval(self, tmp_path):
+        """Computer Use 工具用 Tool(requires_approval=True) 进入 Pydantic deferred approval。"""
+        config_json = write_config_json(tmp_path, {"models": [make_model_config()]})
+        prompt_md = tmp_path / "system.md"
+        prompt_md.write_text("You are helpful.")
+
+        async def computer_click(ctx, x: int, y: int) -> str:
+            return "clicked"
+
+        with patch.dict(os.environ, {"TEST_API_KEY": "fake-key"}):
+            with patch("src.agent.paladin_agent._create_computer_use_tools", return_value=[computer_click]):
+                with patch("src.agent.paladin_agent.create_deep_agent") as mock_create:
+                    from pydantic_ai import Tool
+                    from src.agent.paladin_agent import create_paladin_agent
+
+                    create_paladin_agent(
+                        models_config_path=str(config_json),
+                        system_prompt_path=str(prompt_md),
+                    )
+
+                    tools = mock_create.call_args.kwargs["tools"]
+                    assert len(tools) == 1
+                    assert isinstance(tools[0], Tool)
+                    assert tools[0].requires_approval is True
+
     def test_skills_dir_empty_no_error(self, tmp_path):
         """skills/ 目录为空时 Agent 正常启动"""
         config_json = write_config_json(tmp_path, {"models": [make_model_config()]})
