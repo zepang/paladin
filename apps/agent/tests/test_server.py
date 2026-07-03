@@ -210,6 +210,27 @@ class TestAguiDispatchEntrypoint:
             assert captured["body"] == []
 
 
+class TestLegacyApprovalRoutes:
+    def test_legacy_approval_routes_are_not_registered(self):
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+            from src.server import main
+
+            paths = {route.path for route in main.app.routes}
+
+            assert "/approval/stream" not in paths
+            assert "/approval/{request_id}" not in paths
+
+    def test_legacy_approval_route_probes_return_404(self):
+        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+            from fastapi.testclient import TestClient
+            from src.server import main
+
+            client = TestClient(main.app)
+
+            assert client.post("/approval/stream").status_code == 404
+            assert client.get("/approval/request-1").status_code == 404
+
+
 class TestThreadsEndpoint:
     def test_threads_returns_empty_thread_list(self):
         with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
