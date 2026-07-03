@@ -19,8 +19,6 @@ import { HttpAgent } from '@ag-ui/client';
 import { CopilotKitProvider } from '@copilotkit/react-core/v2';
 import { useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { ApprovalProvider, useApprovalContext } from '@/components/approval/ApprovalBridge';
-import { ApprovalDialog } from '@/components/approval/ApprovalDialog';
 
 function App() {
   // 侧边栏折叠状态
@@ -196,80 +194,71 @@ function App() {
       onError={handleCopilotError}
       showDevConsole={import.meta.env.DEV}
     >
-      <ApprovalProvider>
-        <div className="flex flex-col h-screen bg-background text-foreground">
-          <Titlebar
-            onToggleChat={handleToggleChat}
-            onToggleTerminal={handleToggleTerminal}
-            onToggleDiff={handleToggleDiff}
-          />
-          <div className="flex-1 flex overflow-hidden relative">
-            {/* 左侧：对话列表 */}
-            {sidebarDrawerMode ? (
-              // 抽屉模式（<1440px）— fixed 浮层，不挤压空间，不被裁剪
-              sidebarDrawerOpen && (
-                <>
-                  {/* 遮罩 — 覆盖整个窗口 */}
-                  <div
-                    className="fixed inset-0 bg-black/20 z-40"
-                    onClick={() => setSidebarDrawerOpen(false)}
-                  />
-                  {/* 抽屉 — fixed 定位脱离父容器，高 z-index 确保在最上层 */}
-                  <aside
-                    className="fixed left-0 top-9 bottom-7 z-50 bg-background border-r border-border overflow-y-auto shadow-xl"
-                    style={{ width: `${widths.sidebar}px` }}
-                  >
-                    <ConversationList />
-                  </aside>
-                </>
-              )
-            ) : (
-              // 正常模式 — 占据空间
-              <aside
-                className="border-r border-border flex-shrink-0 bg-muted/50 overflow-hidden transition-all duration-200"
-                style={{
-                  width: sidebarCollapsed ? 0 : `${widths.sidebar}px`,
-                  minWidth: sidebarCollapsed ? 0 : `${widths.sidebar}px`,
-                }}
-              >
-                <ConversationList />
-              </aside>
-            )}
+      <div className="flex flex-col h-screen bg-background text-foreground">
+        <Titlebar
+          onToggleChat={handleToggleChat}
+          onToggleTerminal={handleToggleTerminal}
+          onToggleDiff={handleToggleDiff}
+        />
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* 左侧：对话列表 */}
+          {sidebarDrawerMode ? (
+            // 抽屉模式（<1440px）— fixed 浮层，不挤压空间，不被裁剪
+            sidebarDrawerOpen && (
+              <>
+                {/* 遮罩 — 覆盖整个窗口 */}
+                <div
+                  className="fixed inset-0 bg-black/20 z-40"
+                  onClick={() => setSidebarDrawerOpen(false)}
+                />
+                {/* 抽屉 — fixed 定位脱离父容器，高 z-index 确保在最上层 */}
+                <aside
+                  className="fixed left-0 top-9 bottom-7 z-50 bg-background border-r border-border overflow-y-auto shadow-xl"
+                  style={{ width: `${widths.sidebar}px` }}
+                >
+                  <ConversationList />
+                </aside>
+              </>
+            )
+          ) : (
+            // 正常模式 — 占据空间
+            <aside
+              className="border-r border-border flex-shrink-0 bg-muted/50 overflow-hidden transition-all duration-200"
+              style={{
+                width: sidebarCollapsed ? 0 : `${widths.sidebar}px`,
+                minWidth: sidebarCollapsed ? 0 : `${widths.sidebar}px`,
+              }}
+            >
+              <ConversationList />
+            </aside>
+          )}
 
-            {/* 折叠/抽屉模式下的展开按钮 */}
-            {(sidebarCollapsed || sidebarDrawerMode) && !sidebarDrawerOpen && (
-              <SidebarToggle
-                onClick={sidebarDrawerMode ? toggleSidebarDrawer : toggleSidebar}
-              />
-            )}
+          {/* 折叠/抽屉模式下的展开按钮 */}
+          {(sidebarCollapsed || sidebarDrawerMode) && !sidebarDrawerOpen && (
+            <SidebarToggle
+              onClick={sidebarDrawerMode ? toggleSidebarDrawer : toggleSidebar}
+            />
+          )}
 
-            {/* 中间：对话区域（全屏时隐藏） */}
-            {!isFullscreen && (
-              <div
-                className="flex-1 flex overflow-hidden min-w-0 relative"
-                style={{ minWidth: `${widths.chat}px` }}
-              >
-                <ChatArea />
-              </div>
-            )}
+          {/* 中间：对话区域（全屏时隐藏） */}
+          {!isFullscreen && (
+            <div
+              className="flex-1 flex overflow-hidden min-w-0 relative"
+              style={{ minWidth: `${widths.chat}px` }}
+            >
+              <ChatArea />
+            </div>
+          )}
 
-            {/* 最右：多视图面板（终端/文件/Diff） */}
-            <RightPanel />
-          </div>
-          {/* 底部状态栏 */}
-          <StatusBar />
+          {/* 最右：多视图面板（终端/文件/Diff） */}
+          <RightPanel />
         </div>
-        <ApprovalContextDialog />
+        {/* 底部状态栏 */}
+        <StatusBar />
         <Toaster position="bottom-center" />
-      </ApprovalProvider>
+      </div>
     </CopilotKitProvider>
   );
-}
-
-/** 子组件——在 ApprovalProvider 内部消费 context */
-function ApprovalContextDialog() {
-  const { current } = useApprovalContext();
-  return <ApprovalDialog request={current} />;
 }
 
 export default App;
