@@ -7,25 +7,46 @@ import {
   isApprovalRequired,
 } from '../AguiApprovalInterrupt';
 import { ApprovalCard, type ApprovalInterrupt } from '../ApprovalCard';
+import { ChatArea } from '../../ChatArea';
 
 const {
   agentMock,
   setInterruptElementMock,
+  useChatStoreMock,
   useAgentMock,
   useCopilotKitMock,
+  useTerminalStoreMock,
 } = vi.hoisted(() => ({
   agentMock: {
     runAgent: vi.fn(),
     subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
+    messages: [],
   },
   setInterruptElementMock: vi.fn(),
+  useChatStoreMock: vi.fn(),
   useAgentMock: vi.fn(),
   useCopilotKitMock: vi.fn(),
+  useTerminalStoreMock: vi.fn(),
 }));
 
 vi.mock('@copilotkit/react-core/v2', () => ({
+  CopilotChat: ({ threadId }: { threadId: string }) => (
+    <div data-testid="copilot-chat" data-thread-id={threadId} />
+  ),
   useAgent: useAgentMock,
   useCopilotKit: useCopilotKitMock,
+}));
+
+vi.mock('@/components/ChatToolbar', () => ({
+  ChatToolbar: () => <aside data-testid="chat-toolbar" />,
+}));
+
+vi.mock('@/stores/chat', () => ({
+  useChatStore: useChatStoreMock,
+}));
+
+vi.mock('@/stores/terminal', () => ({
+  useTerminalStore: useTerminalStoreMock,
 }));
 
 const interrupt: ApprovalInterrupt = {
@@ -139,6 +160,13 @@ describe('AG-UI approval interrupt helpers', () => {
     useCopilotKitMock.mockReturnValue({
       copilotkit: { setInterruptElement: setInterruptElementMock },
     });
+    useChatStoreMock.mockImplementation((selector) =>
+      selector({
+        currentThreadId: 'conversation-1',
+        conversations: [{ id: 'conversation-1', threadId: 'thread-1' }],
+      }),
+    );
+    useTerminalStoreMock.mockImplementation((selector) => selector({ isOpen: false }));
   });
 
   afterEach(() => {
@@ -174,6 +202,17 @@ describe('AG-UI approval interrupt helpers', () => {
         onRunFailed: expect.any(Function),
       }),
     );
+  });
+
+  it('keeps the official approval interrupt mounted in the chat area', () => {
+    render(<ChatArea />);
+
+    expect(agentMock.subscribe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onRunFinishedEvent: expect.any(Function),
+      }),
+    );
+    expect(screen.getByTestId('copilot-chat').getAttribute('data-thread-id')).toBe('thread-1');
   });
 
   it('sends only one official resume entry for repeated approve clicks', async () => {
