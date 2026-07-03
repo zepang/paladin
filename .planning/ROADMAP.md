@@ -18,7 +18,8 @@
 | 5.3 | Right Panel System | 多视图右侧面板：终端/文件预览/Diff审查 | Phase 5.2 |
 | 6 | Agent Tools | 文件/终端/MCP/Skills/子Agent | Phase 4 |
 | 7 | HITL + Sidecar | 权限审批 + 进程管理 | Phase 4 + 5 |
-| 7.1 | 1/1 | Complete    | 2026-07-03 |
+| 7.1 | Official AG-UI Deferred Tool Approval | Pydantic AI 官方 interrupt/resume 审批路径 | Phase 7 |
+| 7.2 | Legacy SSE Approval Cleanup | 移除保留的 legacy SSE 审批 fallback | Phase 7.1 |
 | 8 | Go Server | 认证/数据库/WebSocket Hub | — |
 | 9 | Admin Systems | 审计日志 + 配额管理 | Phase 8 |
 | 10 | Packaging | 打包发布 + 文档 | Phase 1-9 |
@@ -185,6 +186,37 @@ Plans:
 - [x] 07.1-01-PLAN.md — Official AG-UI deferred approval consolidation + verification
 
 **Follow-up:** Phase 07.2 should remove the retained legacy SSE approval path after Phase 07.1 verification passes. Cleanup candidates are tracked in `07.1-07.2-HANDOFF.md`.
+
+### Phase 07.2: Legacy SSE Approval Cleanup (INSERTED)
+
+**Goal:** Remove the retained legacy SSE approval fallback now that the official AG-UI interrupt/resume path is verified.
+**Requirements**: TBD
+**Depends on:** Phase 07.1
+**Plans:** 5 plans
+
+Plans:
+
+**Wave 1**
+
+- [ ] 07.2-01-PLAN.md — Backend approval mode supports only `agui_interrupt`
+- [ ] 07.2-03-PLAN.md — Desktop legacy bridge/dialog/provider/status cleanup
+
+**Wave 2 *(blocked on Wave 1 backend completion)***
+
+- [ ] 07.2-02-PLAN.md — Backend legacy SSE routes, store, callback, and tests removal
+
+**Wave 3 *(blocked on backend and frontend cleanup)***
+
+- [ ] 07.2-04-PLAN.md — Active docs cleanup for legacy fallback references
+
+**Wave 4 *(blocked on all implementation waves)***
+
+- [ ] 07.2-05-PLAN.md — Final source gates, regression verification, and validation update
+
+- Remove the legacy `/approval/stream` and `/approval/{request_id}` approval routes if no longer needed.
+- Remove legacy approval store/callback code and old frontend bridge/dialog components.
+- Remove or rewrite legacy SSE-only approval tests and stale Phase 07 references.
+- Preserve Computer Use approval behavior through the remaining official AG-UI path.
 
 ### Phase 8: Go Server
 
