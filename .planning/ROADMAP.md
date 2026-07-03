@@ -18,7 +18,7 @@
 | 5.3 | Right Panel System | 多视图右侧面板：终端/文件预览/Diff审查 | Phase 5.2 |
 | 6 | Agent Tools | 文件/终端/MCP/Skills/子Agent | Phase 4 |
 | 7 | HITL + Sidecar | 权限审批 + 进程管理 | Phase 4 + 5 |
-| 7.1 | Official AG-UI Deferred Tool Approval | 官方 AG-UI interrupt/resume 权限审批 | Phase 7 |
+| 7.1 | 1/1 | Complete    | 2026-07-03 |
 | 8 | Go Server | 认证/数据库/WebSocket Hub | — |
 | 9 | Admin Systems | 审计日志 + 配额管理 | Phase 8 |
 | 10 | Packaging | 打包发布 + 文档 | Phase 1-9 |
