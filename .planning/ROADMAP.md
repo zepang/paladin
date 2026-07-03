@@ -178,11 +178,11 @@ Plans:
 **Goal:** [Urgent work - to be planned]
 **Requirements**: TBD
 **Depends on:** Phase 7
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 
-- [ ] 07.1-01-PLAN.md — Official AG-UI deferred approval consolidation + verification
+- [x] 07.1-01-PLAN.md — Official AG-UI deferred approval consolidation + verification
 
 **Follow-up:** Phase 07.2 should remove the retained legacy SSE approval path after Phase 07.1 verification passes. Cleanup candidates are tracked in `07.1-07.2-HANDOFF.md`.
 
