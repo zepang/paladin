@@ -13,10 +13,10 @@ The target architecture is standard AG-UI interrupt/resume. A tool approval requ
 Phase 07 implemented human-in-the-loop approval as a side channel:
 
 - The backend stores pending approvals in memory.
-- `/approval/stream` sends approval requests through a separate SSE stream.
-- `/approval/{request_id}` receives approve or deny decisions.
+- `/approval/stream` sends approval requests through a separate SSE stream. (removed in 07.2; historical prior behavior only)
+- `/approval/{request_id}` receives approve or deny decisions. (removed in 07.2; historical prior behavior only)
 - The desktop app keeps approval state in `ApprovalProvider`.
-- The main UI renders approval through `ApprovalDialog`; `ApprovalCard` exists but is not part of the active CopilotKit message stream.
+- The main UI renders approval through `ApprovalDialog`; `ApprovalCard` exists but is not part of the active CopilotKit message stream. (removed in 07.2; historical prior behavior only)
 
 This works for short live sessions, but it has two structural limits:
 
@@ -25,7 +25,7 @@ This works for short live sessions, but it has two structural limits:
 
 ## Decision
 
-Use one target architecture with two implementation paths.
+Use the official AG-UI interrupt/resume architecture as the only supported approval path after Phase 07.2.
 
 ### Target Architecture
 
@@ -71,15 +71,11 @@ The adapter must not own business policy. It should not decide which tools requi
 
 This path is still part of the standard AG-UI interrupt/resume architecture. It only fills a dependency gap.
 
-## Fallback Architecture
+## Removed Legacy Fallback
 
-Keep the current Phase 07 side-channel approval system only as a fallback if standard AG-UI interrupt/resume cannot be made reliable within the target dependency constraints.
+Phase 07.2 removed the Phase 07 side-channel approval fallback. The deprecated legacy SSE/HTTP path is historical prior behavior only and must not be implemented, selected, or retained as operational guidance.
 
-The fallback may reuse the existing ToolGuard/HITL logic and render a card-like UI near the chat, but it is not the preferred design because:
-
-- It keeps a custom approval protocol.
-- It keeps approval state outside the AG-UI run lifecycle.
-- It increases future migration cost once standard interrupt/resume support is available.
+Active Paladin approvals now use `/copilotkit` plus official AG-UI interrupt/resume. A narrow compatibility adapter remains acceptable only when it preserves that public contract; it must not reintroduce a separate request-id approval transport.
 
 ## Backend Design
 
@@ -103,40 +99,9 @@ Replace the deprecated AG-UI request entrypoint with the current adapter API whe
 
 The backend should use `AGUIAdapter.dispatch_request()` as the primary route once verified. If dependency behavior does not match the documented interrupt approval lifecycle, route through the thin compatibility adapter described above.
 
-### Durable Pending Approval Store
+### Approval State
 
-Pending approvals must be persisted outside process memory. Before implementation, inspect the existing persistence layer and choose one storage target explicitly. If no suitable project-local store exists, add a focused local store for approval records only.
-
-Each pending approval record should include:
-
-```text
-approval_id
-thread_id
-run_id
-tool_call_id
-tool_name
-tool_args
-reason
-risk_level
-created_at
-expires_at
-status
-decision
-resolved_at
-metadata
-```
-
-Valid statuses:
-
-```text
-pending
-approved
-denied
-expired
-cancelled
-```
-
-The backend should reject resume attempts for approvals that are already resolved, expired, or not attached to the current thread.
+After Phase 07.2, Paladin does not ship the legacy local approval store. Approval state should follow the official AG-UI interrupt/resume lifecycle through the adapter and thread context. Durable audit or approval history belongs to a future admin/audit phase, not the removed legacy fallback.
 
 ### Resume Semantics
 
@@ -181,7 +146,7 @@ The toolbar may keep a lightweight pending-approval indicator, but it should not
 
 ### Resume Behavior
 
-When the user approves or denies, the frontend should resolve the interrupt through CopilotKit/AG-UI resume rather than POSTing to the old `/approval/{request_id}` endpoint.
+When the user approves or denies, the frontend should resolve the interrupt through CopilotKit/AG-UI resume rather than POSTing to the old `/approval/{request_id}` endpoint. (removed in 07.2; historical prior behavior only)
 
 The UI should handle:
 
@@ -199,7 +164,7 @@ The system should treat these cases explicitly:
 - Duplicate decision: keep the first decision and reject later attempts.
 - Missing approval record: show a recoverable error in the card.
 - Backend restart: reload pending approvals from durable storage.
-- Dependency adapter mismatch: fail verification before removing the old side-channel path.
+- Dependency adapter mismatch: fail verification without restoring the removed side-channel path.
 - Resume transport failure: leave the card in a retryable state until the backend confirms resolution.
 
 ## Migration Plan
@@ -211,8 +176,7 @@ Implementation should be staged:
 3. Convert one low-risk approval-required tool to Pydantic deferred approval.
 4. Wire backend AG-UI interrupt output and resume input.
 5. Render approval interrupts in the CopilotKit message stream.
-6. Preserve the old side-channel approval path behind a temporary fallback switch.
-7. Remove the old side-channel path after interrupt/resume is verified.
+6. Verify the deprecated side-channel approval path is removed in 07.2 and remains historical prior behavior only.
 
 ## Testing And Verification
 
@@ -222,8 +186,7 @@ Verification should cover:
 - Approving resumes the same thread and executes the original tool.
 - Denying resumes the same thread and returns a denied tool result.
 - Refreshing the desktop app does not lose pending approval.
-- Restarting the backend does not lose pending approval.
-- An expired approval cannot be resumed.
+- - An expired approval cannot be resumed.
 - A duplicate approval decision is rejected or ignored consistently.
 - Existing non-approval tool calls still stream normally.
 - The deprecated `/approval/stream` path is not required for the primary approval flow.
