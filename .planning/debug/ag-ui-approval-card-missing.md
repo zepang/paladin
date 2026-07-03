@@ -75,3 +75,16 @@ Recommended fix:
 3. On approve or deny, call `copilotkit.runAgent` or `agent.runAgent` with AG-UI `resume: [{ interruptId, status: "resolved", payload }]`.
 4. Add an integration test that feeds a real `RUN_FINISHED` interrupt outcome through the frontend agent subscription and verifies the approval card appears.
 5. Add a resume test that verifies the next request contains `resume[]` entries addressing the pending interrupt id.
+
+## Fix Implemented
+
+- Implemented at: 2026-07-03T04:39:46Z
+- Code: `apps/desktop/src/components/approval/AguiApprovalInterrupt.tsx`
+- Tests: `apps/desktop/src/components/approval/__tests__/AguiApprovalInterrupt.test.tsx`
+
+The frontend now subscribes directly to AG-UI `onRunFinishedEvent`, captures `outcome === "interrupt"`, renders the existing approval card into CopilotKit's interrupt slot, and resumes the pending interrupt with `resume[]`.
+
+Verification:
+
+- `pnpm vitest run src/components/approval/__tests__/AguiApprovalInterrupt.test.tsx` in `apps/desktop`: pass, 9 tests.
+- `pnpm build` in `apps/desktop`: still blocked by pre-existing `Titlebar` unused-variable TypeScript errors unrelated to approval.

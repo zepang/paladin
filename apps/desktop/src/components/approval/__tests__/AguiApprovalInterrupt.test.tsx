@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AguiApprovalInterrupt,
   buildApprovalResumePayload,
@@ -7,12 +8,24 @@ import {
 } from '../AguiApprovalInterrupt';
 import { ApprovalCard, type ApprovalInterrupt } from '../ApprovalCard';
 
-const { useInterruptMock } = vi.hoisted(() => ({
-  useInterruptMock: vi.fn(),
+const {
+  agentMock,
+  setInterruptElementMock,
+  useAgentMock,
+  useCopilotKitMock,
+} = vi.hoisted(() => ({
+  agentMock: {
+    runAgent: vi.fn(),
+    subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
+  },
+  setInterruptElementMock: vi.fn(),
+  useAgentMock: vi.fn(),
+  useCopilotKitMock: vi.fn(),
 }));
 
 vi.mock('@copilotkit/react-core/v2', () => ({
-  useInterrupt: useInterruptMock,
+  useAgent: useAgentMock,
+  useCopilotKit: useCopilotKitMock,
 }));
 
 const interrupt: ApprovalInterrupt = {
@@ -28,6 +41,27 @@ const interrupt: ApprovalInterrupt = {
     },
   },
 };
+
+type AguiInterruptSubscriber = {
+  onRunFinishedEvent: (params: {
+    outcome: 'interrupt';
+    interrupts: Array<Record<string, unknown>>;
+  }) => void;
+};
+
+function latestSubscriber(): AguiInterruptSubscriber {
+  const calls = agentMock.subscribe.mock.calls as unknown as Array<[AguiInterruptSubscriber]>;
+  const call = calls[calls.length - 1];
+  if (!call) throw new Error('Expected AG-UI subscriber registration');
+  return call[0];
+}
+
+function latestInterruptElement(): ReactElement {
+  const calls = setInterruptElementMock.mock.calls as Array<[ReactElement | null]>;
+  const call = calls[calls.length - 1];
+  if (!call?.[0]) throw new Error('Expected interrupt element');
+  return call[0];
+}
 
 describe('ApprovalCard', () => {
   afterEach(() => {
@@ -99,6 +133,18 @@ describe('ApprovalCard', () => {
 });
 
 describe('AG-UI approval interrupt helpers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAgentMock.mockReturnValue({ agent: agentMock });
+    useCopilotKitMock.mockReturnValue({
+      copilotkit: { setInterruptElement: setInterruptElementMock },
+    });
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
   it('accepts the official Pydantic AI tool_call interrupt reason', () => {
     expect(isApprovalRequired({ value: { reason: 'tool_call' } })).toBe(true);
   });
@@ -118,40 +164,91 @@ describe('AG-UI approval interrupt helpers', () => {
     });
   });
 
-  it('registers useInterrupt for inline chat rendering with the official predicate', () => {
+  it('subscribes to official AG-UI run-finished interrupts', () => {
     render(<AguiApprovalInterrupt />);
 
-    expect(useInterruptMock).toHaveBeenCalledWith(
+    expect(agentMock.subscribe).toHaveBeenCalledWith(
       expect.objectContaining({
-        enabled: isApprovalRequired,
-        renderInChat: true,
+        onRunFinishedEvent: expect.any(Function),
+        onRunStartedEvent: expect.any(Function),
+        onRunFailed: expect.any(Function),
       }),
     );
   });
 
-  it('sends only one official resume payload for repeated approve clicks', () => {
+  it('sends only one official resume entry for repeated approve clicks', async () => {
     render(<AguiApprovalInterrupt />);
 
-    const options = useInterruptMock.mock.calls[useInterruptMock.mock.calls.length - 1]?.[0];
-    const resolve = vi.fn();
-    const event = {
-      name: 'approval',
-      value: {
-        id: 'interrupt-1',
-        reason: 'tool_call',
-        message: 'Approve this tool call?',
-        toolCallId: 'tool-call-1',
-        metadata: { toolName: 'edit_file' },
-      },
-    };
+    const subscriber = latestSubscriber();
 
-    render(options.render({ event, resolve }));
+    await act(async () => {
+      subscriber.onRunFinishedEvent({
+        outcome: 'interrupt',
+        interrupts: [{
+          id: 'interrupt-1',
+          reason: 'tool_call',
+          message: 'Approve this tool call?',
+          toolCallId: 'tool-call-1',
+          metadata: { toolName: 'edit_file' },
+        }],
+      });
+    });
+
+    const element = latestInterruptElement();
+    render(element);
 
     const approveButton = screen.getByRole('button', { name: 'Approve' });
     fireEvent.click(approveButton);
     fireEvent.click(approveButton);
 
-    expect(resolve).toHaveBeenCalledTimes(1);
-    expect(resolve).toHaveBeenCalledWith({ approved: true });
+    expect(agentMock.runAgent).toHaveBeenCalledTimes(1);
+    expect(agentMock.runAgent).toHaveBeenCalledWith({
+      resume: [
+        {
+          interruptId: 'interrupt-1',
+          status: 'resolved',
+          payload: { approved: true },
+        },
+      ],
+    });
+  });
+
+  it('renders official AG-UI run-finished interrupts and resumes with resume entries', async () => {
+    render(<AguiApprovalInterrupt />);
+
+    const subscriber = latestSubscriber();
+    const officialInterrupt = {
+      id: 'int-tool-call-1',
+      reason: 'tool_call',
+      message: 'Approve write_file({"path":"/tmp/test.txt"})?',
+      toolCallId: 'tool-call-1',
+      metadata: { toolName: 'write_file', tool_args: { path: '/tmp/test.txt' } },
+    };
+
+    await act(async () => {
+      subscriber.onRunFinishedEvent({
+        outcome: 'interrupt',
+        interrupts: [officialInterrupt],
+      });
+    });
+
+    const element = latestInterruptElement();
+    expect(element).toBeTruthy();
+
+    render(element);
+    expect(screen.getByText('write_file')).toBeTruthy();
+    expect(screen.getByText('Approve write_file({"path":"/tmp/test.txt"})?')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+
+    expect(agentMock.runAgent).toHaveBeenCalledWith({
+      resume: [
+        {
+          interruptId: 'int-tool-call-1',
+          status: 'resolved',
+          payload: { approved: true },
+        },
+      ],
+    });
   });
 });

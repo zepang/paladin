@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
-import { useInterrupt, type InterruptEvent } from '@copilotkit/react-core/v2';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { AgentSubscriber, Interrupt, ResumeEntry } from '@ag-ui/client';
+import { useAgent, useCopilotKit } from '@copilotkit/react-core/v2';
 import {
   ApprovalCard,
   type ApprovalCardStatus,
@@ -16,6 +17,13 @@ type ApprovalInterruptValue = {
   expires_at?: unknown;
   metadata?: unknown;
 };
+
+type InterruptEvent = {
+  name: string;
+  value: unknown;
+};
+
+type RunFinishedParams = Parameters<NonNullable<AgentSubscriber['onRunFinishedEvent']>>[0];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -57,28 +65,32 @@ export function buildApprovalResumePayload(
 }
 
 function ApprovalInterruptRenderer({
-  event,
-  resolve,
+  interrupt,
+  onResolve,
 }: {
-  event: InterruptEvent;
-  resolve: (response: unknown) => void;
+  interrupt: ApprovalInterrupt;
+  onResolve: (decision: 'approved' | 'denied') => void;
 }) {
   const [status, setStatus] = useState<ApprovalCardStatus>('pending');
   const decisionSentRef = useRef(false);
-  const interrupt = toApprovalInterrupt(event);
+
+  useEffect(() => {
+    setStatus('pending');
+    decisionSentRef.current = false;
+  }, [interrupt.id]);
 
   const approve = () => {
     if (decisionSentRef.current) return;
     decisionSentRef.current = true;
     setStatus('approved');
-    resolve(buildApprovalResumePayload('approved'));
+    onResolve('approved');
   };
 
   const deny = () => {
     if (decisionSentRef.current) return;
     decisionSentRef.current = true;
     setStatus('denied');
-    resolve(buildApprovalResumePayload('denied'));
+    onResolve('denied');
   };
 
   return (
@@ -91,14 +103,77 @@ function ApprovalInterruptRenderer({
   );
 }
 
+function toInterruptEvent(interrupt: Interrupt): InterruptEvent {
+  return {
+    name: 'agui_interrupt',
+    value: interrupt,
+  };
+}
+
 export function AguiApprovalInterrupt() {
-  useInterrupt({
-    enabled: isApprovalRequired,
-    renderInChat: true,
-    render: ({ event, resolve }) => (
-      <ApprovalInterruptRenderer event={event} resolve={resolve} />
-    ),
-  });
+  const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+  const [pendingInterrupt, setPendingInterrupt] = useState<ApprovalInterrupt | null>(null);
+
+  useEffect(() => {
+    const subscription = agent.subscribe({
+      onRunStartedEvent: () => {
+        setPendingInterrupt(null);
+      },
+      onRunFailed: () => {
+        setPendingInterrupt(null);
+      },
+      onRunFinishedEvent: (params: RunFinishedParams) => {
+        if (params.outcome !== 'interrupt') {
+          setPendingInterrupt(null);
+          return;
+        }
+
+        const approvalInterrupt = params.interrupts
+          .map((interrupt) => toInterruptEvent(interrupt))
+          .find(isApprovalRequired);
+
+        setPendingInterrupt(
+          approvalInterrupt ? toApprovalInterrupt(approvalInterrupt) : null,
+        );
+      },
+    });
+
+    return () => subscription.unsubscribe();
+  }, [agent]);
+
+  const element = useMemo(() => {
+    if (!pendingInterrupt) return null;
+
+    const resolve = (decision: 'approved' | 'denied') => {
+      const resume: ResumeEntry[] = [
+        {
+          interruptId: pendingInterrupt.id,
+          status: 'resolved',
+          payload: buildApprovalResumePayload(decision),
+        },
+      ];
+
+      void agent.runAgent({ resume });
+    };
+
+    return (
+      <ApprovalInterruptRenderer
+        interrupt={pendingInterrupt}
+        onResolve={resolve}
+      />
+    );
+  }, [agent, pendingInterrupt]);
+
+  useEffect(() => {
+    copilotkit.setInterruptElement(element);
+  }, [copilotkit, element]);
+
+  useEffect(() => {
+    return () => {
+      copilotkit.setInterruptElement(null);
+    };
+  }, [copilotkit]);
 
   return null;
 }
