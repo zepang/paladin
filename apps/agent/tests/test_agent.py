@@ -63,10 +63,11 @@ def test_hitl_mode_defaults_to_agui_interrupt():
     assert _approval_mode({}) == "agui_interrupt"
 
 
-def test_hitl_mode_allows_legacy_sse_fallback():
+def test_hitl_mode_rejects_legacy_sse():
     from src.agent.paladin_agent import _approval_mode
 
-    assert _approval_mode({"hitl": {"mode": "legacy_sse"}}) == "legacy_sse"
+    with pytest.raises(ValueError, match="legacy_sse.*agui_interrupt"):
+        _approval_mode({"hitl": {"mode": "legacy_sse"}})
 
 
 def test_hitl_mode_rejects_unsupported_value():
