@@ -7,10 +7,9 @@ import { Button } from '@/components/ui/button';
 import { useChatStore } from '@/stores/chat';
 import { useAgent } from '@copilotkit/react-core/v2';
 import type { Message } from '@copilotkit/react-core/v2';
-import { Eraser, Info, ShieldAlert, Wrench } from 'lucide-react';
+import { Eraser, Info, Wrench } from 'lucide-react';
 import { useMemo } from 'react';
 import { toast } from 'sonner';
-import { useApprovalContext } from '@/components/approval/ApprovalBridge';
 
 /** 工具调用信息 */
 interface ToolCallInfo {
@@ -37,7 +36,6 @@ export function ChatToolbar() {
   const { agent } = useAgent();
   const currentThreadId = useChatStore((s) => s.currentThreadId);
   const createConversation = useChatStore((s) => s.createConversation);
-  const { current, pendingApprovals } = useApprovalContext();
 
   // 提取工具调用列表
   const toolCalls = useMemo(() => extractToolCalls(agent.messages), [agent.messages]);
@@ -49,24 +47,8 @@ export function ChatToolbar() {
     toast.success('已创建新对话');
   };
 
-  const hasPending = pendingApprovals.length > 0;
-
   return (
     <aside className="w-56 border-l border-border/50 flex-shrink-0 bg-background/50 flex flex-col overflow-hidden">
-      {/* 审批状态 (D-09) */}
-      {hasPending && current && (
-        <div className="p-3 border-b border-border bg-yellow-500/5">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-yellow-600 mb-1.5">
-            <ShieldAlert className="size-3.5" />
-            <span>等待审批中…</span>
-          </div>
-          <p className="text-xs font-mono text-foreground truncate">{current.tool_name}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            第 {pendingApprovals.length > 0 ? '1' : '0'}/{pendingApprovals.length} 个
-          </p>
-        </div>
-      )}
-
       {/* 上下文信息 */}
       <div className="p-3 border-b border-border">
         <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
