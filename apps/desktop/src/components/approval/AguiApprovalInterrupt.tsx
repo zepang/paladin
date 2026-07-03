@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useInterrupt, type InterruptEvent } from '@copilotkit/react-core/v2';
 import {
   ApprovalCard,
@@ -40,8 +40,20 @@ function toApprovalInterrupt(event: InterruptEvent): ApprovalInterrupt {
   };
 }
 
-function isApprovalRequired(event: InterruptEvent): boolean {
-  return isRecord(event.value) && event.value.reason === 'approval_required';
+export function isApprovalRequired(event: Pick<InterruptEvent, 'value'>): boolean {
+  return isRecord(event.value) && event.value.reason === 'tool_call';
+}
+
+export function buildApprovalResumePayload(
+  decision: 'approved' | 'denied',
+): Record<string, unknown> {
+  if (decision === 'approved') {
+    return { approved: true };
+  }
+  return {
+    approved: false,
+    reason: 'User denied this tool call.',
+  };
 }
 
 function ApprovalInterruptRenderer({
@@ -52,16 +64,21 @@ function ApprovalInterruptRenderer({
   resolve: (response: unknown) => void;
 }) {
   const [status, setStatus] = useState<ApprovalCardStatus>('pending');
+  const decisionSentRef = useRef(false);
   const interrupt = toApprovalInterrupt(event);
 
   const approve = () => {
+    if (decisionSentRef.current) return;
+    decisionSentRef.current = true;
     setStatus('approved');
-    resolve({ decision: 'approved' });
+    resolve(buildApprovalResumePayload('approved'));
   };
 
   const deny = () => {
+    if (decisionSentRef.current) return;
+    decisionSentRef.current = true;
     setStatus('denied');
-    resolve({ decision: 'denied', message: 'User denied this tool call.' });
+    resolve(buildApprovalResumePayload('denied'));
   };
 
   return (

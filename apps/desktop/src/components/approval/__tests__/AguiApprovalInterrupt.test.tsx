@@ -1,6 +1,19 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  AguiApprovalInterrupt,
+  buildApprovalResumePayload,
+  isApprovalRequired,
+} from '../AguiApprovalInterrupt';
 import { ApprovalCard, type ApprovalInterrupt } from '../ApprovalCard';
+
+const { useInterruptMock } = vi.hoisted(() => ({
+  useInterruptMock: vi.fn(),
+}));
+
+vi.mock('@copilotkit/react-core/v2', () => ({
+  useInterrupt: useInterruptMock,
+}));
 
 const interrupt: ApprovalInterrupt = {
   id: 'interrupt-1',
@@ -82,5 +95,63 @@ describe('ApprovalCard', () => {
 
     expect(onApprove).not.toHaveBeenCalled();
     expect(onDeny).not.toHaveBeenCalled();
+  });
+});
+
+describe('AG-UI approval interrupt helpers', () => {
+  it('accepts the official Pydantic AI tool_call interrupt reason', () => {
+    expect(isApprovalRequired({ value: { reason: 'tool_call' } })).toBe(true);
+  });
+
+  it('rejects missing, empty, legacy, and unrelated interrupt reasons', () => {
+    expect(isApprovalRequired({ value: undefined })).toBe(false);
+    expect(isApprovalRequired({ value: {} })).toBe(false);
+    expect(isApprovalRequired({ value: { reason: 'approval_required' } })).toBe(false);
+    expect(isApprovalRequired({ value: { reason: 'human_review' } })).toBe(false);
+  });
+
+  it('uses the official resume payload schema', () => {
+    expect(buildApprovalResumePayload('approved')).toEqual({ approved: true });
+    expect(buildApprovalResumePayload('denied')).toEqual({
+      approved: false,
+      reason: 'User denied this tool call.',
+    });
+  });
+
+  it('registers useInterrupt for inline chat rendering with the official predicate', () => {
+    render(<AguiApprovalInterrupt />);
+
+    expect(useInterruptMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enabled: isApprovalRequired,
+        renderInChat: true,
+      }),
+    );
+  });
+
+  it('sends only one official resume payload for repeated approve clicks', () => {
+    render(<AguiApprovalInterrupt />);
+
+    const options = useInterruptMock.mock.calls[useInterruptMock.mock.calls.length - 1]?.[0];
+    const resolve = vi.fn();
+    const event = {
+      name: 'approval',
+      value: {
+        id: 'interrupt-1',
+        reason: 'tool_call',
+        message: 'Approve this tool call?',
+        toolCallId: 'tool-call-1',
+        metadata: { toolName: 'edit_file' },
+      },
+    };
+
+    render(options.render({ event, resolve }));
+
+    const approveButton = screen.getByRole('button', { name: 'Approve' });
+    fireEvent.click(approveButton);
+    fireEvent.click(approveButton);
+
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(resolve).toHaveBeenCalledWith({ approved: true });
   });
 });
