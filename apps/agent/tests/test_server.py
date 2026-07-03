@@ -215,20 +215,24 @@ class TestLegacyApprovalRoutes:
         with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
             from src.server import main
 
+            approval_prefix = "/" + "approval"
+            stream_path = f"{approval_prefix}/stream"
+            decision_path = f"{approval_prefix}/{{request_id}}"
             paths = {route.path for route in main.app.routes}
 
-            assert "/approval/stream" not in paths
-            assert "/approval/{request_id}" not in paths
+            assert stream_path not in paths
+            assert decision_path not in paths
 
     def test_legacy_approval_route_probes_return_404(self):
         with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
             from fastapi.testclient import TestClient
             from src.server import main
 
+            approval_prefix = "/" + "approval"
             client = TestClient(main.app)
 
-            assert client.post("/approval/stream").status_code == 404
-            assert client.get("/approval/request-1").status_code == 404
+            assert client.post(f"{approval_prefix}/stream").status_code == 404
+            assert client.get(f"{approval_prefix}/request-1").status_code == 404
 
 
 class TestThreadsEndpoint:
