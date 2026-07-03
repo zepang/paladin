@@ -3,7 +3,6 @@ Paladin Agent — FastAPI HTTP Server
 提供 /copilotkit (AG-UI SSE) 和 /health 端点
 """
 import json
-import logging
 import os
 from pathlib import Path
 
