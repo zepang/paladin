@@ -225,12 +225,24 @@ Plans:
 ### Phase 8: Go Server
 
 **Goal:** 业务层基础能力就绪
-**Requirements:** SRV-01~04
+**Requirements:** SRV-01, SRV-02, SRV-03, SRV-04, SRV-05
+**Plans:** 7/7 plans complete
 
-- Go 项目骨架 + PostgreSQL + Redis
-- 用户注册/登录
-- RBAC 权限控制
-- WebSocket Hub
+Plans:
+
+- [x] 08-01-PLAN.md — Go toolchain install + module scaffold + config + .env.example
+- [x] 08-02-PLAN.md — docker-compose.server.yml + golang-migrate CLI + auth schema migrations
+- [x] 08-03-PLAN.md — sqlc codegen + pgx pool + go-redis connectivity layer
+- [x] 08-04-PLAN.md — Gin engine + health/readiness probes + unified error middleware
+- [x] 08-05-PLAN.md — JWT auth + bcrypt + RBAC middleware (TDD)
+- [x] 08-06-PLAN.md — WebSocket Hub + coder/websocket gateway (TDD)
+- [x] 08-07-PLAN.md — README + end-to-end integration + phase verification
+
+- Go 项目骨架 + PostgreSQL + Redis (SRV-01)
+- golang-migrate 幂等迁移 + 重复拒绝约束 (SRV-02)
+- 用户注册/登录 (SRV-03)
+- RBAC 权限控制 (SRV-04)
+- WebSocket Hub (SRV-05)
 
 ### Phase 9: Admin Systems
 
