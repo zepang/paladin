@@ -11,9 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	"paladin/apps/server/internal/auth"
 	"paladin/apps/server/internal/config"
-	httpserver "paladin/apps/server/internal/http"
 	"paladin/apps/server/internal/db"
+	sqlcgen "paladin/apps/server/internal/db/sqlc"
+	httpserver "paladin/apps/server/internal/http"
 )
 
 func main() {
@@ -36,6 +38,15 @@ func main() {
 		log.Fatalf("redis client: %v", err)
 	}
 	defer rdb.Close()
+
+	if cfg.AdminEmail != "" && cfg.AdminPassword != "" {
+		queries := sqlcgen.New(pool)
+		bctx, bcancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := auth.BootstrapAdmin(bctx, queries, pool, cfg.AdminEmail, cfg.AdminPassword, cfg.BcryptCost); err != nil {
+			log.Printf("bootstrap admin (non-fatal): %v", err)
+		}
+		bcancel()
+	}
 
 	engine := httpserver.NewServer(cfg, pool, rdb)
 	srv := &http.Server{

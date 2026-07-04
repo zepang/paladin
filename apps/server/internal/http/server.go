@@ -2,36 +2,45 @@ package httpserver
 
 import (
 	"log"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
 	"paladin/apps/server/internal/config"
+	sqlcgen "paladin/apps/server/internal/db/sqlc"
 	"paladin/apps/server/internal/http/handler"
 	"paladin/apps/server/internal/http/middleware"
 )
-
-func notImplemented(c *gin.Context) {
-	middleware.WriteError(c, 501, "not_implemented", "wired in later plan")
-}
 
 func NewServer(cfg *config.Config, pool *pgxpool.Pool, rdb *redis.Client) *gin.Engine {
 	r := gin.New()
 	r.Use(middleware.Recovery(log.Default()))
 	r.Use(corsMiddleware())
 
+	queries := sqlcgen.New(pool)
+	store := handler.NewPgStore(queries, pool)
+
 	health := handler.NewHealthHandler(pool, rdb)
+	authH := handler.NewAuthHandler(cfg.JWTSecret, cfg.JWTTTL, store, cfg.BcryptCost)
 	sample := &handler.SampleHandler{}
 
 	r.GET("/healthz", health.Liveness)
 	r.GET("/readyz", health.Ready)
-	r.GET("/me", sample.Me)
-	r.GET("/admin/health", sample.AdminHealth)
 
-	r.POST("/auth/register", notImplemented)
-	r.POST("/auth/login", notImplemented)
-	r.GET("/ws", notImplemented)
+	r.POST("/auth/register", authH.Register)
+	r.POST("/auth/login", authH.Login)
+
+	r.GET("/me", middleware.Auth(cfg.JWTSecret), sample.Me)
+
+	adminGroup := r.Group("", middleware.Auth(cfg.JWTSecret), middleware.RequireRole("admin"))
+	adminGroup.GET("/admin/health", sample.AdminHealth)
+
+	r.GET("/ws", func(c *gin.Context) {
+		middleware.WriteError(c, 501, "not_implemented", "wired in plan 08-06")
+	})
 
 	return r
 }
@@ -41,7 +50,7 @@ func corsMiddleware() gin.HandlerFunc {
 		origin := c.Request.Header.Get("Origin")
 		allowed := []string{"http://localhost", "http://127.0.0.1"}
 		for _, a := range allowed {
-			if origin == a || len(origin) > len(a) && origin[:len(a)] == a {
+			if origin == a || strings.HasPrefix(origin, a) {
 				c.Header("Access-Control-Allow-Origin", origin)
 				break
 			}
@@ -55,3 +64,5 @@ func corsMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+var _ = time.Now
