@@ -17,9 +17,9 @@
 | 5.2 | Chat Area Redesign | CopilotChat + 侧边栏折叠 + 状态条 + 工具栏 | Phase 5.1 |
 | 5.3 | Right Panel System | 多视图右侧面板：终端/文件预览/Diff审查 | Phase 5.2 |
 | 6 | Agent Tools | 文件/终端/MCP/Skills/子Agent | Phase 4 |
-| 7 | HITL + Sidecar | 权限审批 + 进程管理 | Phase 4 + 5 |
+| 7 | HITL + Computer Use | 权限审批 + 桌面操作能力 | Phase 4 + 5 |
 | 7.1 | Official AG-UI Deferred Tool Approval | Pydantic AI 官方 interrupt/resume 审批路径 | Phase 7 |
-| 7.2 | 5/5 | Complete    | 2026-07-03 |
+| 7.2 | Legacy SSE Approval Cleanup | 移除旧 SSE 审批 fallback，保留官方 AG-UI interrupt/resume | Phase 7.1 |
 | 8 | Go Server | 认证/数据库/WebSocket Hub | — |
 | 9 | Admin Systems | 审计日志 + 配额管理 | Phase 8 |
 | 10 | Packaging | 打包发布 + 文档 | Phase 1-9 |
@@ -81,25 +81,29 @@ Plans:
 
 ### Phase 05.1: UI Library Upgrade — 引入 shadcn/ui + lucide-icons 图标库，替换手写 SVG 和自定义组件 (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
+**Goal:** 引入 shadcn/ui + lucide-icons，替换手写 SVG 和自定义组件
 **Requirements**: TBD
 **Depends on:** Phase 5
-**Plans:** 0 plans
+**Plans:** 5/5 plans complete
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 05.1 to break down)
+- [x] 05.1-01-PLAN.md — lucide icon migration
+- [x] 05.1-02-PLAN.md — shadcn/ui initialization
+- [x] 05.1-03-PLAN.md — Button + Sonner integration
+- [x] 05.1-04-PLAN.md — ScrollArea integration
+- [x] 05.1-05-PLAN.md — Sheet integration
 
 ### Phase 05.2: Chat Area Redesign — 对话区域重构 (INSERTED)
 
 **Goal:** 用 CopilotChat 替换手写消息组件，新增侧边栏折叠、Agent 状态条、右侧工具栏
 **Requirements**: TBD
 **Depends on:** Phase 5.1
-**Plans:** 0 plans
+**Plans:** 1/1 plans complete
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 05.2 to break down)
+- [x] PLAN.md — CopilotChat replacement, collapsible sidebar, ChatToolbar
 
 - 侧边栏可折叠（完全收起 + 展开按钮）
 - CopilotChat 组件替换 MessageList + MessageBubble + ChatView + WelcomePage
@@ -112,11 +116,11 @@ Plans:
 **Goal:** 新增可切换视图的右侧面板，支持终端/文件预览/Diff审查三种模式
 **Requirements**: TBD
 **Depends on:** Phase 5.2
-**Plans:** 0 plans
+**Plans:** 1/1 plans complete
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 05.3 to break down)
+- [x] PLAN.md — Fixed RightPanel with terminal/file preview/diff review
 
 - 保留 ChatToolbar，右侧面板在工具栏右边新增
 - Titlebar 按钮 → 终端/Diff 视图切换
@@ -129,16 +133,16 @@ Plans:
 
 **Goal:** Agent 具备完整工具链
 **Requirements:** TLS-01~05
-**Plans:** 6 plans
+**Plans:** 6/6 plans complete
 
 Plans:
 
-- [ ] 06-01-PLAN.md — Config 迁移：models.yaml → config.json + load_models() JSON 重写 (TDD)
-- [ ] 06-02-PLAN.md — Skills 目录 + code-review.md 示例技能 + system.md 更新
-- [ ] 06-03-PLAN.md — MCP 依赖安装：pydantic-ai-slim[mcp]
-- [ ] 06-04-PLAN.md — Agent 工具激活：5 个工具集一键启用 + MCP 按需加载 (TDD)
-- [ ] 06-05-PLAN.md — 综合测试套件：test_tools.py + test_agent.py + test_server.py
-- [ ] 06-06-PLAN.md — Prohibition 验证：沙箱越权禁止测试
+- [x] 06-01-PLAN.md — Config 迁移：models.yaml → config.json + load_models() JSON 重写 (TDD)
+- [x] 06-02-PLAN.md — Skills 目录 + code-review.md 示例技能 + system.md 更新
+- [x] 06-03-PLAN.md — MCP 依赖安装：pydantic-ai-slim[mcp]
+- [x] 06-04-PLAN.md — Agent 工具激活：5 个工具集一键启用 + MCP 按需加载 (TDD)
+- [x] 06-05-PLAN.md — 综合测试套件：test_tools.py + test_agent.py + test_server.py
+- [x] 06-06-PLAN.md — Prohibition 验证：沙箱越权禁止测试
 
 - 文件系统操作工具
 - 终端命令执行
@@ -146,20 +150,20 @@ Plans:
 - Skills 系统（Markdown 驱动）
 - 子 Agent 委派
 
-### Phase 7: HITL + Sidecar
+### Phase 7: HITL + Computer Use
 
 **Goal:** Agent 危险操作需审批确认后才能执行，Agent 具备桌面操作能力（截图、键鼠）
 **Requirements:** HIT-01~03 (7a), SDC-01~03 (7b — deferred)
-**Plans:** 6 plans (Phase 7a only)
+**Plans:** 6/6 plans complete (Phase 7a only)
 
 Plans:
 
-- [ ] 07-01-PLAN.md — HITL 审批回调工厂 + asyncio.Event 状态管理 (TDD)
-- [ ] 07-02-PLAN.md — config.json hitl 段 + ToolGuard 集成到 create_paladin_agent()
-- [ ] 07-03-PLAN.md — GET /approval/stream SSE 端点 + POST /approval/{id} HTTP 回调
-- [ ] 07-04-PLAN.md — Computer Use @tool 函数（screenshot/click/typewrite）+ pyautogui
-- [ ] 07-05-PLAN.md — 前端审批 UI：ApprovalBridge + ApprovalCard + ApprovalDialog
-- [ ] 07-06-PLAN.md — ChatToolbar 审批状态栏升级 + App.tsx 集成
+- [x] 07-01-PLAN.md — HITL 审批回调工厂 + asyncio.Event 状态管理 (TDD)
+- [x] 07-02-PLAN.md — config.json hitl 段 + ToolGuard 集成到 create_paladin_agent()
+- [x] 07-03-PLAN.md — GET /approval/stream SSE 端点 + POST /approval/{id} HTTP 回调
+- [x] 07-04-PLAN.md — Computer Use @tool 函数（screenshot/click/typewrite）+ pyautogui
+- [x] 07-05-PLAN.md — 前端审批 UI：ApprovalBridge + ApprovalCard + ApprovalDialog
+- [x] 07-06-PLAN.md — ChatToolbar 审批状态栏升级 + App.tsx 集成
 
 **Phase 7a (this phase):**
 
@@ -176,7 +180,7 @@ Plans:
 
 ### Phase 07.1: Official AG-UI Deferred Tool Approval (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
+**Goal:** Consolidate approval flow on the official AG-UI deferred interrupt/resume path.
 **Requirements**: TBD
 **Depends on:** Phase 7
 **Plans:** 1/1 plans complete

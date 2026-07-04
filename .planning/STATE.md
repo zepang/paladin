@@ -5,14 +5,14 @@ milestone_name: milestone
 current_phase: 8
 current_phase_name: Go Server
 status: Ready to plan
-stopped_at: Phase 07.2 UI-SPEC approved
-last_updated: "2026-07-03T14:07:50.709Z"
+stopped_at: Phase 8 ready to plan after Phase 07.2 completion
+last_updated: "2026-07-03T22:22:05+08:00"
 progress:
   total_phases: 15
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 31
-  completed_plans: 26
-  percent: 73
+  completed_plans: 31
+  percent: 80
 ---
 
 # Project State: Paladin
@@ -25,7 +25,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 07.2 — legacy-sse-approval-cleanup
+**Current focus:** Phase 8 — Go Server
 
 ## Phase Status
 
@@ -38,11 +38,11 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | 5 | Terminal + Diff | Complete |
 | 5.1 | UI Library Upgrade | Complete |
 | 5.2 | Chat Area Redesign | Complete |
-| 5.3 | Right Panel System | Pending |
-| 6 | Agent Tools | Pending |
-| 7 | HITL + Sidecar | Pending |
+| 5.3 | Right Panel System | Complete |
+| 6 | Agent Tools | Complete |
+| 7 | HITL + Computer Use | Complete |
 | 7.1 | Official AG-UI Deferred Tool Approval | Complete |
-| 7.2 | Legacy SSE Approval Cleanup | Pending |
+| 7.2 | Legacy SSE Approval Cleanup | Complete |
 | 8 | Go Server | Pending |
 | 9 | Admin Systems | Pending |
 | 10 | Packaging | Pending |
@@ -51,10 +51,16 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 - Phase 05.1 (URGENT) inserted after Phase 5 — 引入 shadcn/ui + lucide-icons 图标库，替换手写 SVG 和自定义组件 — COMPLETED
 - Phase 05.2 inserted after Phase 5.1 — 对话区域重构：CopilotChat 替换 + 侧边栏折叠 + Agent 状态条 + 右侧工具栏 — COMPLETED
-- Phase 05.3 inserted after Phase 5.2 — 右侧多视图面板：终端/文件预览/Diff审查 — PENDING
+- Phase 05.3 inserted after Phase 5.2 — 右侧多视图面板：终端/文件预览/Diff审查 — COMPLETED
+- Phase 07.1 inserted after Phase 7 — Official AG-UI Deferred Tool Approval — COMPLETED
+- Phase 07.2 inserted after Phase 7.1 — Legacy SSE Approval Cleanup — COMPLETED
 
 ## Recent Activity
 
+- 2026-07-03: Phase 07.2 completed — legacy SSE approval fallback removed; official AG-UI interrupt/resume path remains verified
+- 2026-07-01: Phase 07a completed — HITL approval + Computer Use UAT passed (15/15)
+- 2026-06-30: Phase 06 completed — Agent tools activated (filesystem, execute, MCP, skills, subagents, plan/web search) with UAT complete
+- 2026-06-30: Phase 05.3 completed — fixed RightPanel with terminal/file preview/diff review
 - 2026-06-26: Phase 05.2 completed — CopilotChat replaced ChatView/MessageList/MessageBubble/WelcomePage, sidebar collapsible, ChatToolbar added, AgentStatusBar removed (redundant with CopilotChat intelligence indicator)
 - 2026-06-26: Phase 05.3 inserted — Right Panel System (terminal/file preview/diff review)
 
@@ -75,13 +81,13 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Next Actions
 
-1. Plan Phase 07.2 — Legacy SSE Approval Cleanup
+1. Plan Phase 8 — Go Server
 
 ## Session
 
 **Last session:** 2026-07-03T08:50:46.610Z
-**Stopped at:** Phase 07.2 UI-SPEC approved
-**Resume file:** .planning/phases/07.2-legacy-sse-approval-cleanup/07.2-UI-SPEC.md
+**Stopped at:** Phase 8 ready to plan
+**Resume file:** .planning/ROADMAP.md
 
 ## Accumulated Context
 
@@ -89,9 +95,11 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 - Phase 07.1 inserted after Phase 7: Official AG-UI Deferred Tool Approval (URGENT)
 - Phase 07.2 inserted after Phase 7: Legacy SSE Approval Cleanup (URGENT)
+- Phase 7b sidecar process management remains deferred until after Go Server exists
 
 ## Performance Metrics
 
 | Phase | Plan | Duration | Notes |
 |-------|------|----------|-------|
 | Phase 07.1 P07.1-01 | 27min | 3 tasks | 11 files |
+| Phase 07.2 P07.2-05 | 4min | 3 tasks | Final source gates and validation update |
