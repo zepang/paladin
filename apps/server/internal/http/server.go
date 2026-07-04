@@ -3,7 +3,6 @@ package httpserver
 import (
 	"log"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -13,6 +12,8 @@ import (
 	sqlcgen "paladin/apps/server/internal/db/sqlc"
 	"paladin/apps/server/internal/http/handler"
 	"paladin/apps/server/internal/http/middleware"
+	wsgateway "paladin/apps/server/internal/http/ws"
+	"paladin/apps/server/internal/ws"
 )
 
 func NewServer(cfg *config.Config, pool *pgxpool.Pool, rdb *redis.Client) *gin.Engine {
@@ -27,6 +28,9 @@ func NewServer(cfg *config.Config, pool *pgxpool.Pool, rdb *redis.Client) *gin.E
 	authH := handler.NewAuthHandler(cfg.JWTSecret, cfg.JWTTTL, store, cfg.BcryptCost)
 	sample := &handler.SampleHandler{}
 
+	hub := ws.NewHub()
+	wsH := wsgateway.NewWSHandler(hub, log.Default())
+
 	r.GET("/healthz", health.Liveness)
 	r.GET("/readyz", health.Ready)
 
@@ -38,9 +42,7 @@ func NewServer(cfg *config.Config, pool *pgxpool.Pool, rdb *redis.Client) *gin.E
 	adminGroup := r.Group("", middleware.Auth(cfg.JWTSecret), middleware.RequireRole("admin"))
 	adminGroup.GET("/admin/health", sample.AdminHealth)
 
-	r.GET("/ws", func(c *gin.Context) {
-		middleware.WriteError(c, 501, "not_implemented", "wired in plan 08-06")
-	})
+	r.GET("/ws", middleware.Auth(cfg.JWTSecret), wsH.Handle)
 
 	return r
 }
@@ -64,5 +66,3 @@ func corsMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
-
-var _ = time.Now
