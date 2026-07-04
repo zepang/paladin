@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${PALADIN_PG_USER:-paladin}
+      POSTGRES_PASSWORD: ${PALADIN_PG_PASSWORD:-change-me}
+      POSTGRES_DB: ${PALADIN_PG_DB:-paladin}
+    ports:
+      - "${PALADIN_PG_PORT:-5432}:5432"
+    volumes:
+      - paladin_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${PALADIN_REDIS_PORT:-6379}:6379"
+    volumes:
+      - paladin_redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  paladin_pg_data:
+  paladin_redis_data:
