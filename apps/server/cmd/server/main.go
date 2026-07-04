@@ -1,10 +1,19 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"paladin/apps/server/internal/config"
+	httpserver "paladin/apps/server/internal/http"
+	"paladin/apps/server/internal/db"
 )
 
 func main() {
@@ -13,7 +22,43 @@ func main() {
 		log.Fatalf("load config: %v", err)
 	}
 
-	fmt.Println("Paladin Go Server")
-	fmt.Printf("地址:       http://localhost:%d\n", cfg.Port)
-	fmt.Printf("健康检查:   http://localhost:%d/healthz\n", cfg.Port)
+	rootCtx, rootCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer rootCancel()
+
+	pool, err := db.NewPostgresPool(rootCtx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("postgres pool: %v", err)
+	}
+	defer pool.Close()
+
+	rdb, err := db.NewRedisClient(rootCtx, cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("redis client: %v", err)
+	}
+	defer rdb.Close()
+
+	engine := httpserver.NewServer(cfg, pool, rdb)
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", cfg.Port),
+		Handler: engine,
+	}
+
+	go func() {
+		fmt.Println("Paladin Go Server")
+		fmt.Printf("地址:       http://localhost:%d\n", cfg.Port)
+		fmt.Printf("健康检查:   http://localhost:%d/healthz\n", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("listen: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+	<-quit
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("shutdown: %v", err)
+	}
 }
