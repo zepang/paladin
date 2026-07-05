@@ -6,7 +6,10 @@ use tauri::{
 
 mod terminal;
 mod file_commands;
+mod process;
 use crate::terminal::TerminalManager;
+#[allow(unused_imports)]
+use crate::process::ProcessSupervisor;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
