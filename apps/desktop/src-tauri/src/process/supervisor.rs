@@ -255,29 +255,8 @@ impl ProcessSupervisor {
 
     /// SPEC Prohibition P2: 每次 state 变化时 emit 含 `last_error` + `stderr_tail` 的 payload。
     pub async fn emit_status(&self, name: ProcessName, last_error: Option<String>) {
-        let slot = self.slot_of(name);
-        let payload = {
-            let mut mp = slot.state.lock().await;
-            if last_error.is_some() {
-                mp.last_error = last_error.clone();
-                mp.snapshot.last_error_len =
-                    last_error.as_ref().map(|s| s.len() as u32).unwrap_or(0);
-            }
-            ProcessStatusPayload {
-                name,
-                info: ProcessInfoDTO {
-                    state: mp.state,
-                    last_error: mp.last_error.clone(),
-                    stderr_tail: {
-                        let s: String =
-                            mp.stderr_tail.iter().cloned().collect::<Vec<_>>().join("\n");
-                        if s.is_empty() { None } else { Some(s) }
-                    },
-                    last_restart_at: mp.last_restart_at,
-                },
-            }
-        };
-        let _ = self.app_handle.emit("process-status", &payload);
+        let slot = self.slot_of(name).clone();
+        emit_status_to(&slot, &self.app_handle, name, last_error).await;
     }
 
     /// SPEC R1 / Edge R9 / Prohibition P1: spawn 子进程。
@@ -410,17 +389,141 @@ fn now_ms() -> i64 {
         .unwrap_or(0)
 }
 
-// 以下三个 task 在 Task 2 / 3 / 4 / 5 中填充。本 Task 1 仅留 stub 让 spawn_one 编译通过。
-// stub 期间 unused imports 由 module-level `#[allow(unused_imports)]` 抑制,Task 4 完成后移除。
-
-/// probe_loop stub — Task 2 实现 10s 周期探针 + transition + emit。
-async fn probe_loop(
-    _slot: Arc<ProcessSlot>,
-    _name: ProcessName,
-    _app: AppHandle,
-    _config: Arc<ProcessConfig>,
+/// SPEC Prohibition P2 共用 emit 函数 — 接收 slot 引用,可被 probe_loop / wait_exit /
+/// capture_lines / emit_status 共用,避免重复实现。
+pub(crate) async fn emit_status_to(
+    slot: &Arc<ProcessSlot>,
+    app: &AppHandle,
+    name: ProcessName,
+    last_error: Option<String>,
 ) {
-    // Task 2 填充
+    let payload = {
+        let mut mp = slot.state.lock().await;
+        if last_error.is_some() {
+            mp.last_error = last_error.clone();
+            mp.snapshot.last_error_len = last_error.as_ref().map(|s| s.len() as u32).unwrap_or(0);
+        }
+        ProcessStatusPayload {
+            name,
+            info: ProcessInfoDTO {
+                state: mp.state,
+                last_error: mp.last_error.clone(),
+                stderr_tail: {
+                    let s: String = mp.stderr_tail.iter().cloned().collect::<Vec<_>>().join("\n");
+                    if s.is_empty() { None } else { Some(s) }
+                },
+                last_restart_at: mp.last_restart_at,
+            },
+        }
+    };
+    let _ = app.emit("process-status", &payload);
+}
+
+// 以下 task 函数在 Task 2 / 3 / 4 / 5 中填充。
+
+/// probe_loop — 10s 周期探针 (SPEC Constraints)。
+///
+/// 流程:
+/// 1. spawn 后等 PROBE_INTERVAL_SECS,然后第一次探针 (D-11 首探延迟由 10s 提供)。
+/// 2. reqwest GET liveness endpoint (Agent `/health`,Go `/healthz`)。
+/// 3. liveness 200 → 再探 readiness (仅 Server 有,D-05);非 200 → ProbeDegraded (不计 fail)。
+/// 4. transition 决策:ProbeOk → Running (清 last_error),ProbeFail 3 连 → Unhealthy。
+/// 5. 状态变化才 emit_status;无变化不打扰前端。
+/// 6. 退出条件: shutdown_flag 或 state == Stopped (P3 stopped 不自恢复)。
+async fn probe_loop(
+    slot: Arc<ProcessSlot>,
+    name: ProcessName,
+    app: AppHandle,
+    config: Arc<ProcessConfig>,
+) {
+    let entry = match name {
+        ProcessName::Agent => config.processes.get(&ProcessNameKey::Agent),
+        ProcessName::Server => config.processes.get(&ProcessNameKey::Server),
+    }
+    .expect("ProcessConfig::validate 已保证 agent+server 都存在");
+
+    let port = entry.port;
+    let liveness_path = entry.health.liveness.path.clone();
+    let liveness_url = format!("http://127.0.0.1:{port}{liveness_path}");
+    let liveness_expect = entry.health.liveness.expect_status;
+    let readiness = entry.health.readiness.as_ref();
+    let readiness_cfg = readiness.map(|r| {
+        (
+            format!("http://127.0.0.1:{port}{}", r.path),
+            r.expect_status,
+        )
+    });
+
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(PROBE_TIMEOUT_SECS))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    loop {
+        if slot.shutdown_flag.load(Ordering::Relaxed) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_secs(PROBE_INTERVAL_SECS)).await;
+        if slot.shutdown_flag.load(Ordering::Relaxed) {
+            break;
+        }
+        {
+            let mp = slot.state.lock().await;
+            if mp.state == ProcessState::Stopped {
+                break;
+            }
+        }
+
+        // 探 liveness
+        let liveness_ok = match client.get(&liveness_url).send().await {
+            Ok(resp) => resp.status().as_u16() == liveness_expect,
+            Err(_) => false,
+        };
+
+        let event = if liveness_ok {
+            if let Some((ref ready_url, ready_expect)) = readiness_cfg {
+                let ready_ok = match client.get(ready_url).send().await {
+                    Ok(resp) => resp.status().as_u16() == ready_expect,
+                    Err(_) => false,
+                };
+                if ready_ok {
+                    ProcessEvent::ProbeOk
+                } else {
+                    // D-05 Server readiness 非 200 (PG/Redis 挂) — 降级,不计 fail_count
+                    ProcessEvent::ProbeDegraded
+                }
+            } else {
+                ProcessEvent::ProbeOk
+            }
+        } else {
+            ProcessEvent::ProbeFail
+        };
+
+        let (state_changed, last_error_for_emit) = {
+            let mut mp = slot.state.lock().await;
+            if mp.state == ProcessState::Stopped {
+                break;
+            }
+            let prev = mp.state;
+            let (ns, nsnap) = transition(mp.state, event, &mp.snapshot);
+            mp.state = ns;
+            mp.snapshot = nsnap;
+            // Running 时清 last_error (前端"健康"显示)
+            if ns == ProcessState::Running {
+                mp.last_error = None;
+            }
+            // emit 策略: Running (清错) / Unhealthy / Degraded 都 emit,以便前端刷新
+            let emit = prev != ns || ns == ProcessState::Running;
+            (emit, mp.last_error.clone())
+        };
+
+        if state_changed {
+            emit_status_to(&slot, &app, name, last_error_for_emit).await;
+        }
+    }
 }
 
 /// wait_exit stub — Task 3 实现 SpawnFailed/Crashed 区分 + backoff 重启。
