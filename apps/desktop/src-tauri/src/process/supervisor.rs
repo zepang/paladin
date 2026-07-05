@@ -36,7 +36,9 @@ use crate::process::state_machine::{
 };
 use serde::Serialize;
 use std::collections::VecDeque;
-use std::path::PathBuf;
+use std::future::Future;
+use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -259,126 +261,151 @@ impl ProcessSupervisor {
         emit_status_to(&slot, &self.app_handle, name, last_error).await;
     }
 
-    /// SPEC R1 / Edge R9 / Prohibition P1: spawn 子进程。
-    ///
-    /// 步骤:
-    /// 1. `check_port_or_error` 预检 — 占用时 emit `last_error='端口 N 已被占用'`、不 spawn。
-    /// 2. `tokio::process::Command::new(&cmd[0]).args(&cmd[1..])` 不走 shell,P1 命令注入面收敛。
-    /// 3. 设置 `kill_on_drop(true)` 防止 child handle 泄漏成为孤儿进程。
-    /// 4. take stdout/stderr,启动 capture_lines task (脱敏 + 落盘 + emit)。
-    /// 5. 启动 probe_loop (10s 周期探针) + wait_exit (区分 SpawnFailed/Crashed + backoff)。
-    /// 6. state = Starting、spawn_time = now。
-    pub async fn spawn_one(&self, name: ProcessName) -> Result<(), String> {
-        let entry = self.entry_of(name);
-        let process_name_str = match name {
-            ProcessName::Agent => "Agent",
-            ProcessName::Server => "Server",
-        };
-
-        // SPEC R1 / Edge R9: 端口预检 — 失败时 emit + Err,不 spawn。
-        if let Err(e) = check_port_or_error(entry.port, process_name_str) {
-            self.emit_status(name, Some(e.clone())).await;
-            return Err(e);
-        }
-
-        // SPEC Prohibition P1: cmd 来自静态 ProcessConfig;Command 默认不走 shell。
-        let mut cmd = Command::new(&entry.cmd[0]);
-        cmd.args(&entry.cmd[1..]);
-        // 相对 cwd 基于 CARGO_MANIFEST_DIR (src-tauri),dev 模式可靠;packaged 模式 Phase 10 改造。
-        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let cwd = entry
-            .cwd
-            .as_ref()
-            .map(|p| if p.is_absolute() { p.clone() } else { base.join(p) })
-            .unwrap_or_else(|| base.clone());
-        cmd.current_dir(&cwd);
-        // env 字面透传 (plan 03 已验证字面值不展开)。
-        cmd.envs(&entry.env);
-        cmd.stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            // 防 child 泄漏:若 Child handle drop 时进程仍在跑,tokio 会发 SIGKILL。
-            // 注意 graceful_shutdown 仍优先走 SIGTERM + 5s grace 路径,这是兜底。
-            .kill_on_drop(true);
-
-        let mut child = cmd.spawn().map_err(|e| {
-            let msg = format!("spawn {process_name_str} 失败: {e}");
-            // 同步 emit 在 await 点之前不太合适,这里仅返回 Err,调用方负责 emit。
-            msg
-        })?;
-
-        let stdout: Option<ChildStdout> = child.stdout.take();
-        let stderr: Option<ChildStderr> = child.stderr.take();
-
+    /// SPEC R1 / Edge R9 / Prohibition P1: spawn 子进程。委托给 [`spawn_child_to_slot`],
+/// 让 wait_exit 在 backoff 重启时也能复用同一路径。
+pub async fn spawn_one(&self, name: ProcessName) -> Result<(), String> {
         let slot = self.slot_of(name).clone();
-        // 新 spawn — 重置 shutdown_flag。
-        slot.shutdown_flag.store(false, Ordering::Relaxed);
+        spawn_child_to_slot(
+            &slot,
+            name,
+            &self.app_handle,
+            &self.config,
+            &self.log_dir,
+        )
+        .await
+    }
+}
 
-        {
-            let mut mp = slot.state.lock().await;
-            mp.state = ProcessState::Starting;
-            mp.spawn_time = Some(Instant::now());
-            mp.stderr_tail.clear();
-            // spawn 成功不立即清 last_error,等首次 ProbeOk 才清 (transition 不动 last_error_len)。
-        }
+/// BoxFuture 类型别名 — 用 Pin<Box<dyn Future + Send>> 打破
+/// spawn_child_to_slot ↔ wait_exit 之间的 async fn 类型推断循环 (rustc E0391)。
+type SpawnFut<'a> = Pin<Box<dyn Future<Output = Result<(), String>> + Send + 'a>>;
 
-        // 把 child handle 存入 mutex,wait_exit task 会接管。
-        *slot.child.lock().await = Some(child);
+/// SPEC R1 / Edge R9 / Prohibition P1: 实际 spawn 逻辑 — free function,可被
+/// `ProcessSupervisor::spawn_one` 与 wait_exit (backoff 重启) 共用。
+///
+/// 步骤:
+/// 1. `check_port_or_error` 预检 — 占用时 emit `last_error='端口 N 已被占用'`、不 spawn。
+/// 2. `tokio::process::Command::new(&cmd[0]).args(&cmd[1..])` 不走 shell,P1 命令注入面收敛。
+/// 3. 设置 `kill_on_drop(true)` 防止 child handle 泄漏成为孤儿进程。
+/// 4. take stdout/stderr,启动 capture_lines task (脱敏 + 落盘 + emit)。
+/// 5. 启动 probe_loop (10s 周期探针) + wait_exit (区分 SpawnFailed/Crashed + backoff)。
+/// 6. state = Starting、spawn_time = now。
+pub(crate) fn spawn_child_to_slot<'a>(
+    slot: &'a Arc<ProcessSlot>,
+    name: ProcessName,
+    app: &'a AppHandle,
+    config: &'a Arc<ProcessConfig>,
+    log_dir: &'a PathBuf,
+) -> SpawnFut<'a> {
+    Box::pin(async move {
+    let entry = match name {
+        ProcessName::Agent => config.processes.get(&ProcessNameKey::Agent),
+        ProcessName::Server => config.processes.get(&ProcessNameKey::Server),
+    }
+    .expect("ProcessConfig::validate 已保证 agent+server 都存在");
+    let process_name_str = match name {
+        ProcessName::Agent => "Agent",
+        ProcessName::Server => "Server",
+    };
 
-        // 启动 capture_lines / probe_loop / wait_exit 三个独立 task。
-        let log_path = self.log_dir.join(match name {
-            ProcessName::Agent => "paladin-agent.log",
-            ProcessName::Server => "paladin-server.log",
+    // SPEC R1 / Edge R9: 端口预检 — 失败时 emit + Err,不 spawn。
+    if let Err(e) = check_port_or_error(entry.port, process_name_str) {
+        emit_status_to(slot, app, name, Some(e.clone())).await;
+        return Err(e);
+    }
+
+    // SPEC Prohibition P1: cmd 来自静态 ProcessConfig;Command 默认不走 shell。
+    let mut cmd = Command::new(&entry.cmd[0]);
+    cmd.args(&entry.cmd[1..]);
+    // 相对 cwd 基于 CARGO_MANIFEST_DIR (src-tauri),dev 模式可靠;packaged 模式 Phase 10 改造。
+    let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let cwd = entry
+        .cwd
+        .as_ref()
+        .map(|p| if p.is_absolute() { p.clone() } else { base.join(p) })
+        .unwrap_or_else(|| base.clone());
+    cmd.current_dir(&cwd);
+    // env 字面透传 (plan 03 已验证字面值不展开)。
+    cmd.envs(&entry.env);
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        // 防 child 泄漏:若 Child handle drop 时进程仍在跑,tokio 会发 SIGKILL。
+        // 注意 graceful_shutdown 仍优先走 SIGTERM + 5s grace 路径,这是兜底。
+        .kill_on_drop(true);
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("spawn {process_name_str} 失败: {e}"))?;
+
+    let stdout: Option<ChildStdout> = child.stdout.take();
+    let stderr: Option<ChildStderr> = child.stderr.take();
+
+    // 新 spawn — 重置 shutdown_flag。
+    slot.shutdown_flag.store(false, Ordering::Relaxed);
+
+    {
+        let mut mp = slot.state.lock().await;
+        mp.state = ProcessState::Starting;
+        mp.spawn_time = Some(Instant::now());
+        mp.stderr_tail.clear();
+        // spawn 成功不立即清 last_error,等首次 ProbeOk 才清 (transition 不动 last_error_len)。
+    }
+
+    // 把 child handle 存入 mutex,wait_exit task 会接管。
+    *slot.child.lock().await = Some(child);
+
+    // 启动 capture_lines / probe_loop / wait_exit 三个独立 task。
+    let log_path = log_dir.join(match name {
+        ProcessName::Agent => "paladin-agent.log",
+        ProcessName::Server => "paladin-server.log",
+    });
+
+    if let Some(stdout) = stdout {
+        let app_c = app.clone();
+        let flag = slot.shutdown_flag.clone();
+        let path = log_path.clone();
+        let slot_c = slot.clone();
+        tokio::spawn(async move {
+            capture_lines(name, LogStream::Stdout, stdout, path, app_c, flag, slot_c).await;
         });
-        let app = self.app_handle.clone();
-        let config = self.config.clone();
-        let log_dir = self.log_dir.clone();
+    }
+    if let Some(stderr) = stderr {
+        let flag = slot.shutdown_flag.clone();
+        let slot_c = slot.clone();
+        let app_c = app.clone();
+        tokio::spawn(async move {
+            capture_lines(name, LogStream::Stderr, stderr, log_path.clone(), app_c, flag, slot_c)
+                .await;
+        });
+    }
 
-        if let Some(stdout) = stdout {
-            let app_c = app.clone();
-            let flag = slot.shutdown_flag.clone();
-            let path = log_path.clone();
-            let slot_c = slot.clone();
-            tokio::spawn(async move {
-                capture_lines(name, LogStream::Stdout, stdout, path, app_c, flag, slot_c).await;
-            });
-        }
-        if let Some(stderr) = stderr {
-            let flag = slot.shutdown_flag.clone();
-            let slot_c = slot.clone();
-            let app_c = app.clone();
-            tokio::spawn(async move {
-                capture_lines(name, LogStream::Stderr, stderr, log_path, app_c, flag, slot_c)
-                    .await;
-            });
-        }
+    // probe_loop — 每 spawn 启动一次,Stopped 后退出 (P3)。
+    {
+        let app_c = app.clone();
+        let cfg_c = config.clone();
+        let slot_c = slot.clone();
+        tokio::spawn(async move {
+            probe_loop(slot_c, name, app_c, cfg_c).await;
+        });
+    }
 
-        // probe_loop — 每 spawn 启动一次,Stopped 后退出 (P3)。
-        {
-            let app_c = app.clone();
-            let cfg_c = config.clone();
-            let slot_c = slot.clone();
-            tokio::spawn(async move {
-                probe_loop(slot_c, name, app_c, cfg_c).await;
-            });
-        }
+    // wait_exit — 接管 child handle,处理 SpawnFailed/Crashed/backoff。
+    {
+        let slot_c = slot.clone();
+        let cfg_c = config.clone();
+        let app_c = app.clone();
+        let ld = log_dir.clone();
+        tokio::spawn(async move {
+            wait_exit(slot_c, name, app_c, cfg_c, ld).await;
+        });
+    }
 
-        // wait_exit — 接管 child handle,处理 SpawnFailed/Crashed/backoff。
-        {
-            let slot_c = slot.clone();
-            let cfg_c = config.clone();
-            let app_c = app.clone();
-            let ld = log_dir.clone();
-            tokio::spawn(async move {
-                wait_exit(slot_c, name, app_c, cfg_c, ld).await;
-            });
-        }
-
-        // emit Starting 状态 (前端首屏遮罩依赖此事件)。
-        self.emit_status(name, None).await;
+    // emit Starting 状态 (前端首屏遮罩依赖此事件)。
+    emit_status_to(slot, app, name, None).await;
 
         Ok(())
-    }
+    })
 }
 
 /// 当前 Unix epoch 毫秒时间戳 (LogChunk.ts 字段)。
@@ -526,15 +553,151 @@ async fn probe_loop(
     }
 }
 
-/// wait_exit stub — Task 3 实现 SpawnFailed/Crashed 区分 + backoff 重启。
+/// wait_exit — 接管 child handle,等待退出并按 SPEC R3/R3'/R4/P3 决策。
+///
+/// 流程:
+/// 1. 从 `slot.child` mutex take 出 child handle (释放 mutex)。
+/// 2. await `child.wait()`;退出后取 `exit_status.code()`。
+/// 3. 读 `spawn_time.elapsed()`:
+///    - ≤ STARTUP_GRACE_SECS (5s) → `SpawnFailed` → transition → Stopped,**break 不重启**。
+///    - > 5s → `Crashed` → transition → Unhealthy + restart_count+1,走 backoff。
+/// 4. backoff: `backoff_delay(restart_count-1, max_restarts)`:
+///    - `Some(d)` → `sleep(d)` → `spawn_child_to_slot` (会启动新 wait_exit,本 task break)。
+///    - `None` → max_restarts 耗尽,手动转 Stopped + emit,break (P3 不自恢复)。
+/// 5. shutdown_flag 期间 child 退出 → 直接 break (不视为崩溃)。
 async fn wait_exit(
-    _slot: Arc<ProcessSlot>,
-    _name: ProcessName,
-    _app: AppHandle,
-    _config: Arc<ProcessConfig>,
-    _log_dir: PathBuf,
+    slot: Arc<ProcessSlot>,
+    name: ProcessName,
+    app: AppHandle,
+    config: Arc<ProcessConfig>,
+    log_dir: PathBuf,
 ) {
-    // Task 3 填充
+    let process_label = match name {
+        ProcessName::Agent => "Agent",
+        ProcessName::Server => "Server",
+    };
+
+    // 1. take child
+    let mut child = {
+        let mut guard = slot.child.lock().await;
+        match guard.take() {
+            Some(c) => c,
+            None => return, // spawn 失败 / 手动 stop — 没有 child 可等
+        }
+    };
+
+    // 2. wait
+    let exit_result = child.wait().await;
+    let exit_code = match &exit_result {
+        Ok(status) => status.code(),
+        Err(_) => None,
+    };
+    drop(child);
+
+    // shutdown 期间 child 退出 — 不视为崩溃
+    if slot.shutdown_flag.load(Ordering::Relaxed) {
+        return;
+    }
+
+    // 3. 读 spawn_time,决定事件
+    let (event, error_msg) = {
+        let mp = slot.state.lock().await;
+        if mp.state == ProcessState::Stopped {
+            // 已被 stop 命令置 Stopped,不重启
+            return;
+        }
+        let elapsed = mp.spawn_time.map(|t| t.elapsed()).unwrap_or_default();
+        let elapsed_secs = elapsed.as_secs_f64();
+        let msg = format!(
+            "{process_label} 进程退出 (code={exit_code:?}, 运行 {elapsed_secs:.1}s)"
+        );
+        let ev = if elapsed_secs <= STARTUP_GRACE_SECS {
+            ProcessEvent::SpawnFailed {
+                exited_after_secs: elapsed_secs,
+            }
+        } else {
+            ProcessEvent::Crashed {
+                exited_after_secs: elapsed_secs,
+            }
+        };
+        (ev, msg)
+    };
+
+    // 4. transition
+    let new_state;
+    let new_snap;
+    {
+        let mut mp = slot.state.lock().await;
+        if mp.state == ProcessState::Stopped {
+            return;
+        }
+        let (ns, nsnap) = transition(mp.state, event, &mp.snapshot);
+        mp.state = ns;
+        mp.snapshot = nsnap;
+        mp.last_error = Some(error_msg.clone());
+        new_state = ns;
+        new_snap = nsnap;
+    }
+
+    emit_status_to(&slot, &app, name, Some(error_msg.clone())).await;
+
+    match new_state {
+        ProcessState::Stopped => {
+            // SpawnFailed (≤5s) 或前置 backoff 耗尽 — P3 终态,不自恢复
+            return;
+        }
+        ProcessState::Unhealthy => {
+            // Crashed → 走 backoff 路径
+            // restart_count 已被 transition +1;BACKOFF_SEQUENCE_MS 索引 = restart_count - 1
+            let attempt_idx = new_snap.restart_count.saturating_sub(1);
+            let delay = backoff_delay(attempt_idx, config.max_restarts);
+            match delay {
+                Some(d) => {
+                    tokio::time::sleep(d).await;
+                    if slot.shutdown_flag.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    // 重启 — spawn 一个独立 task 调用 spawn_child_to_slot,
+                    // 它内部会启动新 wait_exit,本 task 退出。
+                    // 用 spawn 隔离避免 wait_exit <-> spawn_child_to_slot 的 Send 推断循环。
+                    let slot_c = slot.clone();
+                    let app_c = app.clone();
+                    let cfg_c = config.clone();
+                    let ld = log_dir.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) =
+                            spawn_child_to_slot(&slot_c, name, &app_c, &cfg_c, &ld).await
+                        {
+                            let fail_msg = format!("退避后重启 spawn 失败: {e}");
+                            {
+                                let mut mp = slot_c.state.lock().await;
+                                mp.state = ProcessState::Stopped;
+                                mp.last_error = Some(fail_msg.clone());
+                            }
+                            emit_status_to(&slot_c, &app_c, name, Some(fail_msg)).await;
+                        }
+                    });
+                    return;
+                }
+                None => {
+                    // max_restarts 耗尽 — 手动转 Stopped (P3)
+                    let exhaust_msg = format!(
+                        "{process_label} 退避 {} 次耗尽,放弃自恢复",
+                        config.max_restarts
+                    );
+                    {
+                        let mut mp = slot.state.lock().await;
+                        mp.state = ProcessState::Stopped;
+                        mp.last_error = Some(exhaust_msg.clone());
+                    }
+                    emit_status_to(&slot, &app, name, Some(exhaust_msg)).await;
+                }
+            }
+        }
+        _ => {
+            // 不应发生 (SpawnFailed→Stopped / Crashed→Unhealthy 是 transition 的硬路径)
+        }
+    }
 }
 
 /// capture_lines stub — Task 4 实现 redact + append + emit + stderr_tail。
