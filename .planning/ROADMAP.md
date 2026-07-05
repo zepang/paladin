@@ -183,7 +183,7 @@ Plans:
 **Goal:** Tauri sidecar 管理 Python Agent + Go Server 两子进程 —— 端口预检/健康探针/崩溃重启(指数退避)/优雅关闭/日志脱敏与落盘/6 Tauri 命令 + 前端 process store + StatusBar + LogsPanel + StartupMask
 **Requirements**: SDC-01, SDC-02, SDC-03
 **Depends on:** Phase 7
-**Plans:** 10/10 plans complete ✅
+**Plans:** 10/10 plans complete
 
 Plans:
 
