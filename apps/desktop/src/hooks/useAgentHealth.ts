@@ -1,67 +1,50 @@
 /**
- * Agent 健康状态管理 Hook
+ * Agent 健康状态管理 Hook — plan 07.3-07
  *
- * 检测 Agent 服务是否在线，用于前端启动时的状态检查
+ * 数据源从「自发 fetch /health」改为「订阅 stores/process.ts 的 agent selector」
+ * (plan 06 supervisor emit `process-status` 事件,supervisor 是唯一真相源)。
+ *
+ * 接口形态保留 isOnline/isLoading/error/retry,App.tsx 解构不破坏。
+ * retry 改为 invoke('restart_agent') — 走 supervisor 手动重启路径。
  */
-
-import { useCallback, useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { useCallback } from 'react';
+import { useProcessStatus } from '@/stores/process';
 
 export interface AgentHealthState {
-  /** Agent 是否在线 */
+  /** Agent 是否在线 (state === 'running') */
   isOnline: boolean;
-  /** 是否正在加载检测中 */
+  /** 是否正在启动 (state === 'starting') */
   isLoading: boolean;
-  /** 错误信息 */
+  /** 错误信息 (last_error 优先,fallback 文案) */
   error: string | null;
 }
 
 /**
- * 检查 Agent 健康状态的 Hook
+ * 检查 Agent 健康状态的 Hook — selector 订阅 store.agent
  *
- * @returns Agent 健康状态对象和重试函数
+ * @returns Agent 健康状态对象和重启函数
  */
-export function useAgentHealth() {
-  const [state, setState] = useState<AgentHealthState>({
-    isOnline: false,
-    isLoading: true,
-    error: null,
-  });
+export function useAgentHealth(): AgentHealthState & { retry: () => void } {
+  const status = useProcessStatus('agent');
 
-  /**
-   * 执行健康检查
-   */
-  const checkHealth = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
+  const isOnline = status.state === 'running';
+  const isLoading = status.state === 'starting';
+  const error =
+    status.last_error ??
+    (status.state === 'stopped'
+      ? 'Agent 已停止'
+      : status.state === 'unhealthy'
+        ? 'Agent 异常，正在自动重启'
+        : status.state === 'degraded'
+          ? 'Agent 降级运行'
+          : null);
 
-    try {
-      const response = await fetch('http://localhost:9876/health');
-
-      if (response.ok) {
-        setState({ isOnline: true, isLoading: false, error: null });
-      } else {
-        setState({
-          isOnline: false,
-          isLoading: false,
-          error: 'Agent 服务异常',
-        });
-      }
-    } catch {
-      setState({
-        isOnline: false,
-        isLoading: false,
-        error: '无法连接到 Agent 服务，请先启动 Agent',
-      });
-    }
+  const retry = useCallback(() => {
+    invoke('restart_agent').catch((e) => {
+      console.warn('[agent-health] restart_agent failed', e);
+    });
   }, []);
 
-  // 组件挂载时执行一次健康检查
-  useEffect(() => {
-    checkHealth();
-  }, [checkHealth]);
-
-  return {
-    ...state,
-    /** 手动触发健康检查重试 */
-    retry: checkHealth,
-  };
+  return { isOnline, isLoading, error, retry };
 }
