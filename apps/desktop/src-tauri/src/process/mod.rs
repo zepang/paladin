@@ -12,10 +12,8 @@ pub mod port_probe;
 pub mod state_machine;
 pub mod supervisor;
 
-pub use config::ProcessConfig;
 pub use supervisor::{
-    LogChunk, LogStream, ProcessInfoDTO, ProcessName, ProcessStatusPayload, ProcessStatusSnapshot,
-    ProcessState, ProcessSupervisor, RuntimeConfig,
+    ProcessState, ProcessSupervisor,
 };
 
 #[cfg(test)]
