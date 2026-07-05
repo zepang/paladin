@@ -23,10 +23,7 @@
 //! - Prohibition P2: [`ProcessSupervisor::emit_status`] 在每次状态变化时 emit
 //!   `last_error` + `stderr_tail` (末尾 50 行)。
 
-// Task 1 阶段 probe_loop/wait_exit/capture_lines 是 stub,部分 import + 字段未引用。
-// Task 4 完成后清理此 allow,届时所有 import 都会被使用。
-#![allow(unused_imports)]
-#![allow(dead_code)]
+// Task 1-4 已完成所有 stub,无 unused imports/dead_code;此 allow 已移除。
 
 use crate::process::config::{ProcessConfig, ProcessEntry, ProcessNameKey};
 use crate::process::log_redact::redact_log_line;
@@ -700,17 +697,86 @@ async fn wait_exit(
     }
 }
 
-/// capture_lines stub — Task 4 实现 redact + append + emit + stderr_tail。
+/// capture_lines — 异步逐行读取子进程 stdout/stderr (SPEC Prohibition P2 / Edge R10)。
+///
+/// 流程:
+/// 1. `tokio::fs::OpenOptions::create+append` 打开 log_path;失败降级为只 emit 不落盘
+///    (SPEC Edge R10 logs-dir-not-writable 不阻塞进程)。
+/// 2. BufReader::read_line 逐行读;EOF (Ok(0)) 退出 loop。
+/// 3. 每行先 [`redact_log_line`] 脱敏 (plan 05 已验证 — Agent 内联 token / path / DSN)。
+/// 4. emit `process-log` 事件,LogChunk { process, stream, line, ts }。
+/// 5. **stderr** 行追加到 `mp.stderr_tail` (VecDeque 容量 50,LIFO 弹头) — P2 暴露退出原因。
+/// 6. 落盘:写失败时把 file 置 None (避免反复失败),不阻塞。
+/// 7. shutdown_flag 时退出。
 async fn capture_lines<R>(
-    _name: ProcessName,
-    _stream: LogStream,
-    _reader: R,
-    _log_path: PathBuf,
-    _app: AppHandle,
-    _shutdown_flag: Arc<AtomicBool>,
-    _slot: Arc<ProcessSlot>,
+    name: ProcessName,
+    stream: LogStream,
+    reader: R,
+    log_path: PathBuf,
+    app: AppHandle,
+    shutdown_flag: Arc<AtomicBool>,
+    slot: Arc<ProcessSlot>,
 ) where
     R: AsyncRead + Unpin + Send + 'static,
 {
-    // Task 4 填充
+    let mut buf = BufReader::new(reader);
+
+    // SPEC Edge R10: logs-dir-not-writable 降级 — 文件打开失败时仍 emit 不阻塞。
+    let mut file: Option<tokio::fs::File> = match tokio::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .await
+    {
+        Ok(f) => Some(f),
+        Err(_) => None,
+    };
+
+    let mut line_buf = String::new();
+    loop {
+        line_buf.clear();
+        match buf.read_line(&mut line_buf).await {
+            Ok(0) => break, // EOF — child stdout/stderr 关闭
+            Ok(_) => {
+                let trimmed = line_buf.trim_end_matches(['\n', '\r']);
+                // plan 05 已脱敏 (内联 token / 路径 / DSN — 6 用例覆盖)
+                let redacted = redact_log_line(trimmed);
+
+                // emit process-log — 前端按 (process, stream) 路由到对应 console tab
+                let chunk = LogChunk {
+                    process: name,
+                    stream,
+                    line: redacted.clone(),
+                    ts: now_ms(),
+                };
+                let _ = app.emit("process-log", &chunk);
+
+                // SPEC Prohibition P2: stderr_tail 保留末尾 50 行,供 Stopped/Unhealthy
+                // 时 emit_status 暴露退出原因;stdout 不进 tail (避免噪音)。
+                if stream == LogStream::Stderr {
+                    let mut mp = slot.state.lock().await;
+                    if mp.stderr_tail.len() >= STDERR_TAIL_CAPACITY {
+                        mp.stderr_tail.pop_front();
+                    }
+                    mp.stderr_tail.push_back(redacted.clone());
+                }
+
+                // 落盘 (若文件可用) — 写失败则降级为 None,避免反复失败占用 CPU
+                if let Some(ref mut f) = file {
+                    let to_write = match stream {
+                        LogStream::Stderr => format!("[stderr] {redacted}\n"),
+                        LogStream::Stdout => format!("[stdout] {redacted}\n"),
+                    };
+                    if f.write_all(to_write.as_bytes()).await.is_err() {
+                        file = None;
+                    }
+                }
+            }
+            Err(_) => break,
+        }
+
+        if shutdown_flag.load(Ordering::Relaxed) {
+            break;
+        }
+    }
 }
