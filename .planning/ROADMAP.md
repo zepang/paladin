@@ -183,9 +183,20 @@ Plans:
 **Goal:** [Urgent work - to be planned]
 **Requirements**: TBD
 **Depends on:** Phase 7
-**Plans:** 0 plans
+**Plans:** 1/10 plans executed
 
 Plans:
+
+- [x] 07.3-01-PLAN.md
+- [ ] 07.3-02-PLAN.md
+- [ ] 07.3-03-PLAN.md
+- [ ] 07.3-04-PLAN.md
+- [ ] 07.3-05-PLAN.md
+- [ ] 07.3-06-PLAN.md
+- [ ] 07.3-07-PLAN.md
+- [ ] 07.3-08-PLAN.md
+- [ ] 07.3-09-PLAN.md
+- [ ] 07.3-10-PLAN.md
 
 - [ ] TBD (run /gsd-plan-phase 07.3 to break down)
 
