@@ -4,6 +4,8 @@
 /// spawn / 健康探针 / 重启 / 退避 / 优雅关闭 / 日志捕获行为在 plan 07.3-06 实现。
 pub mod commands;
 pub mod config;
+pub mod log_redact;
+pub mod port_probe;
 pub mod state_machine;
 pub mod supervisor;
 
@@ -12,6 +14,12 @@ pub use supervisor::{ProcessName, ProcessState, ProcessSupervisor};
 
 #[cfg(test)]
 mod config_tests;
+
+#[cfg(test)]
+mod log_redact_tests;
+
+#[cfg(test)]
+mod port_probe_tests;
 
 #[cfg(test)]
 mod state_machine_tests;
