@@ -183,14 +183,14 @@ Plans:
 **Goal:** [Urgent work - to be planned]
 **Requirements**: TBD
 **Depends on:** Phase 7
-**Plans:** 1/10 plans executed
+**Plans:** 2/10 plans executed
 
 Plans:
 
 - [x] 07.3-01-PLAN.md
 - [ ] 07.3-02-PLAN.md
 - [ ] 07.3-03-PLAN.md
-- [ ] 07.3-04-PLAN.md
+- [x] 07.3-04-PLAN.md
 - [ ] 07.3-05-PLAN.md
 - [ ] 07.3-06-PLAN.md
 - [ ] 07.3-07-PLAN.md
