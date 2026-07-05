@@ -180,10 +180,10 @@ Plans:
 
 ### Phase 07.3: Sidecar Process Management (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** Tauri sidecar 管理 Python Agent + Go Server 两子进程 —— 端口预检/健康探针/崩溃重启(指数退避)/优雅关闭/日志脱敏与落盘/6 Tauri 命令 + 前端 process store + StatusBar + LogsPanel + StartupMask
+**Requirements**: SDC-01, SDC-02, SDC-03
 **Depends on:** Phase 7
-**Plans:** 9/10 plans executed
+**Plans:** 10/10 plans complete ✅
 
 Plans:
 
@@ -196,9 +196,9 @@ Plans:
 - [x] 07.3-07-PLAN.md
 - [x] 07.3-08-PLAN.md
 - [x] 07.3-09-PLAN.md
-- [ ] 07.3-10-PLAN.md
+- [x] 07.3-10-PLAN.md
 
-- [ ] TBD (run /gsd-plan-phase 07.3 to break down)
+- **Status:** Code-complete. 自动化源门全绿(cargo test 54/54 + tsc 0 errors + clippy 0 errors + build ✓). SPEC 21 Acceptance + 13 Edge + 4 Prohibitions 逐条验证完成. 三平台 UAT deferred 至 Phase 10 Packaging.
 
 ### Phase 07.1: Official AG-UI Deferred Tool Approval (INSERTED)
 
