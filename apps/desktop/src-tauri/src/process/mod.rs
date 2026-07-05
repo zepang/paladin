@@ -8,3 +8,6 @@ pub mod supervisor;
 
 pub use config::ProcessConfig;
 pub use supervisor::{ProcessName, ProcessState, ProcessSupervisor};
+
+#[cfg(test)]
+mod state_machine_tests;
