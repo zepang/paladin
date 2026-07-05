@@ -40,12 +40,10 @@ const initial: ProcessInfo = {
 export const useProcessStore = create<ProcessStore>((set) => ({
   agent: { ...initial },
   server: { ...initial },
-  setStatus: (name, patch) =>
-    set((s) => ({ [name]: { ...s[name], ...patch } })),
+  setStatus: (name, patch) => set((s) => ({ [name]: { ...s[name], ...patch } })),
 }));
 
-export const useProcessStatus = (name: ProcessName): ProcessInfo =>
-  useProcessStore((s) => s[name]);
+export const useProcessStatus = (name: ProcessName): ProcessInfo => useProcessStore((s) => s[name]);
 
 type ProcessStatusSnapshot = Record<ProcessName, ProcessInfo>;
 
@@ -70,13 +68,10 @@ export async function initProcessListeners(): Promise<() => void> {
     console.warn('[process] get_process_status failed, 保留 starting 默认值', e);
   }
 
-  const unlisten = await listen<ProcessStatusEventPayload>(
-    'process-status',
-    (e) => {
-      const { name, ...patch } = e.payload;
-      useProcessStore.getState().setStatus(name, patch);
-    }
-  );
+  const unlisten = await listen<ProcessStatusEventPayload>('process-status', (e) => {
+    const { name, ...patch } = e.payload;
+    useProcessStore.getState().setStatus(name, patch);
+  });
 
   return unlisten;
 }

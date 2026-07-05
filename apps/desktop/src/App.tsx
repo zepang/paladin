@@ -11,15 +11,15 @@ import { StatusBar } from '@/components/StatusBar';
 import { Titlebar } from '@/components/Titlebar';
 import { RightPanel } from '@/components/layout/RightPanel';
 import { Toaster } from '@/components/ui/sonner';
-import { invoke } from '@tauri-apps/api/core';
-import { HttpAgent } from '@ag-ui/client';
-import { CopilotKitProvider } from '@copilotkit/react-core/v2';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
 import { useProcessStatus } from '@/stores/process';
 import { useTerminalStore } from '@/stores/terminal';
-import { getBreakpoint, useUIStore, WIDTH_CONFIG } from '@/stores/ui';
+import { WIDTH_CONFIG, getBreakpoint, useUIStore } from '@/stores/ui';
 import { initWindowEvents } from '@/stores/window';
+import { HttpAgent } from '@ag-ui/client';
+import { CopilotKitProvider } from '@copilotkit/react-core/v2';
+import { invoke } from '@tauri-apps/api/core';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 function App() {
   // 侧边栏折叠状态
@@ -90,11 +90,7 @@ function App() {
 
   // Agent 异常/停止时显示警告 toast（带重启按钮）— agentStatus 驱动
   useEffect(() => {
-    if (
-      agentState !== 'running' &&
-      agentState !== 'starting' &&
-      agentStatus.last_error
-    ) {
+    if (agentState !== 'running' && agentState !== 'starting' && agentStatus.last_error) {
       toast.warning(agentStatus.last_error, {
         action: {
           label: '重启',
@@ -181,9 +177,7 @@ function App() {
 
   // AG-UI HttpAgent — 直连 Pydantic AI 端点 (D-07 runtimeConfig 驱动)
   const agUiAgent = useMemo(
-    () =>
-      runtimeConfig &&
-      new HttpAgent({ url: `${runtimeConfig.agent_url}/copilotkit` }),
+    () => runtimeConfig && new HttpAgent({ url: `${runtimeConfig.agent_url}/copilotkit` }),
     [runtimeConfig]
   );
 
@@ -275,9 +269,7 @@ function App() {
 
           {/* 折叠/抽屉模式下的展开按钮 */}
           {(sidebarCollapsed || sidebarDrawerMode) && !sidebarDrawerOpen && (
-            <SidebarToggle
-              onClick={sidebarDrawerMode ? toggleSidebarDrawer : toggleSidebar}
-            />
+            <SidebarToggle onClick={sidebarDrawerMode ? toggleSidebarDrawer : toggleSidebar} />
           )}
 
           {/* 中间：对话区域（全屏时隐藏） */}

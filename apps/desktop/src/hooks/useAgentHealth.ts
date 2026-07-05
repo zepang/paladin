@@ -1,3 +1,4 @@
+import { useProcessStatus } from '@/stores/process';
 /**
  * Agent 健康状态管理 Hook — plan 07.3-07
  *
@@ -9,7 +10,6 @@
  */
 import { invoke } from '@tauri-apps/api/core';
 import { useCallback } from 'react';
-import { useProcessStatus } from '@/stores/process';
 
 export interface AgentHealthState {
   /** Agent 是否在线 (state === 'running') */

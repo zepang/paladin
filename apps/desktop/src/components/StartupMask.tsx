@@ -62,7 +62,9 @@ export function StartupMask({ agentState, error, stderrTail, onRestart }: Startu
             {stderrTail}
           </pre>
         )}
-        <Button variant="destructive" onClick={onRestart}>重启 Agent</Button>
+        <Button variant="destructive" onClick={onRestart}>
+          重启 Agent
+        </Button>
       </div>
     );
   }
