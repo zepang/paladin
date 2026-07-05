@@ -10,7 +10,7 @@ interface TerminalState {
   isOpen: boolean;
   isFullscreen: boolean;
   panelWidth: number;
-  activePanel: 'terminal' | 'file-preview' | 'diff';
+  activePanel: 'terminal' | 'file-preview' | 'diff' | 'logs';
   tabs: TerminalTab[];
   activeTabId: string | null;
   isTerminalRunning: boolean;
@@ -20,7 +20,7 @@ interface TerminalState {
   setPanelWidth: (w: number) => void;
   setFullscreen: (fs: boolean) => void;
   toggleFullscreen: () => void;
-  setActivePanel: (panel: 'terminal' | 'file-preview' | 'diff') => void;
+  setActivePanel: (panel: 'terminal' | 'file-preview' | 'diff' | 'logs') => void;
   addTab: (tab: TerminalTab) => void;
   removeTab: (id: string) => void;
   setActiveTab: (id: string | null) => void;
