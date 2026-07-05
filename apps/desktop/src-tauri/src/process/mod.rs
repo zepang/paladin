@@ -11,4 +11,7 @@ pub use config::ProcessConfig;
 pub use supervisor::{ProcessName, ProcessState, ProcessSupervisor};
 
 #[cfg(test)]
+mod config_tests;
+
+#[cfg(test)]
 mod state_machine_tests;
