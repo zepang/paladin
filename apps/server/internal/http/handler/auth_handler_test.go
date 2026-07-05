@@ -18,10 +18,10 @@ import (
 const testJWTSecret = "0123456789abcdef0123456789abcdef0123456789"
 
 type fakeStore struct {
-	users     map[string]sqlcgen.User
-	byID      map[int64]sqlcgen.User
-	nextID    int64
-	roles     map[int64][]string
+	users  map[string]sqlcgen.User
+	byID   map[int64]sqlcgen.User
+	nextID int64
+	roles  map[int64][]string
 }
 
 func newFakeStore() *fakeStore {

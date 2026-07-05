@@ -2,6 +2,7 @@ package ws
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -58,6 +59,8 @@ func NewWSHandler(hub *ws.Hub, logger *log.Logger) *WSHandler {
 
 func (h *WSHandler) Handle(c *gin.Context) {
 	userID, _ := c.Get("userID")
+	rolesRaw, _ := c.Get("roles")
+	roles, _ := rolesRaw.([]string)
 
 	conn, err := websocket.Accept(c.Writer, c.Request, &websocket.AcceptOptions{
 		OriginPatterns: []string{"localhost", "127.0.0.1"},
@@ -75,7 +78,7 @@ func (h *WSHandler) Handle(c *gin.Context) {
 		id = "anon"
 	}
 	wc := newWSConn(id, conn)
-	h.hub.Register(wc)
+	h.hub.Register(wc, roles)
 	defer h.hub.Unregister(wc)
 	defer wc.close()
 
@@ -110,9 +113,18 @@ func (h *WSHandler) pingLoop(ctx context.Context, conn *websocket.Conn) {
 
 func (h *WSHandler) readLoop(ctx context.Context, conn *websocket.Conn) error {
 	for {
-		_, _, err := conn.Read(ctx)
+		_, data, err := conn.Read(ctx)
 		if err != nil {
 			return err
+		}
+		if h.logger != nil {
+			var probe map[string]any
+			if json.Unmarshal(data, &probe) == nil {
+				t, _ := probe["type"].(string)
+				if t == "" || t != "ping" {
+					h.logger.Printf("ws inbound type=%q ignored", t)
+				}
+			}
 		}
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"paladin/apps/server/internal/audit"
 	"paladin/apps/server/internal/auth"
 	sqlcgen "paladin/apps/server/internal/db/sqlc"
 	"paladin/apps/server/internal/http/middleware"
@@ -23,10 +24,11 @@ type AuthStore interface {
 }
 
 type AuthHandler struct {
-	jwtSecret  string
-	jwtTTL     time.Duration
-	store      AuthStore
-	bcryptCost int
+	jwtSecret     string
+	jwtTTL        time.Duration
+	store         AuthStore
+	bcryptCost    int
+	auditRecorder *audit.Recorder
 }
 
 func NewAuthHandler(jwtSecret string, jwtTTL time.Duration, store AuthStore, bcryptCost int) *AuthHandler {
@@ -36,6 +38,26 @@ func NewAuthHandler(jwtSecret string, jwtTTL time.Duration, store AuthStore, bcr
 		store:      store,
 		bcryptCost: bcryptCost,
 	}
+}
+
+func (h *AuthHandler) WithAuditRecorder(r *audit.Recorder) *AuthHandler {
+	h.auditRecorder = r
+	return h
+}
+
+func (h *AuthHandler) record(c *gin.Context, rec audit.Record) {
+	if h.auditRecorder == nil {
+		return
+	}
+	if rec.RequestIP == "" {
+		rec.RequestIP = c.ClientIP()
+	}
+	if rec.Metadata == nil {
+		rec.Metadata = map[string]any{}
+	}
+	rec.Metadata["ip"] = c.ClientIP()
+	rec.Metadata["user_agent"] = c.Request.UserAgent()
+	_ = h.auditRecorder.Record(c.Request.Context(), rec)
 }
 
 type registerReq struct {
@@ -70,16 +92,21 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	userID, err := h.store.CreateUserTx(ctx, req.Email, hashed)
 	if err != nil {
 		if isUniqueViolation(err) {
+			h.record(c, audit.Record{Action: "auth.register", Status: "failure"})
 			middleware.WriteError(c, http.StatusConflict, "email_taken", "email already registered")
 			return
 		}
+		h.record(c, audit.Record{Action: "auth.register", Status: "failure"})
 		middleware.WriteError(c, http.StatusInternalServerError, "internal_error", "internal server error")
 		return
 	}
 	if err := h.store.AssignDefaultRoleTx(ctx, userID); err != nil {
+		h.record(c, audit.Record{Action: "auth.register", Status: "failure"})
 		middleware.WriteError(c, http.StatusInternalServerError, "internal_error", "internal server error")
 		return
 	}
+
+	h.record(c, audit.Record{UserID: &userID, Action: "auth.register", Status: "success"})
 
 	c.JSON(http.StatusCreated, gin.H{
 		"id":    userID,
@@ -99,11 +126,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	ctx := c.Request.Context()
 	user, err := h.store.GetUserByEmail(ctx, req.Email)
 	if err != nil {
+		h.record(c, audit.Record{Action: "auth.login", Status: "failure"})
 		middleware.WriteError(c, http.StatusUnauthorized, "invalid_credentials", "invalid credentials")
 		return
 	}
 	if err := auth.ComparePassword(user.PasswordHash, req.Password); err != nil {
 		if errors.Is(err, auth.ErrInvalidCredentials) {
+			uid := user.ID
+			h.record(c, audit.Record{UserID: &uid, Action: "auth.login", Status: "failure"})
 			middleware.WriteError(c, http.StatusUnauthorized, "invalid_credentials", "invalid credentials")
 			return
 		}
@@ -122,6 +152,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		middleware.WriteError(c, http.StatusInternalServerError, "internal_error", "internal server error")
 		return
 	}
+
+	h.record(c, audit.Record{UserID: &user.ID, Action: "auth.login", Status: "success"})
 
 	expiresAt := time.Now().Add(h.jwtTTL)
 	c.JSON(http.StatusOK, gin.H{

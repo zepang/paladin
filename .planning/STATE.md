@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 8
-current_phase_name: Go Server
-status: Ready to plan
-stopped_at: Phase 8 ready to plan after Phase 07.2 completion
+current_phase: 9
+current_phase_name: Admin Systems
+status: Phase 9 complete
+stopped_at: Phase 9 verified — automated gates green + live UAT 17/17 passed; ready for Phase 10
 last_updated: "2026-07-04T05:32:51.033Z"
 progress:
   total_phases: 15
   completed_phases: 11
-  total_plans: 38
-  completed_plans: 26
-  percent: 68
+  total_plans: 43
+  completed_plans: 31
+  percent: 72
 ---
 
 # Project State: Paladin
@@ -44,7 +44,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | 7.1 | Official AG-UI Deferred Tool Approval | Complete |
 | 7.2 | Legacy SSE Approval Cleanup | Complete |
 | 8 | Go Server | Complete |
-| 9 | Admin Systems | Pending |
+| 9 | Admin Systems | Complete |
 | 10 | Packaging | Pending |
 
 ## Roadmap Evolution
@@ -57,6 +57,9 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Recent Activity
 
+- 2026-07-04: Phase 9 executed — Wave 1 (audit storage/recording, sliding-window quota + Lua, Hub dual-index) + Wave 2 (audit query API + admin fan-out) implemented; `go test ./... -race` green; TDD caught a real TOCTOU concurrency bug (unique-member fix); VALIDATION/UAT/VERIFICATION artifacts created
+- 2026-07-04: Phase 9 discuss checkpoint complete — 09-CONTEXT.md (12 decisions D-01..D-12) + 09-DISCUSSION-LOG.md created; sliding-window quota (Stripe/GitHub parity) + Lua atomicity + hybrid audit + cursor pagination + dual-index Hub locked; 5 decisions deferred to planner within SPEC constraints
+- 2026-07-04: Phase 9 spec locked — `09-SPEC.md` created (6 requirements, ambiguity 0.15 ≤ 0.20 gate); audit log persistence, Redis quota gate, WebSocket Hub completion scoped; sidecar/desktop-admin/packaging explicitly out of scope
 - 2026-07-03: Phase 07.2 completed — legacy SSE approval fallback removed; official AG-UI interrupt/resume path remains verified
 - 2026-07-01: Phase 07a completed — HITL approval + Computer Use UAT passed (15/15)
 - 2026-06-30: Phase 06 completed — Agent tools activated (filesystem, execute, MCP, skills, subagents, plan/web search) with UAT complete
@@ -81,7 +84,9 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Next Actions
 
-1. Plan Phase 9 — Admin Systems (audit log + quota management)
+1. Execute Phase 9 Wave 1 — 09-01 (audit storage/recording) ∥ 09-02 (quota sliding-window) ∥ 09-03 (Hub dual-index)
+2. Execute Phase 9 Wave 2 — 09-04 (audit query API + admin fan-out) after Wave 1
+3. Execute Phase 9 Wave 3 — 09-05 (E2E verification + scope gates) after Wave 2
 
 ## Session
 

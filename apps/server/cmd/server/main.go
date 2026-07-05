@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
+
 	"paladin/apps/server/internal/auth"
 	"paladin/apps/server/internal/config"
 	"paladin/apps/server/internal/db"
@@ -19,6 +21,10 @@ import (
 )
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Printf("load .env (non-fatal, relying on env vars): %v", err)
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("load config: %v", err)

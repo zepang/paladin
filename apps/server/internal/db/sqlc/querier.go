@@ -16,6 +16,8 @@ type Querier interface {
 	GetRolesByUserID(ctx context.Context, userID int64) ([]string, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id int64) (User, error)
+	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) (AuditLog, error)
+	ListAuditLogsCursor(ctx context.Context, arg ListAuditLogsCursorParams) ([]AuditLog, error)
 }
 
 var _ Querier = (*Queries)(nil)

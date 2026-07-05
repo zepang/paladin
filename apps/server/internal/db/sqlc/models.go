@@ -8,6 +8,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AuditLog struct {
+	ID        int64              `json:"id"`
+	UserID    *int64             `json:"user_id"`
+	Action    string             `json:"action"`
+	Status    string             `json:"status"`
+	RequestIp *string            `json:"request_ip"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Metadata  []byte             `json:"metadata"`
+}
+
 type Role struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`

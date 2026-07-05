@@ -8,14 +8,16 @@ import (
 )
 
 const (
-	defaultPort           = 9880
-	defaultJWTTTL         = 15 * time.Minute
-	defaultBcryptCost     = 10
-	defaultAutoMigrate    = true
-	minJWTSecretLen       = 32
-	minBcryptCost         = 10
-	AuthTimeout           = 5 * time.Second
-	PingInterval          = 30 * time.Second
+	defaultPort        = 9880
+	defaultJWTTTL      = 15 * time.Minute
+	defaultBcryptCost  = 10
+	defaultAutoMigrate = true
+	minJWTSecretLen    = 32
+	minBcryptCost      = 10
+	AuthTimeout        = 5 * time.Second
+	PingInterval       = 30 * time.Second
+	defaultQuotaLimit  = 50
+	defaultQuotaWindow = 1 * time.Hour
 )
 
 type Config struct {
@@ -28,6 +30,8 @@ type Config struct {
 	AdminEmail    string
 	AdminPassword string
 	AutoMigrate   bool
+	QuotaLimit    int
+	QuotaWindow   time.Duration
 }
 
 func Load() (*Config, error) {
@@ -75,6 +79,22 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("PALADIN_AUTO_MIGRATE must be a boolean: %w", err)
 		}
 		cfg.AutoMigrate = b
+	}
+
+	if v := os.Getenv("PALADIN_QUOTA_LIMIT"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return nil, fmt.Errorf("PALADIN_QUOTA_LIMIT must be an integer: %w", err)
+		}
+		cfg.QuotaLimit = n
+	}
+
+	if v := os.Getenv("PALADIN_QUOTA_WINDOW"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return nil, fmt.Errorf("PALADIN_QUOTA_WINDOW must be a duration: %w", err)
+		}
+		cfg.QuotaWindow = d
 	}
 
 	if cfg.DatabaseURL == "" {

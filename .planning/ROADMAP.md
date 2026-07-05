@@ -248,10 +248,27 @@ Plans:
 
 **Goal:** 运维管理能力完整
 **Requirements:** ADM-01~03
+**Spec:** 09-SPEC.md (locked, ambiguity 0.15)
+**Depends on:** Phase 8
+**Plans:** 5/5 plans complete ✅
 
-- 审计日志持久化
-- 配额管理（Redis 计数）
-- WebSocket Hub 完善
+Plans:
+
+- [x] 09-01-PLAN.md — Audit log storage schema + sqlc queries + recording service + middleware/hooks (TDD)
+- [x] 09-02-PLAN.md — Quota config + Redis sliding-window counter + Lua check-and-consume + Gin gate middleware with admin bypass (TDD)
+- [x] 09-03-PLAN.md — WebSocket Hub dual-index upgrade + structured envelope + per-user/role delivery (TDD)
+- [x] 09-04-PLAN.md — Audit query API (cursor pagination + filtering) + admin event fan-out wiring (TDD)
+- [x] 09-05-PLAN.md — End-to-end integration verification + scope gates + README + VALIDATION update
+
+Wave structure:
+
+- **Wave 1 (parallel):** 09-01 ∥ 09-02 ∥ 09-03 — no inter-dependencies
+- **Wave 2 (depends on Wave 1):** 09-04 — audit query API + admin fan-out wiring
+- **Wave 3 (depends on all):** 09-05 — E2E verification + scope gates
+
+- 审计日志持久化（PostgreSQL `audit_logs` + 管理 API）
+- 配额管理（Redis 滑动窗口 + Lua 原子 check-and-consume + 超限 429 网关）
+- WebSocket Hub 完善（双索引 + 结构化信封 / 定向推送 / Admin 事件流）
 
 ### Phase 10: Packaging
 
