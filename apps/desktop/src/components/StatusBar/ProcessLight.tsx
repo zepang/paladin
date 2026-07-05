@@ -30,9 +30,7 @@ export function ProcessLight({ name, label }: { name: ProcessName; label: string
       <PopoverTrigger
         render={
           <Button variant="ghost" size="sm" title={`${label}: ${text}`}>
-            <span
-              className={`inline-block w-2 h-2 rounded-full ${DOT_CLASS[status.state]}`}
-            />
+            <span className={`inline-block w-2 h-2 rounded-full ${DOT_CLASS[status.state]}`} />
             <span className="text-xs">
               {label}
               {status.state === 'running' ? '' : `·${text}`}
