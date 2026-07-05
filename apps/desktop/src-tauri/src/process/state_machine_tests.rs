@@ -201,3 +201,72 @@ fn test_spec_constants_locked() {
     assert_eq!(STARTUP_GRACE_SECS, 5.0, "SPEC: 启动 grace 5s 含边界");
     assert_eq!(BACKOFF_SEQUENCE_MS.len(), 5, "SPEC: 退避最多 5 次");
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// REFACTOR 阶段 held-out 边界测试 (task 07.3-02-03)
+// ═══════════════════════════════════════════════════════════════════════
+
+/// 防止「ProbeFail 在 Degraded 状态下错误清零 fail_count」的回归 —
+/// Degraded 是 Go /readyz 信号,不应影响 liveness fail_count 累加语义。
+#[test]
+fn test_probe_fail_from_degraded_increments_fail_count() {
+    let snap = SupervisorSnapshot {
+        fail_count: 2,
+        restart_count: 0,
+        last_error_len: 0,
+    };
+    let (new_state, new_snap) =
+        transition(ProcessState::Degraded, ProcessEvent::ProbeFail, &snap);
+    assert_eq!(new_state, ProcessState::Unhealthy, "third ProbeFail from Degraded must trip");
+    assert_eq!(new_snap.fail_count, 0);
+    assert_eq!(new_snap.restart_count, 1);
+}
+
+/// backoff_delay 的 attempt_idx vs max_restarts 边界:
+/// - attempt_idx == max_restarts - 1 → 最后一次 Some
+/// - attempt_idx == max_restarts      → None (耗尽)
+#[test]
+fn test_backoff_at_max_restarts_boundary() {
+    assert_eq!(
+        backoff_delay(4, 5),
+        Some(Duration::from_millis(16000)),
+        "attempt_idx == max_restarts - 1 仍属于有效窗口"
+    );
+    assert_eq!(
+        backoff_delay(5, 5),
+        None,
+        "attempt_idx == max_restarts → 耗尽"
+    );
+    // max_restarts 小于序列长度时以 max_restarts 为准
+    assert_eq!(backoff_delay(2, 3), Some(Duration::from_millis(4000)));
+    assert_eq!(backoff_delay(3, 3), None);
+}
+
+/// SPEC Prohibition P3: Stopped 终态对探针失败免疫 — 后台定时器/僵尸事件不可唤醒。
+#[test]
+fn test_stopped_ignores_probe_fail() {
+    let snap = SupervisorSnapshot {
+        fail_count: 0,
+        restart_count: 2,
+        last_error_len: 4,
+    };
+    let (new_state, new_snap) =
+        transition(ProcessState::Stopped, ProcessEvent::ProbeFail, &snap);
+    assert_eq!(new_state, ProcessState::Stopped);
+    assert_eq!(new_snap.fail_count, 0, "ProbeFail MUST NOT bump fail_count on Stopped");
+    assert_eq!(new_snap.restart_count, 2);
+}
+
+/// SPEC Prohibition P3 + Edge R4: Stopped 必须显式 RestartRequested 才能脱离,
+/// ProbeOk (即使健康端点恢复了) 也不可自动复活。
+#[test]
+fn test_stopped_ignores_probe_ok() {
+    let snap = SupervisorSnapshot::default();
+    let (new_state, _new_snap) =
+        transition(ProcessState::Stopped, ProcessEvent::ProbeOk, &snap);
+    assert_eq!(
+        new_state,
+        ProcessState::Stopped,
+        "ProbeOk on Stopped MUST NOT auto-recover; only RestartRequested can"
+    );
+}

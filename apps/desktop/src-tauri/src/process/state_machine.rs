@@ -12,6 +12,11 @@
 //! - [`SupervisorSnapshot`] 全字段 `u32` 以支持 `Copy + Eq`,使 transition 返回
 //!   新 snapshot 而非 mutate,supervisor 调用层无并发顾虑。
 
+// 模块的 pub 项在 plan 07.3-06 supervisor 集成前仅被测试调用,与 plan 01
+// supervisor.rs 的 `#[allow(dead_code)] pub struct ProcessSupervisor` 同款
+// "骨架先行"模式 —— 集成后 warning 自然消失。
+#![allow(dead_code)]
+
 use crate::process::ProcessState;
 use std::time::Duration;
 
