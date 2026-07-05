@@ -34,6 +34,11 @@ tokio = { version = "1", features = ["rt-multi-thread", "process", "time", "io-u
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 regex = "1"
 
+[target.'cfg(unix)'.dependencies]
+# Unix 优雅关闭:SIGTERM + 5s grace + 强制 kill 兜底。
+# Windows 不需要 nix,tokio Child::kill 走 Job Object (D-14)。
+nix = { version = "0.29", features = ["signal"] }
+
 [dev-dependencies]
 tempfile = "3"
 
