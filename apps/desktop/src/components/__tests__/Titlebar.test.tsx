@@ -5,7 +5,6 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, fireEvent, cleanup } from '@testing-library/react';
-import React from 'react';
 
 const mockStartDragging = vi.fn().mockResolvedValue(undefined);
 vi.mock('@tauri-apps/api/webviewWindow', () => ({
