@@ -13,7 +13,7 @@ use tempfile::{tempdir, TempDir};
 use crate::process::config::{ConfigError, ProcessConfig, ProcessNameKey};
 
 /// plan 01 写的 dev 模式 processes.json — round-trip 黄金样本。
-const DEV_CONFIG_JSON: &str = include_str!("../../../processes.json");
+const DEV_CONFIG_JSON: &str = include_str!("../../processes.json");
 
 /// 把 `content` 写入临时目录下的 `processes.json`,返回 (保持目录存活, 配置路径)。
 /// `TempDir` 必须由调用方持有直至断言完成 — drop 后文件会被删除。
