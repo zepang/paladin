@@ -6,13 +6,13 @@ current_phase: 9
 current_phase_name: Admin Systems
 status: Phase 9 complete
 stopped_at: Phase 9 verified — automated gates green + live UAT 17/17 passed; ready for Phase 10
-last_updated: "2026-07-04T05:32:51.033Z"
+last_updated: "2026-07-05T06:20:06.609Z"
 progress:
-  total_phases: 15
-  completed_phases: 11
+  total_phases: 16
+  completed_phases: 12
   total_plans: 43
-  completed_plans: 31
-  percent: 72
+  completed_plans: 33
+  percent: 75
 ---
 
 # Project State: Paladin
@@ -101,6 +101,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 - Phase 07.1 inserted after Phase 7: Official AG-UI Deferred Tool Approval (URGENT)
 - Phase 07.2 inserted after Phase 7: Legacy SSE Approval Cleanup (URGENT)
 - Phase 7b sidecar process management remains deferred until after Go Server exists
+- Phase 07.3 inserted after Phase 7: Sidecar Process Management (Tauri sidecar lifecycle for Python Agent + Go Server; SDC-01/02/03, formerly deferred 'Phase 7b') (URGENT)
 
 ## Performance Metrics
 

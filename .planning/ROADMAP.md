@@ -178,6 +178,17 @@ Plans:
 - Tauri sidecar 管理 Go Server (SDC-02) — deferred after Phase 8
 - 健康检查 + 自动重启 (SDC-03)
 
+### Phase 07.3: Sidecar Process Management (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 07.3 to break down)
+
 ### Phase 07.1: Official AG-UI Deferred Tool Approval (INSERTED)
 
 **Goal:** Consolidate approval flow on the official AG-UI deferred interrupt/resume path.
