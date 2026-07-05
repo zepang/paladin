@@ -5,14 +5,14 @@ milestone_name: milestone
 current_phase: 9
 current_phase_name: Admin Systems
 status: Phase 9 complete
-stopped_at: Completed 07.3-05-PLAN.md
-last_updated: "2026-07-05T09:06:18.000Z"
+stopped_at: Completed 07.3-06-PLAN.md (ProcessSupervisor main body)
+last_updated: "2026-07-05T09:52:36.037Z"
 progress:
   total_phases: 16
   completed_phases: 12
   total_plans: 53
-  completed_plans: 38
-  percent: 72
+  completed_plans: 39
+  percent: 74
 ---
 
 # Project State: Paladin
@@ -57,6 +57,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Recent Activity
 
+- 2026-07-05: Phase 07.3 Plan 06 completed — ProcessSupervisor main body (supervisor.rs ~840 lines + 6 Tauri commands + lib.rs setup() wiring + Cargo.toml nix cfg(unix)); 7 tasks in ~24min; 8 commits; spawns tokio child + reqwest probe_loop + wait_exit SpawnFailed/Crashed/backoff + capture_lines redact+emit+file + graceful_shutdown SIGTERM(Unix)/start_kill(Win) + Drop;cargo check + 54 tests zero-regression + clippy clean; emit event contracts process-status/process-log locked; SDC-01/02/03 code-complete (UAT 留给真实 uv+go+PG+Redis)
 - 2026-07-04: Phase 9 executed — Wave 1 (audit storage/recording, sliding-window quota + Lua, Hub dual-index) + Wave 2 (audit query API + admin fan-out) implemented; `go test ./... -race` green; TDD caught a real TOCTOU concurrency bug (unique-member fix); VALIDATION/UAT/VERIFICATION artifacts created
 - 2026-07-04: Phase 9 discuss checkpoint complete — 09-CONTEXT.md (12 decisions D-01..D-12) + 09-DISCUSSION-LOG.md created; sliding-window quota (Stripe/GitHub parity) + Lua atomicity + hybrid audit + cursor pagination + dual-index Hub locked; 5 decisions deferred to planner within SPEC constraints
 - 2026-07-04: Phase 9 spec locked — `09-SPEC.md` created (6 requirements, ambiguity 0.15 ≤ 0.20 gate); audit log persistence, Redis quota gate, WebSocket Hub completion scoped; sidecar/desktop-admin/packaging explicitly out of scope
@@ -90,8 +91,8 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Session
 
-**Last session:** 2026-07-05T09:06:18.000Z
-**Stopped at:** Completed 07.3-05-PLAN.md
+**Last session:** 2026-07-05T09:52:36.031Z
+**Stopped at:** Completed 07.3-06-PLAN.md (ProcessSupervisor main body)
 **Resume file:** None
 
 ## Accumulated Context
@@ -114,3 +115,5 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | Phase 07.3 P02 | 6 min | 3 tasks | 3 files |
 | Phase 07.3 P03 | 10 min | 3 tasks | 4 files |
 | Phase 07.3 P05 | 5 min | 3 tasks | 7 files |
+| Phase 07.3 P06 | 24 min | 7 tasks | 5 files |
+| Phase 07.3 P06 | 24 min | 7 tasks | 5 files |

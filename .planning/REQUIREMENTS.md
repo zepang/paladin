@@ -58,9 +58,9 @@
 
 ### Sidecar Management
 
-- [ ] **SDC-01**: Tauri sidecar 配置，管理 Python Agent 子进程
-- [ ] **SDC-02**: Tauri sidecar 配置，管理 Go Server 子进程
-- [ ] **SDC-03**: Sidecar 健康检查与自动重启
+- [x] **SDC-01**: Tauri sidecar 配置，管理 Python Agent 子进程
+- [x] **SDC-02**: Tauri sidecar 配置，管理 Go Server 子进程
+- [x] **SDC-03**: Sidecar 健康检查与自动重启
 
 ### Go Server - Auth
 
@@ -111,6 +111,7 @@
 | PKG-01 ~ PKG-03 | Phase 10 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 41 total
 - Mapped to phases: 38
 - Unmapped: 0
