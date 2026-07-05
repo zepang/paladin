@@ -90,3 +90,18 @@ fn test_check_port_or_error_free_returns_ok() {
         "free port should return Ok from check_port_or_error"
     );
 }
+
+#[test]
+fn test_port_zero_does_not_panic() {
+    // Port 0 is OS-special (bind("127.0.0.1", 0) lets OS assign any free
+    // port). Calling is_port_available(0) must return some bool gracefully
+    // without panic — typically true because OS allows bind to port 0.
+    let _ = is_port_available(0);
+}
+
+#[test]
+fn test_port_max_value_does_not_panic() {
+    // u16::MAX = 65535 — valid u16 but binding depends on OS / privileges.
+    // Function must return a bool without panic on either branch.
+    let _ = is_port_available(u16::MAX);
+}

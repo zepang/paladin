@@ -174,3 +174,46 @@ fn test_secret_patterns_constant_lists_all_five_categories() {
         );
     }
 }
+
+#[test]
+fn test_redact_empty_line() {
+    assert_eq!(redact_log_line(""), "");
+}
+
+#[test]
+fn test_redact_very_long_line() {
+    let value = format!("sk-{}", "a".repeat(10_000));
+    let input = format!("DEEPSEEK_API_KEY={}", value);
+    let output = redact_log_line(&input);
+    assert!(
+        !output.contains(&value),
+        "10KB secret value must be fully redacted"
+    );
+    assert!(output.contains("[REDACTED]"));
+}
+
+#[test]
+fn test_redact_secret_value_with_regex_metacharacters() {
+    let output = redact_log_line("DEEPSEEK_API_KEY=sk-a$b*c+d");
+    assert!(
+        !output.contains("sk-a$b*c+d"),
+        "secret with regex metacharacters must be fully redacted: got {:?}",
+        output
+    );
+    assert!(output.contains("[REDACTED]"));
+}
+
+#[test]
+fn test_redact_preserves_key_name() {
+    let output = redact_log_line("DEEPSEEK_API_KEY=sk-abc");
+    assert!(
+        output.contains("DEEPSEEK_API_KEY"),
+        "key name must be preserved after redaction: got {:?}",
+        output
+    );
+    assert!(
+        !output.contains("sk-abc"),
+        "value must be gone after redaction: got {:?}",
+        output
+    );
+}
