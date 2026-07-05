@@ -6,19 +6,20 @@
 import { ChatArea } from '@/components/ChatArea';
 import { ConversationList } from '@/components/ConversationList';
 import { SidebarToggle } from '@/components/SidebarToggle';
+import { StartupMask } from '@/components/StartupMask';
 import { StatusBar } from '@/components/StatusBar';
 import { Titlebar } from '@/components/Titlebar';
 import { RightPanel } from '@/components/layout/RightPanel';
-import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
-import { useAgentHealth } from '@/hooks/useAgentHealth';
+import { invoke } from '@tauri-apps/api/core';
+import { HttpAgent } from '@ag-ui/client';
+import { CopilotKitProvider } from '@copilotkit/react-core/v2';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { useProcessStatus } from '@/stores/process';
 import { useTerminalStore } from '@/stores/terminal';
 import { getBreakpoint, useUIStore, WIDTH_CONFIG } from '@/stores/ui';
 import { initWindowEvents } from '@/stores/window';
-import { HttpAgent } from '@ag-ui/client';
-import { CopilotKitProvider } from '@copilotkit/react-core/v2';
-import { useCallback, useEffect, useMemo } from 'react';
-import { toast } from 'sonner';
 
 function App() {
   // 侧边栏折叠状态
@@ -31,8 +32,29 @@ function App() {
   const setBreakpoint = useUIStore((s) => s.setBreakpoint);
   const breakpoint = useUIStore((s) => s.breakpoint);
 
-  // Agent 健康检查
-  const { isOnline, isLoading, error, retry } = useAgentHealth();
+  // Agent 进程状态 (来自 supervisor emit process-status, plan 07.3-07)
+  const agentStatus = useProcessStatus('agent');
+  const agentState = agentStatus.state;
+
+  // 运行时配置 — D-07 单一 Rust URL 真相源
+  // 字段名 snake_case 对齐 Rust serde (RuntimeConfig { agent_url, server_url })
+  const [runtimeConfig, setRuntimeConfig] = useState<{
+    agent_url: string;
+    server_url: string;
+  } | null>(null);
+
+  useEffect(() => {
+    invoke<{ agent_url: string; server_url: string }>('get_runtime_config')
+      .then(setRuntimeConfig)
+      .catch((e) => {
+        // SPEC Edge R8: 配置缺失 → 默认值 + console 警告 (业务代码 0 硬编码命中)
+        console.warn('[runtime] 配置加载失败，回退默认 http://localhost:9876', e);
+        setRuntimeConfig({
+          agent_url: 'http://localhost:9876', // fallback default SPEC Edge R8
+          server_url: 'http://localhost:9880', // fallback default SPEC Edge R8
+        });
+      });
+  }, []);
 
   // 终端 store
   const togglePanel = useTerminalStore((s) => s.togglePanel);
@@ -66,14 +88,23 @@ function App() {
     initWindowEvents();
   }, []);
 
-  // 未连接时显示警告 toast（带重试按钮）
+  // Agent 异常/停止时显示警告 toast（带重启按钮）— agentStatus 驱动
   useEffect(() => {
-    if (!isOnline && !isLoading && error) {
-      toast.warning(error || 'Agent 服务未启动', {
-        action: { label: '重试', onClick: () => retry() },
+    if (
+      agentState !== 'running' &&
+      agentState !== 'starting' &&
+      agentStatus.last_error
+    ) {
+      toast.warning(agentStatus.last_error, {
+        action: {
+          label: '重启',
+          onClick: () => {
+            invoke('restart_agent').catch(() => {});
+          },
+        },
       });
     }
-  }, [isOnline, isLoading, error, retry]);
+  }, [agentState, agentStatus.last_error]);
 
   // 终端切换回调 — 三态：关闭→打开终端 / diff面板→切换到终端 / 终端面板→关闭
   // 打开终端前先创建 Tab，避免 useEffect 延迟导致的 1-2 秒空白
@@ -148,23 +179,30 @@ function App() {
     []
   );
 
-  // AG-UI HttpAgent — 直连 Pydantic AI 端点
-  const agUiAgent = useMemo(() => new HttpAgent({ url: 'http://localhost:9876/copilotkit' }), []);
+  // AG-UI HttpAgent — 直连 Pydantic AI 端点 (D-07 runtimeConfig 驱动)
+  const agUiAgent = useMemo(
+    () =>
+      runtimeConfig &&
+      new HttpAgent({ url: `${runtimeConfig.agent_url}/copilotkit` }),
+    [runtimeConfig]
+  );
 
-  // 加载状态
-  if (isLoading) {
+  // runtimeConfig 加载中 — 全屏 spinner (D-07 首次 invoke get_runtime_config)
+  if (!runtimeConfig) {
     return (
       <div className="flex flex-col h-screen bg-background items-center justify-center">
         <div className="text-muted-foreground">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4" />
-          <p>正在连接到 Agent...</p>
+          <p>正在加载运行时配置...</p>
         </div>
       </div>
     );
   }
 
-  // Agent 未在线
-  if (!isOnline) {
+  // D-05: Agent 状态 !== 'running' 时不 mount CopilotKitProvider (避免 offline fetch 卡死)
+  // D-08: 遮罩生命周期对称 — starting/unhealthy/degraded/stopped 都常驻遮罩
+  // D-10: StatusBar 始终渲染,状态灯永远可见
+  if (agentState !== 'running') {
     return (
       <div className="flex flex-col h-screen bg-background">
         <Titlebar
@@ -172,13 +210,15 @@ function App() {
           onToggleTerminal={handleToggleTerminal}
           onToggleDiff={handleToggleDiff}
         />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center p-8">
-            <div className="text-6xl mb-4">🤖</div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">Agent 服务未启动</h2>
-            <p className="text-muted-foreground mb-6">{error || '请先启动 Agent 服务'}</p>
-            <Button onClick={retry}>重试连接</Button>
-          </div>
+        <main className="flex-1">
+          <StartupMask
+            agentState={agentState}
+            error={agentStatus.last_error}
+            stderrTail={agentStatus.stderr_tail}
+            onRestart={() => {
+              invoke('restart_agent').catch(() => {});
+            }}
+          />
         </main>
         <StatusBar />
         <Toaster position="bottom-center" />
@@ -189,8 +229,8 @@ function App() {
   // 正常聊天界面 — 三栏布局
   return (
     <CopilotKitProvider
-      runtimeUrl="http://localhost:9876/copilotkit"
-      agents__unsafe_dev_only={{ default: agUiAgent }}
+      runtimeUrl={`${runtimeConfig.agent_url}/copilotkit`}
+      agents__unsafe_dev_only={{ default: agUiAgent as HttpAgent }}
       onError={handleCopilotError}
       showDevConsole={import.meta.env.DEV}
     >
