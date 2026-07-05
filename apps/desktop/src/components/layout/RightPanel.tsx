@@ -5,13 +5,22 @@
  */
 import { DiffReview } from '@/components/panel/DiffReview';
 import { FilePreview } from '@/components/panel/FilePreview';
+import { LogsPanel } from '@/components/panel/LogsPanel';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { TerminalTabBar } from '@/components/terminal/TerminalTabBar';
 import { Button } from '@/components/ui/button';
 import { useTerminalStore } from '@/stores/terminal';
 import { Channel, invoke } from '@tauri-apps/api/core';
-import { FileCode, GitBranch, Maximize2, Minimize2, Terminal as TerminalIcon, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useCallback } from 'react';
+import {
+  FileCode,
+  GitBranch,
+  Maximize2,
+  Minimize2,
+  ScrollText,
+  Terminal as TerminalIcon,
+  X,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 export function RightPanel() {
   const isOpen = useTerminalStore((s) => s.isOpen);
@@ -66,43 +75,49 @@ export function RightPanel() {
     }
   }, [isOpen]);
 
-  const handleCloseTab = useCallback((tabId: string) => {
-    invoke('close_terminal', { id: tabId }).catch(() => {});
-    spawnedRefs.current.delete(tabId);
-    useTerminalStore.getState().removeTab(tabId);
-    if (spawnedRefs.current.size === 0) {
-      setTerminalRunning(false);
-    }
-  }, [setTerminalRunning]);
+  const handleCloseTab = useCallback(
+    (tabId: string) => {
+      invoke('close_terminal', { id: tabId }).catch(() => {});
+      spawnedRefs.current.delete(tabId);
+      useTerminalStore.getState().removeTab(tabId);
+      if (spawnedRefs.current.size === 0) {
+        setTerminalRunning(false);
+      }
+    },
+    [setTerminalRunning]
+  );
 
   // 拖拽调整宽度
   const isResizing = useRef(false);
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isResizing.current = true;
-    const startX = e.clientX;
-    const startWidth = panelWidth;
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isResizing.current = true;
+      const startX = e.clientX;
+      const startWidth = panelWidth;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!isResizing.current) return;
-      // 向左拖增大宽度
-      const delta = startX - moveEvent.clientX;
-      setPanelWidth(startWidth + delta);
-    };
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        if (!isResizing.current) return;
+        // 向左拖增大宽度
+        const delta = startX - moveEvent.clientX;
+        setPanelWidth(startWidth + delta);
+      };
 
-    const handleMouseUp = () => {
-      isResizing.current = false;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
+      const handleMouseUp = () => {
+        isResizing.current = false;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      };
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  }, [panelWidth, setPanelWidth]);
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    },
+    [panelWidth, setPanelWidth]
+  );
 
   // 面板隐藏时不渲染
   if (!isOpen) return null;
@@ -111,6 +126,7 @@ export function RightPanel() {
     { id: 'terminal' as const, icon: TerminalIcon, label: '终端' },
     { id: 'file-preview' as const, icon: FileCode, label: '文件' },
     { id: 'diff' as const, icon: GitBranch, label: 'Diff' },
+    { id: 'logs' as const, icon: ScrollText, label: '日志' },
   ];
 
   return (
@@ -157,7 +173,11 @@ export function RightPanel() {
               aria-label={isFullscreen ? '退出全屏' : '全屏'}
               title={isFullscreen ? '退出全屏' : '全屏'}
             >
-              {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+              {isFullscreen ? (
+                <Minimize2 className="size-3.5" />
+              ) : (
+                <Maximize2 className="size-3.5" />
+              )}
             </Button>
             <Button
               variant="ghost"
@@ -195,6 +215,9 @@ export function RightPanel() {
 
           {/* Diff 审查视图 */}
           {activePanel === 'diff' && <DiffReview />}
+
+          {/* 日志视图 */}
+          {activePanel === 'logs' && <LogsPanel />}
         </div>
       </aside>
     </>
