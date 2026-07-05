@@ -259,8 +259,8 @@ impl ProcessSupervisor {
     }
 
     /// SPEC R1 / Edge R9 / Prohibition P1: spawn 子进程。委托给 [`spawn_child_to_slot`],
-/// 让 wait_exit 在 backoff 重启时也能复用同一路径。
-pub async fn spawn_one(&self, name: ProcessName) -> Result<(), String> {
+    /// 让 wait_exit 在 backoff 重启时也能复用同一路径。
+    pub async fn spawn_one(&self, name: ProcessName) -> Result<(), String> {
         let slot = self.slot_of(name).clone();
         spawn_child_to_slot(
             &slot,
@@ -270,6 +270,147 @@ pub async fn spawn_one(&self, name: ProcessName) -> Result<(), String> {
             &self.log_dir,
         )
         .await
+    }
+
+    /// SPEC 启动顺序 (D-08): **Server 先**,等 /readyz 5s 超时,再 spawn Agent。
+    ///
+    /// 5s 超时不阻塞 Agent 启动 (Server 在 Degraded 探针后会自恢复,Agent 启动不依赖
+    /// Server 立即就绪)。spawn_one 失败立即返回 Err,前端展示 last_error。
+    pub async fn start(&self) -> Result<(), String> {
+        // 1. Server 先
+        if let Err(e) = self.spawn_one(ProcessName::Server).await {
+            return Err(format!("Server 启动失败: {e}"));
+        }
+
+        // 2. 等 Server /readyz 5s (若配置了 readiness)
+        let server_entry = self.entry_of(ProcessName::Server);
+        let readyz_path = server_entry
+            .health
+            .readiness
+            .as_ref()
+            .map(|r| r.path.clone());
+        if let Some(readyz_path) = readyz_path {
+            let readyz_url = format!("http://127.0.0.1:{}{}", server_entry.port, readyz_path);
+            let readyz_expect = server_entry.health.readiness.as_ref().unwrap().expect_status;
+            let client = reqwest::Client::builder()
+                .timeout(Duration::from_millis(900))
+                .build()
+                .map_err(|e| format!("reqwest build 失败: {e}"))?;
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut ok = false;
+            while Instant::now() < deadline {
+                if let Ok(resp) = client.get(&readyz_url).send().await {
+                    if resp.status().as_u16() == readyz_expect {
+                        ok = true;
+                        break;
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
+            if !ok {
+                // 5s 超时 — 不阻塞 Agent 启动,但记 Server Degraded 状态
+                let slot = self.slot_of(ProcessName::Server).clone();
+                {
+                    let mut mp = slot.state.lock().await;
+                    let (ns, nsnap) =
+                        transition(mp.state, ProcessEvent::ProbeDegraded, &mp.snapshot);
+                    mp.state = ns;
+                    mp.snapshot = nsnap;
+                    mp.last_error =
+                        Some("启动 5s 内 /readyz 未就绪 (PG/Redis 可能未启动)".to_string());
+                }
+                emit_status_to(
+                    &slot,
+                    &self.app_handle,
+                    ProcessName::Server,
+                    Some("启动 5s 内 /readyz 未就绪".to_string()),
+                )
+                .await;
+            }
+        }
+
+        // 3. Agent spawn
+        if let Err(e) = self.spawn_one(ProcessName::Agent).await {
+            return Err(format!("Agent 启动失败: {e}"));
+        }
+        Ok(())
+    }
+
+    /// SPEC 应用关闭路径 — 反向顺序停 (Agent 先停,Server 后停)。
+    pub async fn graceful_shutdown_all(&self) {
+        self.graceful_shutdown_one(ProcessName::Agent).await;
+        self.graceful_shutdown_one(ProcessName::Server).await;
+    }
+
+    /// 单进程优雅关闭 — SPEC Prohibition P4 / SPEC Constraints 5s grace。
+    pub async fn graceful_shutdown_one(&self, name: ProcessName) {
+        let slot = self.slot_of(name).clone();
+        graceful_shutdown_slot(&slot, name, &self.app_handle).await;
+    }
+
+    /// SPEC Edge R7: 手动 restart_X 命令 — 持 restart_lock,先 graceful_shutdown 再 spawn。
+    pub async fn restart_one(&self, name: ProcessName) -> Result<(), String> {
+        let slot = self.slot_of(name).clone();
+        // restart_lock 串行化 — 防止 restart_agent / restart_server / wait_exit 同时触发
+        let _guard = slot.restart_lock.lock().await;
+
+        // graceful shutdown 当前 child (若有)
+        graceful_shutdown_slot(&slot, name, &self.app_handle).await;
+
+        // SPEC Edge R4: transition(RestartRequested) 清零 snapshot
+        {
+            let mut mp = slot.state.lock().await;
+            let (ns, nsnap) =
+                transition(mp.state, ProcessEvent::RestartRequested, &mp.snapshot);
+            mp.state = ns;
+            mp.snapshot = nsnap;
+            mp.last_error = None;
+            mp.last_restart_at = Some(now_ms());
+        }
+
+        // spawn — 失败时置 Stopped + emit
+        let res = spawn_child_to_slot(
+            &slot,
+            name,
+            &self.app_handle,
+            &self.config,
+            &self.log_dir,
+        )
+        .await;
+        if let Err(e) = res {
+            let msg = format!("restart spawn 失败: {e}");
+            let mut mp = slot.state.lock().await;
+            mp.state = ProcessState::Stopped;
+            mp.last_error = Some(msg.clone());
+            drop(mp);
+            emit_status_to(&slot, &self.app_handle, name, Some(msg)).await;
+            return Err(e);
+        }
+        Ok(())
+    }
+
+    /// 用户显式 stop 命令 — transition StopRequested → Stopped。
+    pub async fn stop_one(&self, name: ProcessName) {
+        let slot = self.slot_of(name).clone();
+        graceful_shutdown_slot(&slot, name, &self.app_handle).await;
+    }
+}
+
+impl Drop for ProcessSupervisor {
+    /// SPEC 应用关闭 — Drop 兜底:set shutdown_flag 后尝试 block_on graceful_shutdown。
+    /// 若已在 tokio runtime 内 (Tauri 关闭时常见),block_in_place 隔离避免 nested panic。
+    /// 仍失败时由 [`Command::kill_on_drop(true)`] 兜底 SIGKILL,保证不泄漏 child。
+    fn drop(&mut self) {
+        self.agent.shutdown_flag.store(true, Ordering::Relaxed);
+        self.server.shutdown_flag.store(true, Ordering::Relaxed);
+
+        if tokio::runtime::Handle::try_current().is_ok() {
+            // 已在 runtime 内 — block_in_place 避免嵌套 block_on panic
+            let _ = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(self.graceful_shutdown_all())
+            });
+        }
+        // 否则无法 graceful,kill_on_drop 兜底
     }
 }
 
@@ -411,6 +552,81 @@ fn now_ms() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0)
+}
+
+/// SPEC Prohibition P4 / SPEC Constraints 5s grace: 单 slot 优雅关闭。
+///
+/// 步骤:
+/// 1. set `shutdown_flag` — wait_exit / probe_loop / capture_lines 看到 flag 后退出。
+/// 2. transition(StopRequested) → Stopped (P3 终态)。
+/// 3. take child handle。
+/// 4. **Unix**: `nix::sys::signal::kill(pid, SIGTERM)` (D-14);**Windows**: `child.start_kill()`
+///    (Job Object 关闭子进程组)。
+/// 5. `tokio::time::timeout(5s, child.wait())`;超时 → SIGKILL (Unix) / `child.kill()` (Win)。
+/// 6. emit_status 通知前端 state=Stopped。
+///
+/// 不读 PID 文件、不系统 kill 匹配 (P4):只对 tracked Child handle 操作。
+pub(crate) async fn graceful_shutdown_slot(
+    slot: &Arc<ProcessSlot>,
+    name: ProcessName,
+    app: &AppHandle,
+) {
+    // 1. set shutdown_flag
+    slot.shutdown_flag.store(true, Ordering::Relaxed);
+
+    // 2. transition Stopped (若已是 Stopped 则幂等)
+    {
+        let mut mp = slot.state.lock().await;
+        let (ns, _) = transition(mp.state, ProcessEvent::StopRequested, &mp.snapshot);
+        mp.state = ns;
+    }
+
+    // 3. take child
+    let mut child = { slot.child.lock().await.take() };
+    let Some(mut child) = child else {
+        emit_status_to(slot, app, name, None).await;
+        return;
+    };
+
+    // 4. 发信号
+    let pid = child.id();
+    #[cfg(unix)]
+    {
+        if let Some(pid) = pid {
+            use nix::sys::signal::{kill, Signal};
+            use nix::unistd::Pid;
+            let _ = kill(Pid::from_raw(pid as i32), Signal::SIGTERM);
+        }
+    }
+    #[cfg(windows)]
+    {
+        // D-14 Windows 无 SIGTERM 概念,直接 start_kill (关闭 Job Object 句柄触发子进程组终止)
+        let _ = child.start_kill();
+    }
+
+    // 5. 等 5s grace
+    match tokio::time::timeout(Duration::from_secs(5), child.wait()).await {
+        Ok(_) => {}
+        Err(_) => {
+            // 超时 — 强制 kill
+            #[cfg(unix)]
+            {
+                if let Some(pid) = pid {
+                    use nix::sys::signal::{kill, Signal};
+                    use nix::unistd::Pid;
+                    let _ = kill(Pid::from_raw(pid as i32), Signal::SIGKILL);
+                }
+                let _ = child.wait().await;
+            }
+            #[cfg(windows)]
+            {
+                let _ = child.kill();
+                let _ = child.wait().await;
+            }
+        }
+    }
+
+    emit_status_to(slot, app, name, None).await;
 }
 
 /// SPEC Prohibition P2 共用 emit 函数 — 接收 slot 引用,可被 probe_loop / wait_exit /
