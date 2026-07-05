@@ -168,7 +168,7 @@ fn test_secret_patterns_constant_lists_all_five_categories() {
         "password",
     ] {
         assert!(
-            SECRET_PATTERNS.iter().any(|p| *p == required),
+            SECRET_PATTERNS.contains(&required),
             "SECRET_PATTERNS must list {:?}",
             required
         );

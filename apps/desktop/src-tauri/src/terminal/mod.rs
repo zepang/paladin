@@ -15,14 +15,17 @@ use tauri::{AppHandle, Emitter};
 /// PTY 实例的状态机
 #[derive(Debug, Clone, PartialEq)]
 pub enum TerminalState {
+    #[allow(dead_code)]
     Created,
     Running,
     ShuttingDown,
+    #[allow(dead_code)]
     Closed,
 }
 
 /// 单个终端实例 — 封装 PTY master、writer 和状态
 pub struct TerminalInstance {
+    #[allow(dead_code)]
     pub id: String,
     pub shell_name: String,
     pub cwd: String,
@@ -33,6 +36,7 @@ pub struct TerminalInstance {
 }
 
 impl TerminalInstance {
+    #[allow(dead_code)]
     fn new(id: String, shell_name: String, cwd: String) -> Self {
         Self {
             id,
@@ -243,6 +247,7 @@ impl TerminalManager {
         self.spawn_terminal(id, channel, shell, cwd)
     }
 
+    #[allow(dead_code)]
     pub fn active_count(&self) -> usize {
         let terminals = self.terminals.lock().unwrap();
         terminals.len()

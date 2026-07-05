@@ -1,4 +1,4 @@
-/// 终端 Tauri commands — 前端通过 invoke 调用的入口
+//! 终端 Tauri commands — 前端通过 invoke 调用的入口
 
 use crate::terminal::TerminalManager;
 use tauri::ipc::Channel;

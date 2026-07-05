@@ -133,6 +133,7 @@ pub struct RuntimeConfig {
 
 /// 单进程运行时状态 (受 `ProcessSlot::state` mutex 保护)。
 pub struct ManagedProcess {
+    #[allow(dead_code)]
     pub name: ProcessName,
     pub state: ProcessState,
     pub snapshot: SupervisorSnapshot,
