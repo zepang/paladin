@@ -1,9 +1,19 @@
-/// `processes.json` 配置 schema — dev / packaged 双模式可切换 (D-14)。
-///
-/// Plan 07.3-01 建立 serde 结构体；plan 07.3-03 补 loader (`load_from_path`) +
-/// `ConfigError` + `validate()` (SPEC Edge R1：配置错 → 不 spawn、报配置错误)。
-///
-/// SPEC Prohibition P1: `cmd` 字段必须是 `Vec<String>` 数组形态，禁止单 string 走 shell 解释。
+//! `processes.json` 配置 schema — dev / packaged 双模式可切换 (D-14)。
+//!
+//! Plan 07.3-01 建立 serde 结构体；plan 07.3-03 补 loader (`load_from_path`) +
+//! [`ConfigError`] + [`ProcessConfig::validate`] (SPEC Edge R1：配置错 → 不 spawn、
+//! 报配置错误)。
+//!
+//! SPEC Prohibition P1: `cmd` 字段必须是 `Vec<String>` 数组形态，禁止单 string 走 shell 解释；
+//! `env` 字段值透传字面值不展开 `${VAR}`；`load_from_path` 签名只接受 `AsRef<Path>`，
+//! 编译期排除远程 HTTP 客户端的 Url 类型 / Tauri IPC 字符串。
+
+// 本模块的类型与方法在 plan 07.3-06 supervisor 集成前仅被测试调用,
+// 用 module-level `#![allow(dead_code)]` 抑制集成前的 dead_code warning
+// (与 plan 02 state_machine.rs 同款)。plan 06 supervisor 真正消费
+// `ProcessConfig::load_from_path` / `validate` / `ConfigError` 后会自然消失。
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -114,8 +124,8 @@ impl ProcessConfig {
     /// 从本地文件系统路径加载并校验配置。
     ///
     /// SPEC Prohibition P1：函数签名只接受 `AsRef<Path>`，编译期排除 `http://` URL、
-    /// `reqwest::Url`、Tauri IPC 字符串等远程/不可信源。`env` 字段透传 serde 字面值，
-    /// **不**展开 `${VAR}` —— 由调用方 (supervisor) 原样写入 `tokio::process::Command::env`。
+    /// 远程 HTTP 客户端的 Url 类型、Tauri IPC 字符串等远程/不可信源。`env` 字段透传
+    /// serde 字面值，**不**展开 `${VAR}` —— 由调用方 (supervisor) 原样写入子进程 env。
     pub fn load_from_path(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
         let p = path.as_ref();
         if !p.exists() {
