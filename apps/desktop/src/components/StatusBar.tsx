@@ -1,3 +1,4 @@
+import { ProcessLight } from '@/components/StatusBar/ProcessLight';
 import { Button } from '@/components/ui/button';
 import { useTerminalStore } from '@/stores/terminal';
 import { useCallback } from 'react';
@@ -31,6 +32,10 @@ export function StatusBar() {
           />
           <span>{isTerminalRunning ? '终端运行中' : '终端未启动'}</span>
         </Button>
+        {/* Agent 子进程状态灯 — Popover 控制菜单 (D-09/D-11) */}
+        <ProcessLight name="agent" label="Agent" />
+        {/* Go Server 子进程状态灯 — 常驻为后续 desktop 集成预留 (D-12) */}
+        <ProcessLight name="server" label="Go" />
       </div>
       <div className="flex items-center gap-1">
         <span className="text-muted-foreground/70">Ctrl+`</span>
