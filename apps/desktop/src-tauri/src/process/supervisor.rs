@@ -184,6 +184,10 @@ impl ProcessSlot {
 }
 
 /// 进程监督器主体 — 在 `setup()` 内 `app.manage` 后调 `start()` 启动两个子进程。
+///
+/// `Clone` 实现允许 setup 闭包内 `supervisor.clone()` 后 move 到后台 task 调 `start()`,
+/// 同时 `app.manage(supervisor)` 持另一份 clone;两份共享 `Arc<ProcessSlot>`,操作同一 slot。
+#[derive(Clone)]
 pub struct ProcessSupervisor {
     pub agent: Arc<ProcessSlot>,
     pub server: Arc<ProcessSlot>,
@@ -253,6 +257,10 @@ impl ProcessSupervisor {
     }
 
     /// SPEC Prohibition P2: 每次 state 变化时 emit 含 `last_error` + `stderr_tail` 的 payload。
+    ///
+    /// 当前内部各 task 都用 free function `emit_status_to`;此方法是面向未来的
+    /// pub API (供 commands 或测试入口直接触发 emit),保留 + `#[allow(dead_code)]`。
+    #[allow(dead_code)]
     pub async fn emit_status(&self, name: ProcessName, last_error: Option<String>) {
         let slot = self.slot_of(name).clone();
         emit_status_to(&slot, &self.app_handle, name, last_error).await;
@@ -406,7 +414,7 @@ impl Drop for ProcessSupervisor {
 
         if tokio::runtime::Handle::try_current().is_ok() {
             // 已在 runtime 内 — block_in_place 避免嵌套 block_on panic
-            let _ = tokio::task::block_in_place(|| {
+            tokio::task::block_in_place(|| {
                 tokio::runtime::Handle::current().block_on(self.graceful_shutdown_all())
             });
         }
@@ -433,7 +441,7 @@ pub(crate) fn spawn_child_to_slot<'a>(
     name: ProcessName,
     app: &'a AppHandle,
     config: &'a Arc<ProcessConfig>,
-    log_dir: &'a PathBuf,
+    log_dir: &'a Path,
 ) -> SpawnFut<'a> {
     Box::pin(async move {
     let entry = match name {
@@ -533,7 +541,7 @@ pub(crate) fn spawn_child_to_slot<'a>(
         let slot_c = slot.clone();
         let cfg_c = config.clone();
         let app_c = app.clone();
-        let ld = log_dir.clone();
+        let ld = log_dir.to_path_buf();
         tokio::spawn(async move {
             wait_exit(slot_c, name, app_c, cfg_c, ld).await;
         });
@@ -582,7 +590,7 @@ pub(crate) async fn graceful_shutdown_slot(
     }
 
     // 3. take child
-    let mut child = { slot.child.lock().await.take() };
+    let child = { slot.child.lock().await.take() };
     let Some(mut child) = child else {
         emit_status_to(slot, app, name, None).await;
         return;
@@ -857,7 +865,6 @@ async fn wait_exit(
     match new_state {
         ProcessState::Stopped => {
             // SpawnFailed (≤5s) 或前置 backoff 耗尽 — P3 终态,不自恢复
-            return;
         }
         ProcessState::Unhealthy => {
             // Crashed → 走 backoff 路径
@@ -890,7 +897,6 @@ async fn wait_exit(
                             emit_status_to(&slot_c, &app_c, name, Some(fail_msg)).await;
                         }
                     });
-                    return;
                 }
                 None => {
                     // max_restarts 耗尽 — 手动转 Stopped (P3)
@@ -938,15 +944,11 @@ async fn capture_lines<R>(
     let mut buf = BufReader::new(reader);
 
     // SPEC Edge R10: logs-dir-not-writable 降级 — 文件打开失败时仍 emit 不阻塞。
-    let mut file: Option<tokio::fs::File> = match tokio::fs::OpenOptions::new()
+    let mut file: Option<tokio::fs::File> = tokio::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(&log_path)
-        .await
-    {
-        Ok(f) => Some(f),
-        Err(_) => None,
-    };
+        .await.ok();
 
     let mut line_buf = String::new();
     loop {
