@@ -1,0 +1,29 @@
+{
+  "mode": "dev",
+  "processes": {
+    "agent": {
+      "cmd": ["uv", "run", "paladin-agent", "serve", "--dev"],
+      "cwd": "../../apps/agent",
+      "env": {},
+      "port": 9876,
+      "health": {
+        "liveness": { "path": "/health", "expect_status": 200 }
+      },
+      "startup_grace_secs": 5
+    },
+    "server": {
+      "cmd": ["go", "run", "./cmd/server"],
+      "cwd": "../../apps/server",
+      "env": {},
+      "port": 9880,
+      "health": {
+        "liveness": { "path": "/healthz", "expect_status": 200 },
+        "readiness": { "path": "/readyz", "expect_status": 200 }
+      },
+      "startup_grace_secs": 5
+    }
+  },
+  "backoff_secs": [1, 2, 4, 8, 16],
+  "max_restarts": 5,
+  "shutdown_grace_secs": 5
+}
