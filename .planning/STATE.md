@@ -5,14 +5,14 @@ milestone_name: milestone
 current_phase: 08
 current_phase_name: Go Server
 status: Ready to plan
-stopped_at: Completed 07.3-10-PLAN.md — Phase 07.3 code-complete, UAT deferred to Phase 10
-last_updated: "2026-07-06T08:55:00.000Z"
+stopped_at: Phase 07.4 context gathered
+last_updated: "2026-07-06T09:56:54.230Z"
 progress:
-  total_phases: 16
+  total_phases: 17
   completed_phases: 13
   total_plans: 53
   completed_plans: 43
-  percent: 81
+  percent: 76
 ---
 
 # Project State: Paladin
@@ -25,7 +25,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 07.3 — sidecar-process-management
+**Current focus:** Phase 07.4 — sidecar-runtime-mode
 
 ## Phase Status
 
@@ -44,6 +44,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | 7.1 | Official AG-UI Deferred Tool Approval | Complete |
 | 7.2 | Legacy SSE Approval Cleanup | Complete |
 | 07.3 | Sidecar Process Management | Code-Complete (UAT deferred to Phase 10) |
+| 07.4 | Sidecar Runtime Mode | Pending |
 | 8 | Go Server | Complete |
 | 9 | Admin Systems | Complete |
 | 10 | Packaging | Pending |
@@ -88,15 +89,16 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Next Actions
 
-1. Phase 10 Packaging — 三平台 UAT 回填(来自 07.3-UAT.md deferred 19 项),processes.json mode=packaged 切换,externalBin 配置,日志轮转引入
-2. VALIDATION.md DEFERRED 10 项回填(Phase 10 真实环境手测后)
-3. biome 29 preexisting errors 修复(非 07.3 引入,跨 phase 技术债)
+1. `$gsd-plan-phase 07.4` — 规划 Sidecar Runtime Mode：dev Hybrid attach/spawn、ownership 状态、conflict UI、外部服务动作限制
+2. Phase 10 Packaging — 三平台 UAT 回填(来自 07.3-UAT.md deferred 19 项),processes.json mode=packaged 切换,externalBin 配置,日志轮转引入
+3. VALIDATION.md DEFERRED 10 项回填(Phase 10 真实环境手测后)
+4. biome 29 preexisting errors 修复(非 07.3 引入,跨 phase 技术债)
 
 ## Session
 
-**Last session:** 2026-07-05T12:43:59.000Z
-**Stopped at:** Completed 07.3-10-PLAN.md — Phase 07.3 code-complete, UAT deferred to Phase 10
-**Resume file:** None
+**Last session:** 2026-07-06T09:56:54.216Z
+**Stopped at:** Phase 07.4 context gathered
+**Resume file:** .planning/phases/07.4-sidecar-runtime-mode/07.4-CONTEXT.md
 
 ## Accumulated Context
 
@@ -106,6 +108,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 - Phase 07.2 inserted after Phase 7: Legacy SSE Approval Cleanup (URGENT)
 - Phase 7b sidecar process management remains deferred until after Go Server exists
 - Phase 07.3 inserted after Phase 7: Sidecar Process Management (Tauri sidecar lifecycle for Python Agent + Go Server; SDC-01/02/03, formerly deferred 'Phase 7b') (URGENT) — **CODE-COMPLETE** (10/10 plans, UAT deferred to Phase 10)
+- Phase 07.4 inserted after Phase 7: Sidecar Runtime Mode (URGENT)
 
 ## Performance Metrics
 
