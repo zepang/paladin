@@ -20,6 +20,8 @@
 | 7 | HITL + Computer Use | 权限审批 + 桌面操作能力 | Phase 4 + 5 |
 | 7.1 | Official AG-UI Deferred Tool Approval | Pydantic AI 官方 interrupt/resume 审批路径 | Phase 7 |
 | 7.2 | Legacy SSE Approval Cleanup | 移除旧 SSE 审批 fallback，保留官方 AG-UI interrupt/resume | Phase 7.1 |
+| 7.3 | Sidecar Process Management | Tauri 托管 Agent + Go Server 子进程生命周期 | Phase 7 + 8 |
+| 7.4 | Sidecar Runtime Mode | dev Hybrid attach/spawn 运行模式与 ownership 语义 | Phase 7.3 |
 | 8 | Go Server | 认证/数据库/WebSocket Hub | — |
 | 9 | Admin Systems | 审计日志 + 配额管理 | Phase 8 |
 | 10 | Packaging | 打包发布 + 文档 | Phase 1-9 |
@@ -199,6 +201,38 @@ Plans:
 - [x] 07.3-10-PLAN.md
 
 - **Status:** Code-complete. 自动化源门全绿(cargo test 54/54 + tsc 0 errors + clippy 0 errors + build ✓). SPEC 21 Acceptance + 13 Edge + 4 Prohibitions 逐条验证完成. 三平台 UAT deferred 至 Phase 10 Packaging.
+
+### Phase 07.4: Sidecar Runtime Mode (INSERTED)
+
+**Goal:** 在 dev 模式下实现 Hybrid sidecar runtime：先探测已有健康 Agent/Go Server 并 attach 为 external；未运行且端口空闲时再由 supervisor spawn；端口占用但健康失败时进入 conflict。明确区分 service health 与 process ownership，避免手动启动服务和桌面端托管语义互相冲突。
+**Requirements**: TBD
+**Depends on:** Phase 07.3
+**Plans:** 4 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 07.4-01-PLAN.md — Runtime tuple model/classifier/config validation foundation (TDD)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 07.4-02-PLAN.md — Rust supervisor dev hybrid attach/spawn/conflict + ownership safety
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 07.4-03-PLAN.md — Frontend process tuple store + StatusBar/StartupMask UX
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 07.4-04-PLAN.md — Verification matrix, source audit, validation closure
+
+- 扩展 process status：`state + owner + health`，新增 conflict 表达。
+- 启动前执行健康探测：Agent `/health`，Go `/healthz` + `/readyz`。
+- dev 模式优先 attach healthy external service；absent 时才 spawn supervisor-owned child。
+- external 服务不可 stop/kill/restart；UI 显示「已连接外部服务」并提供重新检测/切换托管路径。
+- StartupMask / StatusBar 显示真实失败分类：可执行文件缺失、cwd 缺失、端口冲突、健康失败、启动 grace 内退出、readiness degraded。
+- 保留 packaged 模式走 supervisor-owned bundled sidecar 的方向，不依赖 `uv` / `go` / login-shell PATH。
+- Design note: `.planning/notes/sidecar-runtime-mode.md`
 
 ### Phase 07.1: Official AG-UI Deferred Tool Approval (INSERTED)
 
