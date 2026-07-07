@@ -91,16 +91,19 @@ function App() {
   // Agent 异常/停止时显示警告 toast（带重启按钮）— agentStatus 驱动
   useEffect(() => {
     if (agentState !== 'running' && agentState !== 'starting' && agentStatus.last_error) {
+      const command = agentStatus.owner === 'external' || agentState === 'conflict'
+        ? 'redetect_agent'
+        : 'restart_agent';
       toast.warning(agentStatus.last_error, {
         action: {
-          label: '重启',
+          label: command === 'redetect_agent' ? '重新检测' : '重启',
           onClick: () => {
-            invoke('restart_agent').catch(() => {});
+            invoke(command).catch(() => {});
           },
         },
       });
     }
-  }, [agentState, agentStatus.last_error]);
+  }, [agentState, agentStatus.last_error, agentStatus.owner]);
 
   // 终端切换回调 — 三态：关闭→打开终端 / diff面板→切换到终端 / 终端面板→关闭
   // 打开终端前先创建 Tab，避免 useEffect 延迟导致的 1-2 秒空白
@@ -207,10 +210,15 @@ function App() {
         <main className="flex-1">
           <StartupMask
             agentState={agentState}
+            owner={agentStatus.owner}
+            health={agentStatus.health}
             error={agentStatus.last_error}
             stderrTail={agentStatus.stderr_tail}
             onRestart={() => {
               invoke('restart_agent').catch(() => {});
+            }}
+            onRedetect={() => {
+              invoke('redetect_agent').catch(() => {});
             }}
           />
         </main>

@@ -3,10 +3,11 @@
  *
  * 单一 zustand store 持有 agent + server 两路 ProcessInfo,
  * 组件通过 `useProcessStatus(name)` selector 订阅;
- * `initProcessListeners()` 在应用顶层调用一次,拉一次初值 + listen 后续。
+ * `initProcessListeners()` 在应用顶层调用一次,拉一次初值 + listen 后续,
+ * 并低频轮询 Rust snapshot 修复 dev 启动期事件竞态。
  *
  * 字段命名严格对齐 plan 06 emit payload (snake_case,与 Rust serde 一致):
- * ProcessInfoDTO { state, last_error, stderr_tail, last_restart_at }
+ * ProcessInfoDTO { state, owner, health, last_error, stderr_tail, last_restart_at }
  * ProcessStatusPayload 通过 #[serde(flatten)] 平铺为 { name, ...ProcessInfoDTO }
  */
 import { invoke } from '@tauri-apps/api/core';
@@ -15,10 +16,14 @@ import { create } from 'zustand';
 
 export type ProcessName = 'agent' | 'server';
 
-export type ProcessState = 'starting' | 'running' | 'degraded' | 'unhealthy' | 'stopped';
+export type ProcessState = 'starting' | 'running' | 'degraded' | 'unhealthy' | 'stopped' | 'conflict';
+export type ProcessOwner = 'supervisor' | 'external' | 'none';
+export type ProcessHealth = 'healthy' | 'degraded' | 'failed' | 'unknown';
 
 export interface ProcessInfo {
   state: ProcessState;
+  owner: ProcessOwner;
+  health: ProcessHealth;
   last_error: string | null;
   stderr_tail: string | null;
   last_restart_at: number | null;
@@ -32,6 +37,8 @@ interface ProcessStore {
 
 const initial: ProcessInfo = {
   state: 'starting',
+  owner: 'supervisor',
+  health: 'unknown',
   last_error: null,
   stderr_tail: null,
   last_restart_at: null,
@@ -49,29 +56,43 @@ type ProcessStatusSnapshot = Record<ProcessName, ProcessInfo>;
 
 type ProcessStatusEventPayload = { name: ProcessName } & Partial<ProcessInfo>;
 
+async function syncProcessStatus(): Promise<void> {
+  const snap = await invoke<ProcessStatusSnapshot>('get_process_status');
+  useProcessStore.setState({
+    agent: { ...initial, ...snap.agent },
+    server: { ...initial, ...snap.server },
+  });
+}
+
 /**
  * 全局订阅入口 — 在应用顶层调用一次。
  *
  * 1. `invoke('get_process_status')` 拉一次初值 (首探完成前 agent/server 均为 starting)
  * 2. `listen('process-status')` 订阅后续 transition emit
+ * 3. 低频轮询 snapshot,把 Rust supervisor 作为真相源校准前端状态
  *
  * @returns unlisten 函数,在 cleanup 调用 (SPA 实际不卸载)
  */
 export async function initProcessListeners(): Promise<() => void> {
-  try {
-    const snap = await invoke<ProcessStatusSnapshot>('get_process_status');
-    useProcessStore.setState({
-      agent: { ...initial, ...snap.agent },
-      server: { ...initial, ...snap.server },
-    });
-  } catch (e) {
-    console.warn('[process] get_process_status failed, 保留 starting 默认值', e);
-  }
-
   const unlisten = await listen<ProcessStatusEventPayload>('process-status', (e) => {
     const { name, ...patch } = e.payload;
     useProcessStore.getState().setStatus(name, patch);
   });
 
-  return unlisten;
+  try {
+    await syncProcessStatus();
+  } catch (e) {
+    console.warn('[process] get_process_status failed, 保留 starting 默认值', e);
+  }
+
+  const reconcileTimer = window.setInterval(() => {
+    syncProcessStatus().catch((e) => {
+      console.warn('[process] reconcile status failed', e);
+    });
+  }, 2000);
+
+  return () => {
+    window.clearInterval(reconcileTimer);
+    unlisten();
+  };
 }

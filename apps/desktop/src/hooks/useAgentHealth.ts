@@ -34,6 +34,8 @@ export function useAgentHealth(): AgentHealthState & { retry: () => void } {
     status.last_error ??
     (status.state === 'stopped'
       ? 'Agent 已停止'
+      : status.state === 'conflict'
+        ? 'Agent 端口冲突'
       : status.state === 'unhealthy'
         ? 'Agent 异常，正在自动重启'
         : status.state === 'degraded'
@@ -41,10 +43,13 @@ export function useAgentHealth(): AgentHealthState & { retry: () => void } {
           : null);
 
   const retry = useCallback(() => {
-    invoke('restart_agent').catch((e) => {
-      console.warn('[agent-health] restart_agent failed', e);
+    const command = status.owner === 'external' || status.state === 'conflict'
+      ? 'redetect_agent'
+      : 'restart_agent';
+    invoke(command).catch((e) => {
+      console.warn(`[agent-health] ${command} failed`, e);
     });
-  }, []);
+  }, [status.owner, status.state]);
 
   return { isOnline, isLoading, error, retry };
 }

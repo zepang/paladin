@@ -40,7 +40,7 @@ export const useWindowStore = create<WindowState>()((set, get) => ({
 
   close: async () => {
     const win = getCurrentWebviewWindow();
-    await win.hide();
+    await win.close();
   },
 
   toggleMaximize: async () => {

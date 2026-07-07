@@ -13,14 +13,33 @@ function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {
 }
 
 /** Popover 内容容器 — Portal + Positioner + Popup 三层组合 */
-function PopoverContent({ className, ...props }: PopoverPrimitive.Popup.Props) {
+interface PopoverContentProps extends PopoverPrimitive.Popup.Props {
+  side?: PopoverPrimitive.Positioner.Props['side'];
+  align?: PopoverPrimitive.Positioner.Props['align'];
+  sideOffset?: PopoverPrimitive.Positioner.Props['sideOffset'];
+  positionerClassName?: string;
+}
+
+function PopoverContent({
+  className,
+  side = 'bottom',
+  align = 'center',
+  sideOffset = 8,
+  positionerClassName,
+  ...props
+}: PopoverContentProps) {
   return (
     <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Positioner sideOffset={4}>
+      <PopoverPrimitive.Positioner
+        side={side}
+        align={align}
+        sideOffset={sideOffset}
+        className={cn('z-[1000]', positionerClassName)}
+      >
         <PopoverPrimitive.Popup
           data-slot="popover-content"
           className={cn(
-            'z-50 w-72 rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-md data-starting-style:opacity-0 data-ending-style:opacity-0',
+            'relative z-[1000] w-72 rounded-md border border-border bg-popover p-4 text-popover-foreground shadow-md data-starting-style:opacity-0 data-ending-style:opacity-0',
             className
           )}
           {...props}
