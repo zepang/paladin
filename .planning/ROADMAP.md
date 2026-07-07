@@ -212,19 +212,19 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 07.4-01-PLAN.md — Runtime tuple model/classifier/config validation foundation (TDD)
+- [x] 07.4-01-PLAN.md — Runtime tuple model/classifier/config validation foundation (TDD)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 07.4-02-PLAN.md — Rust supervisor dev hybrid attach/spawn/conflict + ownership safety
+- [x] 07.4-02-PLAN.md — Rust supervisor dev hybrid attach/spawn/conflict + ownership safety
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 07.4-03-PLAN.md — Frontend process tuple store + StatusBar/StartupMask UX
+- [x] 07.4-03-PLAN.md — Frontend process tuple store + StatusBar/StartupMask UX
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 07.4-04-PLAN.md — Verification matrix, source audit, validation closure
+- [x] 07.4-04-PLAN.md — Verification matrix, source audit, validation closure
 
 - 扩展 process status：`state + owner + health`，新增 conflict 表达。
 - 启动前执行健康探测：Agent `/health`，Go `/healthz` + `/readyz`。
@@ -233,6 +233,8 @@ Plans:
 - StartupMask / StatusBar 显示真实失败分类：可执行文件缺失、cwd 缺失、端口冲突、健康失败、启动 grace 内退出、readiness degraded。
 - 保留 packaged 模式走 supervisor-owned bundled sidecar 的方向，不依赖 `uv` / `go` / login-shell PATH。
 - Design note: `.planning/notes/sidecar-runtime-mode.md`
+
+- **Status:** Complete. Automated gates green: Rust process tests 70/70, full `cargo test`, `cargo clippy --all-targets -- -D warnings`, desktop build, and Vitest 43/43. Manual packaged/platform UAT remains deferred to Phase 10 Packaging.
 
 ### Phase 07.1: Official AG-UI Deferred Tool Approval (INSERTED)
 

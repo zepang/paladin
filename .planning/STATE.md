@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 08
-current_phase_name: Go Server
-status: Ready to plan
-stopped_at: Phase 07.4 context gathered
-last_updated: "2026-07-06T09:56:54.230Z"
+current_phase: 10
+current_phase_name: Packaging
+status: Phase 07.4 complete
+stopped_at: Phase 07.4 completed
+last_updated: "2026-07-06T22:41:00+08:00"
 progress:
   total_phases: 17
-  completed_phases: 13
+  completed_phases: 14
   total_plans: 53
-  completed_plans: 43
-  percent: 76
+  completed_plans: 47
+  percent: 82
 ---
 
 # Project State: Paladin
@@ -44,7 +44,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | 7.1 | Official AG-UI Deferred Tool Approval | Complete |
 | 7.2 | Legacy SSE Approval Cleanup | Complete |
 | 07.3 | Sidecar Process Management | Code-Complete (UAT deferred to Phase 10) |
-| 07.4 | Sidecar Runtime Mode | Pending |
+| 07.4 | Sidecar Runtime Mode | Complete |
 | 8 | Go Server | Complete |
 | 9 | Admin Systems | Complete |
 | 10 | Packaging | Pending |
@@ -59,6 +59,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Recent Activity
 
+- 2026-07-06: Phase 07.4 completed — Sidecar Runtime Mode: Rust `state+owner+health` tuple, dev health-first attach/spawn/conflict, packaged no-dev-deps validation, external action safety, redetect commands, frontend tuple UX, config diagnostic path; gates green (`cargo test process:: --lib` 70/70, `cargo test`, clippy, desktop build, Vitest 43/43). Manual packaged/platform UAT deferred to Phase 10.
 - 2026-07-06: Quick task completed — optimized desktop Agent stopped/error startup mask with shadcn-style status panel, lucide icons, diagnostic error blocks, and responsive layout; desktop build and browser preview checks passed.
 - 2026-07-05: Phase 07.3 Plan 10 (Phase 闭环) completed — UAT deferred to Phase 10 Packaging (macOS/Win/Linux all deferred, automated gates all green); 7 tasks (cargo test 54/54 + tsc 0 errors + clippy 0 errors + build ✓ + 7 source gates PASS); SPEC 21 Acceptance + 13 Edge + 4 Prohibitions 逐条验证完成; STATE.md/ROADMAP.md 标记 code-complete
 - 2026-07-05: Phase 07.3 Plan 06 completed — ProcessSupervisor main body (supervisor.rs ~840 lines + 6 Tauri commands + lib.rs setup() wiring + Cargo.toml nix cfg(unix)); 7 tasks in ~24min; 8 commits; spawns tokio child + reqwest probe_loop + wait_exit SpawnFailed/Crashed/backoff + capture_lines redact+emit+file + graceful_shutdown SIGTERM(Unix)/start_kill(Win) + Drop;cargo check + 54 tests zero-regression + clippy clean; emit event contracts process-status/process-log locked; SDC-01/02/03 code-complete (UAT 留给真实 uv+go+PG+Redis)
@@ -89,16 +90,16 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Next Actions
 
-1. `$gsd-plan-phase 07.4` — 规划 Sidecar Runtime Mode：dev Hybrid attach/spawn、ownership 状态、conflict UI、外部服务动作限制
-2. Phase 10 Packaging — 三平台 UAT 回填(来自 07.3-UAT.md deferred 19 项),processes.json mode=packaged 切换,externalBin 配置,日志轮转引入
+1. Phase 10 Packaging — 三平台 UAT 回填(来自 07.3/07.4 UAT deferred 项),processes.json mode=packaged 切换,externalBin 配置,日志轮转引入
+2. `$gsd-plan-phase 10` — 规划 Packaging：真实 sidecar binaries、externalBin、installer/platform UAT
 3. VALIDATION.md DEFERRED 10 项回填(Phase 10 真实环境手测后)
 4. biome 29 preexisting errors 修复(非 07.3 引入,跨 phase 技术债)
 
 ## Session
 
 **Last session:** 2026-07-06T09:56:54.216Z
-**Stopped at:** Phase 07.4 context gathered
-**Resume file:** .planning/phases/07.4-sidecar-runtime-mode/07.4-CONTEXT.md
+**Stopped at:** Phase 07.4 completed
+**Resume file:** .planning/phases/07.4-sidecar-runtime-mode/07.4-04-SUMMARY.md
 
 ## Accumulated Context
 
