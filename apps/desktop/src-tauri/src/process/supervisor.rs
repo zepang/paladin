@@ -25,14 +25,18 @@
 
 // Task 1-4 已完成所有 stub,无 unused imports/dead_code;此 allow 已移除。
 
-use crate::process::config::{ProcessConfig, ProcessEntry, ProcessNameKey};
+use crate::process::config::{
+    EndpointConfig, HealthConfig, ProcessConfig, ProcessEntry, ProcessNameKey, RuntimeMode,
+};
 use crate::process::log_redact::redact_log_line;
-use crate::process::port_probe::check_port_or_error;
+use crate::process::port_probe::{check_port_or_error, is_port_available};
 use crate::process::state_machine::{
     backoff_delay, transition, ProcessEvent, SupervisorSnapshot, STARTUP_GRACE_SECS,
 };
 use serde::Serialize;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
+use std::env;
+use std::ffi::OsString;
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -41,8 +45,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
-use tokio::io::{AsyncRead, AsyncWriteExt, BufReader};
 use tokio::io::AsyncBufReadExt;
+use tokio::io::{AsyncRead, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStderr, ChildStdout, Command};
 use tokio::sync::Mutex;
 
@@ -52,10 +56,60 @@ pub const PROBE_INTERVAL_SECS: u64 = 10;
 /// 探针单次请求超时 (防止卡死)。
 const PROBE_TIMEOUT_SECS: u64 = 5;
 
+/// dev attach preflight grace: a manually started sidecar may bind its port before
+/// its health endpoint is ready, so retry briefly before reporting conflict.
+const DEV_PREFLIGHT_GRACE_SECS: u64 = 5;
+
 /// stderr_tail VecDeque 容量,保留末尾 N 行 (SPEC Prohibition P2 暴露退出原因)。
 const STDERR_TAIL_CAPACITY: usize = 50;
 
-/// 进程运行状态机 — SPEC R7 / Acceptance 锁定的 5 状态,serde lowercase 序列化到前端。
+pub(crate) fn augmented_spawn_path(base: Option<OsString>) -> OsString {
+    let mut paths: Vec<PathBuf> = base
+        .as_ref()
+        .map(env::split_paths)
+        .into_iter()
+        .flatten()
+        .collect();
+
+    #[cfg(unix)]
+    {
+        for candidate in common_unix_dev_tool_paths() {
+            if !paths.iter().any(|p| p == &candidate) {
+                paths.push(candidate);
+            }
+        }
+    }
+
+    env::join_paths(paths).unwrap_or_else(|_| base.unwrap_or_default())
+}
+
+pub(crate) fn spawn_path_for_mode(mode: RuntimeMode, base: Option<OsString>) -> Option<OsString> {
+    match mode {
+        RuntimeMode::Dev => Some(augmented_spawn_path(base)),
+        RuntimeMode::Packaged => None,
+    }
+}
+
+#[cfg(unix)]
+fn common_unix_dev_tool_paths() -> Vec<PathBuf> {
+    let mut paths = vec![
+        PathBuf::from("/usr/local/go/bin"),
+        PathBuf::from("/usr/local/bin"),
+        PathBuf::from("/opt/homebrew/bin"),
+        PathBuf::from("/opt/homebrew/sbin"),
+    ];
+
+    if let Some(home) = env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        paths.push(home.join(".local/bin"));
+        paths.push(home.join(".cargo/bin"));
+        paths.push(home.join("go/bin"));
+    }
+
+    paths
+}
+
+/// 进程运行状态机 — serde lowercase 序列化到前端。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProcessState {
@@ -69,6 +123,27 @@ pub enum ProcessState {
     Unhealthy,
     /// 启动失败 / 退避耗尽 / 手动 stop
     Stopped,
+    /// 端口被占用且配置健康检查失败,supervisor 不能安全接管
+    Conflict,
+}
+
+/// 进程所有权维度。它和健康状态分开建模,避免把外部服务误当成 supervisor 子进程。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProcessOwner {
+    Supervisor,
+    External,
+    None,
+}
+
+/// 进程健康维度。`Unknown` 用于启动/停止等健康尚未确认的状态。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProcessHealth {
+    Healthy,
+    Degraded,
+    Failed,
+    Unknown,
 }
 
 /// 运行时进程名 — 与配置层 `ProcessNameKey` 解耦的运行时枚举。
@@ -104,6 +179,8 @@ pub struct LogChunk {
 #[derive(Debug, Clone, Serialize)]
 pub struct ProcessInfoDTO {
     pub state: ProcessState,
+    pub owner: ProcessOwner,
+    pub health: ProcessHealth,
     pub last_error: Option<String>,
     pub stderr_tail: Option<String>,
     pub last_restart_at: Option<i64>,
@@ -136,6 +213,9 @@ pub struct ManagedProcess {
     #[allow(dead_code)]
     pub name: ProcessName,
     pub state: ProcessState,
+    pub owner: ProcessOwner,
+    pub health: ProcessHealth,
+    pub pid: Option<u32>,
     pub snapshot: SupervisorSnapshot,
     pub stderr_tail: VecDeque<String>,
     pub spawn_time: Option<Instant>,
@@ -148,12 +228,88 @@ impl ManagedProcess {
         Self {
             name,
             state: ProcessState::Starting,
+            owner: ProcessOwner::Supervisor,
+            health: ProcessHealth::Unknown,
+            pid: None,
             snapshot: SupervisorSnapshot::default(),
             stderr_tail: VecDeque::with_capacity(STDERR_TAIL_CAPACITY),
             spawn_time: None,
             last_restart_at: None,
             last_error: None,
         }
+    }
+}
+
+fn apply_supervisor_state(mp: &mut ManagedProcess, state: ProcessState) {
+    mp.state = state;
+    mp.owner = ProcessOwner::Supervisor;
+    mp.health = match state {
+        ProcessState::Starting => ProcessHealth::Unknown,
+        ProcessState::Running => ProcessHealth::Healthy,
+        ProcessState::Degraded => ProcessHealth::Degraded,
+        ProcessState::Unhealthy => ProcessHealth::Failed,
+        ProcessState::Stopped => ProcessHealth::Unknown,
+        ProcessState::Conflict => ProcessHealth::Failed,
+    };
+}
+
+fn apply_external_state(mp: &mut ManagedProcess, state: ProcessState, health: ProcessHealth) {
+    mp.state = state;
+    mp.owner = ProcessOwner::External;
+    mp.health = health;
+}
+
+fn apply_none_state(mp: &mut ManagedProcess, state: ProcessState, health: ProcessHealth) {
+    mp.state = state;
+    mp.owner = ProcessOwner::None;
+    mp.health = health;
+}
+
+fn diagnostic_fallback_config() -> ProcessConfig {
+    let mut processes = HashMap::new();
+    processes.insert(
+        ProcessNameKey::Agent,
+        ProcessEntry {
+            cmd: vec!["paladin-config-error".into()],
+            cwd: None,
+            env: HashMap::new(),
+            port: 9876,
+            health: HealthConfig {
+                liveness: EndpointConfig {
+                    path: "/health".into(),
+                    expect_status: 200,
+                },
+                readiness: None,
+            },
+            startup_grace_secs: 5,
+        },
+    );
+    processes.insert(
+        ProcessNameKey::Server,
+        ProcessEntry {
+            cmd: vec!["paladin-config-error".into()],
+            cwd: None,
+            env: HashMap::new(),
+            port: 9880,
+            health: HealthConfig {
+                liveness: EndpointConfig {
+                    path: "/healthz".into(),
+                    expect_status: 200,
+                },
+                readiness: Some(EndpointConfig {
+                    path: "/readyz".into(),
+                    expect_status: 200,
+                }),
+            },
+            startup_grace_secs: 5,
+        },
+    );
+    ProcessConfig {
+        mode: "dev".into(),
+        processes,
+        backoff_secs: vec![1, 2, 4, 8, 16],
+        max_restarts: 5,
+        shutdown_grace_secs: 5,
     }
 }
 
@@ -209,6 +365,17 @@ impl ProcessSupervisor {
         }
     }
 
+    pub fn from_config_error(app_handle: AppHandle, log_dir: PathBuf, message: String) -> Self {
+        let supervisor = Self::new(app_handle, diagnostic_fallback_config(), log_dir);
+        for slot in [&supervisor.agent, &supervisor.server] {
+            let mut mp = slot.state.blocking_lock();
+            apply_none_state(&mut mp, ProcessState::Stopped, ProcessHealth::Failed);
+            mp.last_error = Some(message.clone());
+            mp.snapshot.last_error_len = message.len() as u32;
+        }
+        supervisor
+    }
+
     fn slot_of(&self, name: ProcessName) -> &Arc<ProcessSlot> {
         match name {
             ProcessName::Agent => &self.agent,
@@ -221,9 +388,10 @@ impl ProcessSupervisor {
             ProcessName::Agent => ProcessNameKey::Agent,
             ProcessName::Server => ProcessNameKey::Server,
         };
-        self.config.processes.get(&key).expect(
-            "ProcessConfig::validate 已保证 processes 含 agent + server,此处 unwrap 安全",
-        )
+        self.config
+            .processes
+            .get(&key)
+            .expect("ProcessConfig::validate 已保证 processes 含 agent + server,此处 unwrap 安全")
     }
 
     /// D-07 单一 Rust URL 真相源:从 `processes.json` 端口构造 URL。
@@ -238,9 +406,35 @@ impl ProcessSupervisor {
 
     /// `get_process_status` 命令入口 — 首探完成前 `state=Starting`。
     pub async fn status(&self) -> ProcessStatusSnapshot {
+        self.reconcile_runtime_health(ProcessName::Agent).await;
+        self.reconcile_runtime_health(ProcessName::Server).await;
         let agent = self.snapshot_of(ProcessName::Agent).await;
         let server = self.snapshot_of(ProcessName::Server).await;
         ProcessStatusSnapshot { agent, server }
+    }
+
+    async fn reconcile_runtime_health(&self, name: ProcessName) {
+        let entry = self.entry_of(name);
+        let Some((state, health)) = probe_runtime_health(entry, Duration::from_millis(500)).await
+        else {
+            return;
+        };
+
+        let slot = self.slot_of(name);
+        let mut mp = slot.state.lock().await;
+        if mp.state == state && mp.health == health {
+            return;
+        }
+
+        // `get_process_status` 是前端轮询的 Rust 真相源。dev 模式下子进程
+        // wrapper/reloader 可能让 slot 停在旧状态；健康端点可达时以运行事实纠偏。
+        match mp.owner {
+            ProcessOwner::Supervisor => apply_supervisor_state(&mut mp, state),
+            ProcessOwner::External => apply_external_state(&mut mp, state, health),
+            ProcessOwner::None => apply_external_state(&mut mp, state, health),
+        }
+        mp.last_error = None;
+        mp.snapshot.fail_count = 0;
     }
 
     async fn snapshot_of(&self, name: ProcessName) -> ProcessInfoDTO {
@@ -248,10 +442,21 @@ impl ProcessSupervisor {
         let mp = slot.state.lock().await;
         ProcessInfoDTO {
             state: mp.state,
+            owner: mp.owner,
+            health: mp.health,
             last_error: mp.last_error.clone(),
             stderr_tail: {
-                let s: String = mp.stderr_tail.iter().cloned().collect::<Vec<_>>().join("\n");
-                if s.is_empty() { None } else { Some(s) }
+                let s: String = mp
+                    .stderr_tail
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
             },
             last_restart_at: mp.last_restart_at,
         }
@@ -269,16 +474,62 @@ impl ProcessSupervisor {
 
     /// SPEC R1 / Edge R9 / Prohibition P1: spawn 子进程。委托给 [`spawn_child_to_slot`],
     /// 让 wait_exit 在 backoff 重启时也能复用同一路径。
+    #[allow(dead_code)]
     pub async fn spawn_one(&self, name: ProcessName) -> Result<(), String> {
         let slot = self.slot_of(name).clone();
-        spawn_child_to_slot(
-            &slot,
-            name,
-            &self.app_handle,
-            &self.config,
-            &self.log_dir,
-        )
-        .await
+        spawn_child_to_slot(&slot, name, &self.app_handle, &self.config, &self.log_dir).await
+    }
+
+    async fn start_one_runtime(&self, name: ProcessName) -> Result<(), String> {
+        let slot = self.slot_of(name).clone();
+        let _guard = slot.restart_lock.lock().await;
+
+        if self.config.runtime_mode()? == RuntimeMode::Packaged {
+            return spawn_child_to_slot(&slot, name, &self.app_handle, &self.config, &self.log_dir)
+                .await;
+        }
+
+        match resolve_dev_runtime_path(name, self.entry_of(name)).await? {
+            DevRuntimePath::Attach { state, health } => {
+                slot.shutdown_flag.store(false, Ordering::Relaxed);
+                *slot.child.lock().await = None;
+                {
+                    let mut mp = slot.state.lock().await;
+                    apply_external_state(&mut mp, state, health);
+                    mp.pid = None;
+                    mp.spawn_time = None;
+                    mp.last_error = None;
+                    mp.stderr_tail.clear();
+                }
+                emit_status_to(&slot, &self.app_handle, name, None).await;
+                let app_c = self.app_handle.clone();
+                let cfg_c = self.config.clone();
+                let slot_c = slot.clone();
+                tokio::spawn(async move {
+                    probe_loop(slot_c, name, app_c, cfg_c).await;
+                });
+                Ok(())
+            }
+            DevRuntimePath::Spawn => {
+                spawn_child_to_slot(&slot, name, &self.app_handle, &self.config, &self.log_dir)
+                    .await
+            }
+            DevRuntimePath::Conflict(message) => {
+                {
+                    let mut mp = slot.state.lock().await;
+                    apply_none_state(&mut mp, ProcessState::Conflict, ProcessHealth::Failed);
+                    mp.pid = None;
+                    mp.spawn_time = None;
+                    mp.last_error = Some(message.clone());
+                }
+                emit_status_to(&slot, &self.app_handle, name, Some(message.clone())).await;
+                Err(message)
+            }
+        }
+    }
+
+    pub async fn redetect_one(&self, name: ProcessName) -> Result<(), String> {
+        self.start_one_runtime(name).await
     }
 
     /// SPEC 启动顺序 (D-08): **Server 先**,等 /readyz 5s 超时,再 spawn Agent。
@@ -287,9 +538,7 @@ impl ProcessSupervisor {
     /// Server 立即就绪)。spawn_one 失败立即返回 Err,前端展示 last_error。
     pub async fn start(&self) -> Result<(), String> {
         // 1. Server 先
-        if let Err(e) = self.spawn_one(ProcessName::Server).await {
-            return Err(format!("Server 启动失败: {e}"));
-        }
+        let server_result = self.start_one_runtime(ProcessName::Server).await;
 
         // 2. 等 Server /readyz 5s (若配置了 readiness)
         let server_entry = self.entry_of(ProcessName::Server);
@@ -298,49 +547,62 @@ impl ProcessSupervisor {
             .readiness
             .as_ref()
             .map(|r| r.path.clone());
-        if let Some(readyz_path) = readyz_path {
-            let readyz_url = format!("http://127.0.0.1:{}{}", server_entry.port, readyz_path);
-            let readyz_expect = server_entry.health.readiness.as_ref().unwrap().expect_status;
-            let client = reqwest::Client::builder()
-                .timeout(Duration::from_millis(900))
-                .build()
-                .map_err(|e| format!("reqwest build 失败: {e}"))?;
-            let deadline = Instant::now() + Duration::from_secs(5);
-            let mut ok = false;
-            while Instant::now() < deadline {
-                if let Ok(resp) = client.get(&readyz_url).send().await {
-                    if resp.status().as_u16() == readyz_expect {
-                        ok = true;
-                        break;
+        let server_is_supervisor_owned = {
+            self.slot_of(ProcessName::Server).state.lock().await.owner == ProcessOwner::Supervisor
+        };
+        if server_is_supervisor_owned {
+            if let Some(readyz_path) = readyz_path {
+                let readyz_url = format!("http://127.0.0.1:{}{}", server_entry.port, readyz_path);
+                let readyz_expect = server_entry
+                    .health
+                    .readiness
+                    .as_ref()
+                    .unwrap()
+                    .expect_status;
+                let client = reqwest::Client::builder()
+                    .timeout(Duration::from_millis(900))
+                    .build()
+                    .map_err(|e| format!("reqwest build 失败: {e}"))?;
+                let deadline = Instant::now() + Duration::from_secs(5);
+                let mut ok = false;
+                while Instant::now() < deadline {
+                    if let Ok(resp) = client.get(&readyz_url).send().await {
+                        if resp.status().as_u16() == readyz_expect {
+                            ok = true;
+                            break;
+                        }
                     }
+                    tokio::time::sleep(Duration::from_millis(200)).await;
                 }
-                tokio::time::sleep(Duration::from_millis(200)).await;
-            }
-            if !ok {
-                // 5s 超时 — 不阻塞 Agent 启动,但记 Server Degraded 状态
-                let slot = self.slot_of(ProcessName::Server).clone();
-                {
-                    let mut mp = slot.state.lock().await;
-                    let (ns, nsnap) =
-                        transition(mp.state, ProcessEvent::ProbeDegraded, &mp.snapshot);
-                    mp.state = ns;
-                    mp.snapshot = nsnap;
-                    mp.last_error =
-                        Some("启动 5s 内 /readyz 未就绪 (PG/Redis 可能未启动)".to_string());
+                if !ok {
+                    // 5s 超时 — 不阻塞 Agent 启动,但记 Server Degraded 状态
+                    let slot = self.slot_of(ProcessName::Server).clone();
+                    {
+                        let mut mp = slot.state.lock().await;
+                        let (ns, nsnap) =
+                            transition(mp.state, ProcessEvent::ProbeDegraded, &mp.snapshot);
+                        apply_supervisor_state(&mut mp, ns);
+                        mp.snapshot = nsnap;
+                        mp.last_error =
+                            Some("启动 5s 内 /readyz 未就绪 (PG/Redis 可能未启动)".to_string());
+                    }
+                    emit_status_to(
+                        &slot,
+                        &self.app_handle,
+                        ProcessName::Server,
+                        Some("启动 5s 内 /readyz 未就绪".to_string()),
+                    )
+                    .await;
                 }
-                emit_status_to(
-                    &slot,
-                    &self.app_handle,
-                    ProcessName::Server,
-                    Some("启动 5s 内 /readyz 未就绪".to_string()),
-                )
-                .await;
             }
         }
 
         // 3. Agent spawn
-        if let Err(e) = self.spawn_one(ProcessName::Agent).await {
+        if let Err(e) = self.start_one_runtime(ProcessName::Agent).await {
             return Err(format!("Agent 启动失败: {e}"));
+        }
+        if let Err(e) = server_result {
+            eprintln!("[paladin] Server 启动/附着失败: {e}");
         }
         Ok(())
     }
@@ -363,33 +625,30 @@ impl ProcessSupervisor {
         // restart_lock 串行化 — 防止 restart_agent / restart_server / wait_exit 同时触发
         let _guard = slot.restart_lock.lock().await;
 
+        if slot.state.lock().await.owner == ProcessOwner::External {
+            return Err("external_not_owned: 外部服务由你手动管理，Paladin 不会重启它".into());
+        }
+
         // graceful shutdown 当前 child (若有)
         graceful_shutdown_slot(&slot, name, &self.app_handle).await;
 
         // SPEC Edge R4: transition(RestartRequested) 清零 snapshot
         {
             let mut mp = slot.state.lock().await;
-            let (ns, nsnap) =
-                transition(mp.state, ProcessEvent::RestartRequested, &mp.snapshot);
-            mp.state = ns;
+            let (ns, nsnap) = transition(mp.state, ProcessEvent::RestartRequested, &mp.snapshot);
+            apply_supervisor_state(&mut mp, ns);
             mp.snapshot = nsnap;
             mp.last_error = None;
             mp.last_restart_at = Some(now_ms());
         }
 
         // spawn — 失败时置 Stopped + emit
-        let res = spawn_child_to_slot(
-            &slot,
-            name,
-            &self.app_handle,
-            &self.config,
-            &self.log_dir,
-        )
-        .await;
+        let res =
+            spawn_child_to_slot(&slot, name, &self.app_handle, &self.config, &self.log_dir).await;
         if let Err(e) = res {
             let msg = format!("restart spawn 失败: {e}");
             let mut mp = slot.state.lock().await;
-            mp.state = ProcessState::Stopped;
+            apply_supervisor_state(&mut mp, ProcessState::Stopped);
             mp.last_error = Some(msg.clone());
             drop(mp);
             emit_status_to(&slot, &self.app_handle, name, Some(msg)).await;
@@ -399,9 +658,13 @@ impl ProcessSupervisor {
     }
 
     /// 用户显式 stop 命令 — transition StopRequested → Stopped。
-    pub async fn stop_one(&self, name: ProcessName) {
+    pub async fn stop_one(&self, name: ProcessName) -> Result<(), String> {
         let slot = self.slot_of(name).clone();
+        if slot.state.lock().await.owner == ProcessOwner::External {
+            return Err("external_not_owned: 外部服务由你手动管理，Paladin 不会停止它".into());
+        }
         graceful_shutdown_slot(&slot, name, &self.app_handle).await;
+        Ok(())
     }
 }
 
@@ -410,6 +673,13 @@ impl Drop for ProcessSupervisor {
     /// 若已在 tokio runtime 内 (Tauri 关闭时常见),block_in_place 隔离避免 nested panic。
     /// 仍失败时由 [`Command::kill_on_drop(true)`] 兜底 SIGKILL,保证不泄漏 child。
     fn drop(&mut self) {
+        if !should_shutdown_on_drop(
+            Arc::strong_count(&self.agent),
+            Arc::strong_count(&self.server),
+        ) {
+            return;
+        }
+
         self.agent.shutdown_flag.store(true, Ordering::Relaxed);
         self.server.shutdown_flag.store(true, Ordering::Relaxed);
 
@@ -423,9 +693,112 @@ impl Drop for ProcessSupervisor {
     }
 }
 
+pub(crate) fn should_shutdown_on_drop(
+    agent_strong_count: usize,
+    server_strong_count: usize,
+) -> bool {
+    agent_strong_count == 1 && server_strong_count == 1
+}
+
 /// BoxFuture 类型别名 — 用 Pin<Box<dyn Future + Send>> 打破
 /// spawn_child_to_slot ↔ wait_exit 之间的 async fn 类型推断循环 (rustc E0391)。
 type SpawnFut<'a> = Pin<Box<dyn Future<Output = Result<(), String>> + Send + 'a>>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum DevRuntimePath {
+    Attach {
+        state: ProcessState,
+        health: ProcessHealth,
+    },
+    Spawn,
+    Conflict(String),
+}
+
+pub(crate) async fn resolve_dev_runtime_path(
+    name: ProcessName,
+    entry: &ProcessEntry,
+) -> Result<DevRuntimePath, String> {
+    let port = entry.port;
+    let liveness_url = format!("http://127.0.0.1:{port}{}", entry.health.liveness.path);
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_millis(700))
+        .build()
+        .map_err(|e| format!("reqwest build 失败: {e}"))?;
+
+    let deadline = Instant::now() + Duration::from_secs(DEV_PREFLIGHT_GRACE_SECS);
+    loop {
+        let liveness_ok = match client.get(&liveness_url).send().await {
+            Ok(resp) => resp.status().as_u16() == entry.health.liveness.expect_status,
+            Err(_) => false,
+        };
+
+        if liveness_ok {
+            if let Some(readiness) = &entry.health.readiness {
+                let readiness_url = format!("http://127.0.0.1:{port}{}", readiness.path);
+                let readiness_ok = match client.get(&readiness_url).send().await {
+                    Ok(resp) => resp.status().as_u16() == readiness.expect_status,
+                    Err(_) => false,
+                };
+                if !readiness_ok {
+                    return Ok(DevRuntimePath::Attach {
+                        state: ProcessState::Degraded,
+                        health: ProcessHealth::Degraded,
+                    });
+                }
+            }
+            return Ok(DevRuntimePath::Attach {
+                state: ProcessState::Running,
+                health: ProcessHealth::Healthy,
+            });
+        }
+
+        if is_port_available(port) {
+            return Ok(DevRuntimePath::Spawn);
+        }
+
+        if Instant::now() >= deadline {
+            let label = match name {
+                ProcessName::Agent => "Agent",
+                ProcessName::Server => "Go Server",
+            };
+            return Ok(DevRuntimePath::Conflict(format!(
+                "{label} 端口 {port} 已被占用，但健康检查 {liveness_url} 未通过"
+            )));
+        }
+
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+}
+
+async fn probe_runtime_health(
+    entry: &ProcessEntry,
+    timeout: Duration,
+) -> Option<(ProcessState, ProcessHealth)> {
+    let port = entry.port;
+    let liveness_url = format!("http://127.0.0.1:{port}{}", entry.health.liveness.path);
+    let client = reqwest::Client::builder().timeout(timeout).build().ok()?;
+
+    let liveness_ok = match client.get(&liveness_url).send().await {
+        Ok(resp) => resp.status().as_u16() == entry.health.liveness.expect_status,
+        Err(_) => false,
+    };
+    if !liveness_ok {
+        return None;
+    }
+
+    if let Some(readiness) = &entry.health.readiness {
+        let readiness_url = format!("http://127.0.0.1:{port}{}", readiness.path);
+        let readiness_ok = match client.get(&readiness_url).send().await {
+            Ok(resp) => resp.status().as_u16() == readiness.expect_status,
+            Err(_) => false,
+        };
+        if !readiness_ok {
+            return Some((ProcessState::Degraded, ProcessHealth::Degraded));
+        }
+    }
+
+    Some((ProcessState::Running, ProcessHealth::Healthy))
+}
 
 /// SPEC R1 / Edge R9 / Prohibition P1: 实际 spawn 逻辑 — free function,可被
 /// `ProcessSupervisor::spawn_one` 与 wait_exit (backoff 重启) 共用。
@@ -445,111 +818,137 @@ pub(crate) fn spawn_child_to_slot<'a>(
     log_dir: &'a Path,
 ) -> SpawnFut<'a> {
     Box::pin(async move {
-    let entry = match name {
-        ProcessName::Agent => config.processes.get(&ProcessNameKey::Agent),
-        ProcessName::Server => config.processes.get(&ProcessNameKey::Server),
-    }
-    .expect("ProcessConfig::validate 已保证 agent+server 都存在");
-    let process_name_str = match name {
-        ProcessName::Agent => "Agent",
-        ProcessName::Server => "Server",
-    };
+        let entry = match name {
+            ProcessName::Agent => config.processes.get(&ProcessNameKey::Agent),
+            ProcessName::Server => config.processes.get(&ProcessNameKey::Server),
+        }
+        .expect("ProcessConfig::validate 已保证 agent+server 都存在");
+        let process_name_str = match name {
+            ProcessName::Agent => "Agent",
+            ProcessName::Server => "Server",
+        };
 
-    // SPEC R1 / Edge R9: 端口预检 — 失败时 emit + Err,不 spawn。
-    if let Err(e) = check_port_or_error(entry.port, process_name_str) {
-        emit_status_to(slot, app, name, Some(e.clone())).await;
-        return Err(e);
-    }
+        // SPEC R1 / Edge R9: 端口预检 — 失败时 emit + Err,不 spawn。
+        if let Err(e) = check_port_or_error(entry.port, process_name_str) {
+            emit_status_to(slot, app, name, Some(e.clone())).await;
+            return Err(e);
+        }
 
-    // SPEC Prohibition P1: cmd 来自静态 ProcessConfig;Command 默认不走 shell。
-    let mut cmd = Command::new(&entry.cmd[0]);
-    cmd.args(&entry.cmd[1..]);
-    // 相对 cwd 基于 CARGO_MANIFEST_DIR (src-tauri),dev 模式可靠;packaged 模式 Phase 10 改造。
-    let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let cwd = entry
-        .cwd
-        .as_ref()
-        .map(|p| if p.is_absolute() { p.clone() } else { base.join(p) })
-        .unwrap_or_else(|| base.clone());
-    cmd.current_dir(&cwd);
-    // env 字面透传 (plan 03 已验证字面值不展开)。
-    cmd.envs(&entry.env);
-    cmd.stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        // 防 child 泄漏:若 Child handle drop 时进程仍在跑,tokio 会发 SIGKILL。
-        // 注意 graceful_shutdown 仍优先走 SIGTERM + 5s grace 路径,这是兜底。
-        .kill_on_drop(true);
+        // SPEC Prohibition P1: cmd 来自静态 ProcessConfig;Command 默认不走 shell。
+        let mut cmd = Command::new(&entry.cmd[0]);
+        cmd.args(&entry.cmd[1..]);
+        // 相对 cwd 基于 CARGO_MANIFEST_DIR (src-tauri),dev 模式可靠;packaged 模式 Phase 10 改造。
+        let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let cwd = entry
+            .cwd
+            .as_ref()
+            .map(|p| {
+                if p.is_absolute() {
+                    p.clone()
+                } else {
+                    base.join(p)
+                }
+            })
+            .unwrap_or_else(|| base.clone());
+        cmd.current_dir(&cwd);
+        // env 字面透传 (plan 03 已验证字面值不展开)。
+        cmd.envs(&entry.env);
+        if let Some(path) = spawn_path_for_mode(config.runtime_mode()?, env::var_os("PATH")) {
+            // GUI/Tauri dev shells may not inherit login-shell PATH. Add common tool dirs so
+            // `uv` and `go` can be found without falling back to a shell.
+            cmd.env("PATH", path);
+        }
+        cmd.stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            // 防 child 泄漏:若 Child handle drop 时进程仍在跑,tokio 会发 SIGKILL。
+            // 注意 graceful_shutdown 仍优先走 SIGTERM + 5s grace 路径,这是兜底。
+            .kill_on_drop(true);
+        #[cfg(unix)]
+        {
+            // `go run`/`uv` 会再派生真正的服务进程；独立进程组让 stop/restart
+            // 能终止整棵托管进程树，避免留下继续占端口的子进程。
+            cmd.process_group(0);
+        }
 
-    let mut child = cmd
-        .spawn()
-        .map_err(|e| format!("spawn {process_name_str} 失败: {e}"))?;
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| format!("spawn {process_name_str} 失败: {e}"))?;
 
-    let stdout: Option<ChildStdout> = child.stdout.take();
-    let stderr: Option<ChildStderr> = child.stderr.take();
+        let stdout: Option<ChildStdout> = child.stdout.take();
+        let stderr: Option<ChildStderr> = child.stderr.take();
 
-    // 新 spawn — 重置 shutdown_flag。
-    slot.shutdown_flag.store(false, Ordering::Relaxed);
+        // 新 spawn — 重置 shutdown_flag。
+        slot.shutdown_flag.store(false, Ordering::Relaxed);
 
-    {
-        let mut mp = slot.state.lock().await;
-        mp.state = ProcessState::Starting;
-        mp.spawn_time = Some(Instant::now());
-        mp.stderr_tail.clear();
-        // spawn 成功不立即清 last_error,等首次 ProbeOk 才清 (transition 不动 last_error_len)。
-    }
+        {
+            let mut mp = slot.state.lock().await;
+            apply_supervisor_state(&mut mp, ProcessState::Starting);
+            mp.pid = child.id();
+            mp.spawn_time = Some(Instant::now());
+            mp.stderr_tail.clear();
+            // spawn 成功不立即清 last_error,等首次 ProbeOk 才清 (transition 不动 last_error_len)。
+        }
 
-    // 把 child handle 存入 mutex,wait_exit task 会接管。
-    *slot.child.lock().await = Some(child);
+        // 把 child handle 存入 mutex,wait_exit task 会接管。
+        *slot.child.lock().await = Some(child);
 
-    // 启动 capture_lines / probe_loop / wait_exit 三个独立 task。
-    let log_path = log_dir.join(match name {
-        ProcessName::Agent => "paladin-agent.log",
-        ProcessName::Server => "paladin-server.log",
-    });
-
-    if let Some(stdout) = stdout {
-        let app_c = app.clone();
-        let flag = slot.shutdown_flag.clone();
-        let path = log_path.clone();
-        let slot_c = slot.clone();
-        tokio::spawn(async move {
-            capture_lines(name, LogStream::Stdout, stdout, path, app_c, flag, slot_c).await;
+        // 启动 capture_lines / probe_loop / wait_exit 三个独立 task。
+        let log_path = log_dir.join(match name {
+            ProcessName::Agent => "paladin-agent.log",
+            ProcessName::Server => "paladin-server.log",
         });
-    }
-    if let Some(stderr) = stderr {
-        let flag = slot.shutdown_flag.clone();
-        let slot_c = slot.clone();
-        let app_c = app.clone();
-        tokio::spawn(async move {
-            capture_lines(name, LogStream::Stderr, stderr, log_path.clone(), app_c, flag, slot_c)
+
+        if let Some(stdout) = stdout {
+            let app_c = app.clone();
+            let flag = slot.shutdown_flag.clone();
+            let path = log_path.clone();
+            let slot_c = slot.clone();
+            tokio::spawn(async move {
+                capture_lines(name, LogStream::Stdout, stdout, path, app_c, flag, slot_c).await;
+            });
+        }
+        if let Some(stderr) = stderr {
+            let flag = slot.shutdown_flag.clone();
+            let slot_c = slot.clone();
+            let app_c = app.clone();
+            tokio::spawn(async move {
+                capture_lines(
+                    name,
+                    LogStream::Stderr,
+                    stderr,
+                    log_path.clone(),
+                    app_c,
+                    flag,
+                    slot_c,
+                )
                 .await;
-        });
-    }
+            });
+        }
 
-    // probe_loop — 每 spawn 启动一次,Stopped 后退出 (P3)。
-    {
-        let app_c = app.clone();
-        let cfg_c = config.clone();
-        let slot_c = slot.clone();
-        tokio::spawn(async move {
-            probe_loop(slot_c, name, app_c, cfg_c).await;
-        });
-    }
+        // probe_loop — 每 spawn 启动一次,Stopped 后退出 (P3)。
+        {
+            let app_c = app.clone();
+            let cfg_c = config.clone();
+            let slot_c = slot.clone();
+            tokio::spawn(async move {
+                probe_loop(slot_c, name, app_c, cfg_c).await;
+            });
+        }
 
-    // wait_exit — 接管 child handle,处理 SpawnFailed/Crashed/backoff。
-    {
-        let slot_c = slot.clone();
-        let cfg_c = config.clone();
-        let app_c = app.clone();
-        let ld = log_dir.to_path_buf();
-        tokio::spawn(async move {
-            wait_exit(slot_c, name, app_c, cfg_c, ld).await;
-        });
-    }
+        // wait_exit — 接管 child handle,处理 SpawnFailed/Crashed/backoff。
+        {
+            let slot_c = slot.clone();
+            let cfg_c = config.clone();
+            let app_c = app.clone();
+            let ld = log_dir.to_path_buf();
+            tokio::spawn(async move {
+                wait_exit(slot_c, name, app_c, cfg_c, ld).await;
+            });
+        }
 
-    // emit Starting 状态 (前端首屏遮罩依赖此事件)。
-    emit_status_to(slot, app, name, None).await;
+        // emit Starting 状态 (前端首屏遮罩依赖此事件)。
+        emit_status_to(slot, app, name, None).await;
 
         Ok(())
     })
@@ -561,6 +960,31 @@ fn now_ms() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0)
+}
+
+#[cfg(unix)]
+enum UnixSignal {
+    Terminate,
+    Kill,
+}
+
+#[cfg(unix)]
+fn signal_process_tree(pid: Option<u32>, signal: UnixSignal) {
+    let Some(pid) = pid else {
+        return;
+    };
+
+    use nix::sys::signal::{kill, Signal};
+    use nix::unistd::Pid;
+
+    let signal = match signal {
+        UnixSignal::Terminate => Signal::SIGTERM,
+        UnixSignal::Kill => Signal::SIGKILL,
+    };
+    let pgid = Pid::from_raw(-(pid as i32));
+    if kill(pgid, signal).is_err() {
+        let _ = kill(Pid::from_raw(pid as i32), signal);
+    }
 }
 
 /// SPEC Prohibition P4 / SPEC Constraints 5s grace: 单 slot 优雅关闭。
@@ -580,14 +1004,28 @@ pub(crate) async fn graceful_shutdown_slot(
     name: ProcessName,
     app: &AppHandle,
 ) {
+    {
+        let mp = slot.state.lock().await;
+        if mp.owner != ProcessOwner::Supervisor {
+            drop(mp);
+            emit_status_to(slot, app, name, None).await;
+            return;
+        }
+    }
+
     // 1. set shutdown_flag
     slot.shutdown_flag.store(true, Ordering::Relaxed);
 
     // 2. transition Stopped (若已是 Stopped 则幂等)
     {
         let mut mp = slot.state.lock().await;
+        let pid = mp.pid;
         let (ns, _) = transition(mp.state, ProcessEvent::StopRequested, &mp.snapshot);
-        mp.state = ns;
+        apply_supervisor_state(&mut mp, ns);
+        mp.pid = None;
+        drop(mp);
+        #[cfg(unix)]
+        signal_process_tree(pid, UnixSignal::Terminate);
     }
 
     // 3. take child
@@ -600,13 +1038,7 @@ pub(crate) async fn graceful_shutdown_slot(
     // 4. 发信号
     let pid = child.id();
     #[cfg(unix)]
-    {
-        if let Some(pid) = pid {
-            use nix::sys::signal::{kill, Signal};
-            use nix::unistd::Pid;
-            let _ = kill(Pid::from_raw(pid as i32), Signal::SIGTERM);
-        }
-    }
+    signal_process_tree(pid, UnixSignal::Terminate);
     #[cfg(windows)]
     {
         // D-14 Windows 无 SIGTERM 概念,直接 start_kill (关闭 Job Object 句柄触发子进程组终止)
@@ -620,11 +1052,7 @@ pub(crate) async fn graceful_shutdown_slot(
             // 超时 — 强制 kill
             #[cfg(unix)]
             {
-                if let Some(pid) = pid {
-                    use nix::sys::signal::{kill, Signal};
-                    use nix::unistd::Pid;
-                    let _ = kill(Pid::from_raw(pid as i32), Signal::SIGKILL);
-                }
+                signal_process_tree(pid, UnixSignal::Kill);
                 let _ = child.wait().await;
             }
             #[cfg(windows)]
@@ -656,10 +1084,21 @@ pub(crate) async fn emit_status_to(
             name,
             info: ProcessInfoDTO {
                 state: mp.state,
+                owner: mp.owner,
+                health: mp.health,
                 last_error: mp.last_error.clone(),
                 stderr_tail: {
-                    let s: String = mp.stderr_tail.iter().cloned().collect::<Vec<_>>().join("\n");
-                    if s.is_empty() { None } else { Some(s) }
+                    let s: String = mp
+                        .stderr_tail
+                        .iter()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    if s.is_empty() {
+                        None
+                    } else {
+                        Some(s)
+                    }
                 },
                 last_restart_at: mp.last_restart_at,
             },
@@ -758,7 +1197,26 @@ async fn probe_loop(
             }
             let prev = mp.state;
             let (ns, nsnap) = transition(mp.state, event, &mp.snapshot);
-            mp.state = ns;
+            if mp.owner == ProcessOwner::External {
+                match ns {
+                    ProcessState::Running => {
+                        apply_external_state(&mut mp, ProcessState::Running, ProcessHealth::Healthy)
+                    }
+                    ProcessState::Degraded => apply_external_state(
+                        &mut mp,
+                        ProcessState::Degraded,
+                        ProcessHealth::Degraded,
+                    ),
+                    ProcessState::Unhealthy => apply_external_state(
+                        &mut mp,
+                        ProcessState::Unhealthy,
+                        ProcessHealth::Failed,
+                    ),
+                    other => mp.state = other,
+                }
+            } else {
+                apply_supervisor_state(&mut mp, ns);
+            }
             mp.snapshot = nsnap;
             // Running 时清 last_error (前端"健康"显示)
             if ns == ProcessState::Running {
@@ -798,6 +1256,11 @@ async fn wait_exit(
         ProcessName::Agent => "Agent",
         ProcessName::Server => "Server",
     };
+    let entry = match name {
+        ProcessName::Agent => config.processes.get(&ProcessNameKey::Agent),
+        ProcessName::Server => config.processes.get(&ProcessNameKey::Server),
+    }
+    .expect("ProcessConfig::validate 已保证 agent+server 都存在");
 
     // 1. take child
     let mut child = {
@@ -821,6 +1284,21 @@ async fn wait_exit(
         return;
     }
 
+    if let Some((state, health)) = probe_runtime_health(entry, Duration::from_millis(700)).await {
+        {
+            let mut mp = slot.state.lock().await;
+            if mp.owner == ProcessOwner::External {
+                apply_external_state(&mut mp, state, health);
+            } else {
+                apply_supervisor_state(&mut mp, state);
+            }
+            mp.snapshot.fail_count = 0;
+            mp.last_error = None;
+        }
+        emit_status_to(&slot, &app, name, None).await;
+        return;
+    }
+
     // 3. 读 spawn_time,决定事件
     let (event, error_msg) = {
         let mp = slot.state.lock().await;
@@ -830,9 +1308,7 @@ async fn wait_exit(
         }
         let elapsed = mp.spawn_time.map(|t| t.elapsed()).unwrap_or_default();
         let elapsed_secs = elapsed.as_secs_f64();
-        let msg = format!(
-            "{process_label} 进程退出 (code={exit_code:?}, 运行 {elapsed_secs:.1}s)"
-        );
+        let msg = format!("{process_label} 进程退出 (code={exit_code:?}, 运行 {elapsed_secs:.1}s)");
         let ev = if elapsed_secs <= STARTUP_GRACE_SECS {
             ProcessEvent::SpawnFailed {
                 exited_after_secs: elapsed_secs,
@@ -854,7 +1330,10 @@ async fn wait_exit(
             return;
         }
         let (ns, nsnap) = transition(mp.state, event, &mp.snapshot);
-        mp.state = ns;
+        apply_supervisor_state(&mut mp, ns);
+        if ns == ProcessState::Stopped {
+            mp.pid = None;
+        }
         mp.snapshot = nsnap;
         mp.last_error = Some(error_msg.clone());
         new_state = ns;
@@ -892,7 +1371,8 @@ async fn wait_exit(
                             let fail_msg = format!("退避后重启 spawn 失败: {e}");
                             {
                                 let mut mp = slot_c.state.lock().await;
-                                mp.state = ProcessState::Stopped;
+                                apply_supervisor_state(&mut mp, ProcessState::Stopped);
+                                mp.pid = None;
                                 mp.last_error = Some(fail_msg.clone());
                             }
                             emit_status_to(&slot_c, &app_c, name, Some(fail_msg)).await;
@@ -907,7 +1387,8 @@ async fn wait_exit(
                     );
                     {
                         let mut mp = slot.state.lock().await;
-                        mp.state = ProcessState::Stopped;
+                        apply_supervisor_state(&mut mp, ProcessState::Stopped);
+                        mp.pid = None;
                         mp.last_error = Some(exhaust_msg.clone());
                     }
                     emit_status_to(&slot, &app, name, Some(exhaust_msg)).await;
@@ -949,7 +1430,8 @@ async fn capture_lines<R>(
         .create(true)
         .append(true)
         .open(&log_path)
-        .await.ok();
+        .await
+        .ok();
 
     let mut line_buf = String::new();
     loop {

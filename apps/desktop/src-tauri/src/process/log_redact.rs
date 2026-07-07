@@ -35,17 +35,14 @@ static DEEPSEEK_PATTERN: LazyLock<Regex> =
 static JWT_SECRET_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)(JWT_SECRET\s*[=:]\s*)\S+").unwrap());
 
-static PALADIN_JWT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)(PALADIN_JWT_SECRET\s*[=:]\s*)\S+").unwrap()
-});
+static PALADIN_JWT_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)(PALADIN_JWT_SECRET\s*[=:]\s*)\S+").unwrap());
 
-static AUTHORIZATION_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)(Authorization\s*:\s*Bearer\s+)\S+").unwrap()
-});
+static AUTHORIZATION_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)(Authorization\s*:\s*Bearer\s+)\S+").unwrap());
 
-static PASSWORD_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?i)(password\s*["']?\s*[=:]\s*["']?)\S+"#).unwrap()
-});
+static PASSWORD_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"(?i)(password\s*["']?\s*[=:]\s*["']?)\S+"#).unwrap());
 
 /// 把单行日志中匹配 5 类 secret 模式的值替换为 `[REDACTED]`。
 ///
@@ -53,7 +50,9 @@ static PASSWORD_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 /// Authorization → password。无 secret 时原样返回 (`replace_all` 在无匹配时不分配新 String,
 /// 但函数签名返回 `String`,调用方拿到的总是新分配)。
 pub fn redact_log_line(line: &str) -> String {
-    let mut s = DEEPSEEK_PATTERN.replace_all(line, "${1}[REDACTED]").into_owned();
+    let mut s = DEEPSEEK_PATTERN
+        .replace_all(line, "${1}[REDACTED]")
+        .into_owned();
     s = JWT_SECRET_PATTERN
         .replace_all(&s, "${1}[REDACTED]")
         .into_owned();

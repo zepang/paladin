@@ -2,15 +2,15 @@ use std::path::PathBuf;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WindowEvent,
+    AppHandle, Manager, WindowEvent,
 };
 
-mod terminal;
 mod file_commands;
 mod process;
+mod terminal;
 use crate::process::commands::{
-    get_process_status, get_runtime_config, restart_agent, restart_server, stop_agent,
-    stop_server,
+    get_process_status, get_runtime_config, redetect_agent, redetect_server, restart_agent,
+    restart_server, stop_agent, stop_server,
 };
 use crate::process::config::ProcessConfig;
 use crate::process::ProcessSupervisor;
@@ -19,6 +19,50 @@ use crate::terminal::TerminalManager;
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+fn shutdown_and_exit(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        if let Some(supervisor) = app
+            .try_state::<ProcessSupervisor>()
+            .map(|state| state.inner().clone())
+        {
+            supervisor.graceful_shutdown_all().await;
+        }
+        app.exit(0);
+    });
+}
+
+fn shutdown_supervisor_and_exit(app: AppHandle, supervisor: ProcessSupervisor) {
+    tauri::async_runtime::spawn(async move {
+        supervisor.graceful_shutdown_all().await;
+        app.exit(0);
+    });
+}
+
+fn install_process_signal_handlers(app: AppHandle, supervisor: ProcessSupervisor) {
+    let app_for_sigint = app.clone();
+    let supervisor_for_sigint = supervisor.clone();
+    tauri::async_runtime::spawn(async move {
+        if tokio::signal::ctrl_c().await.is_ok() {
+            shutdown_supervisor_and_exit(app_for_sigint, supervisor_for_sigint);
+        }
+    });
+
+    #[cfg(unix)]
+    {
+        let app_for_sigterm = app.clone();
+        let supervisor_for_sigterm = supervisor.clone();
+        tauri::async_runtime::spawn(async move {
+            let Ok(mut signal) =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            else {
+                return;
+            };
+            signal.recv().await;
+            shutdown_supervisor_and_exit(app_for_sigterm, supervisor_for_sigterm);
+        });
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -36,8 +80,10 @@ pub fn run() {
             // plan 07.3-06 Task 7: 6 个进程监督命令
             restart_agent,
             stop_agent,
+            redetect_agent,
             restart_server,
             stop_server,
+            redetect_server,
             get_process_status,
             get_runtime_config,
         ])
@@ -48,17 +94,6 @@ pub fn run() {
             // plan 07.3-06: 加载 processes.json + 实例化 ProcessSupervisor
             // SPEC D-07: 单一 Rust 真相源 — cmd/port/health 全来自此配置
             let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("processes.json");
-            let config = match ProcessConfig::load_from_path(&config_path) {
-                Ok(c) => c,
-                Err(e) => {
-                    return Err(Box::new(std::io::Error::other(
-                        format!(
-                            "加载 processes.json 失败 ({config_path:?}): {e:?} — 请检查 src-tauri/processes.json 是否存在且 schema 合法"
-                        ),
-                    )));
-                }
-            };
-
             // log_dir: 优先 Tauri app_log_dir,失败降级到 src-tauri/logs
             let log_dir = app
                 .path()
@@ -67,18 +102,39 @@ pub fn run() {
             // 创建 log_dir (已存在则 no-op) — SPEC Edge R10 失败时 capture_lines 仍 emit
             let _ = std::fs::create_dir_all(&log_dir);
 
-            let supervisor = ProcessSupervisor::new(app.handle().clone(), config, log_dir);
+            let (supervisor, should_start) = match ProcessConfig::load_from_path(&config_path) {
+                Ok(config) => (
+                    ProcessSupervisor::new(app.handle().clone(), config, log_dir),
+                    true,
+                ),
+                Err(e) => {
+                    let message = format!(
+                        "运行时配置无效: 加载 processes.json 失败 ({config_path:?}): {e:?}"
+                    );
+                    (
+                        ProcessSupervisor::from_config_error(
+                            app.handle().clone(),
+                            log_dir,
+                            message,
+                        ),
+                        false,
+                    )
+                }
+            };
             // Clone 一份给后台 start task;两份共享 Arc<ProcessSlot>,操作同一 slot
             let supervisor_for_task = supervisor.clone();
             app.manage(supervisor);
+            install_process_signal_handlers(app.handle().clone(), supervisor_for_task.clone());
 
             // 后台 spawn — start() 是 async,setup 闭包不是 async
             // SPEC D-08: Server 先 + 5s readyz,再 Agent
-            tauri::async_runtime::spawn(async move {
-                if let Err(e) = supervisor_for_task.start().await {
-                    eprintln!("[paladin] 进程监督器启动失败: {e}");
-                }
-            });
+            if should_start {
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = supervisor_for_task.start().await {
+                        eprintln!("[paladin] 进程监督器启动失败: {e}");
+                    }
+                });
+            }
 
             // System tray with Show/Hide/Quit menu
             let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
@@ -102,7 +158,7 @@ pub fn run() {
                             let _ = window.hide();
                         }
                         "quit" => {
-                            app.exit(0);
+                            shutdown_and_exit(app.clone());
                         }
                         _ => {}
                     }
@@ -125,11 +181,11 @@ pub fn run() {
 
             Ok(())
         })
-        // Close to tray: hide on close instead of exiting
+        // Close means quit; use the tray Hide item for backgrounding without stopping services.
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                let _ = window.hide();
                 api.prevent_close();
+                shutdown_and_exit(window.app_handle().clone());
             }
         })
         .run(tauri::generate_context!())

@@ -17,6 +17,7 @@
 // "骨架先行"模式 —— 集成后 warning 自然消失。
 #![allow(dead_code)]
 
+use crate::process::supervisor::{ProcessHealth, ProcessOwner};
 use crate::process::ProcessState;
 use std::time::Duration;
 
@@ -163,9 +164,7 @@ pub fn transition(
         ),
 
         // 退避定时器 tick — Unhealthy 状态下耗尽 (>= 5 次) → Stopped 终态
-        (Unhealthy, BackoffTick { attempt })
-            if attempt >= BACKOFF_SEQUENCE_MS.len() as u32 =>
-        {
+        (Unhealthy, BackoffTick { attempt }) if attempt >= BACKOFF_SEQUENCE_MS.len() as u32 => {
             (Stopped, *snap)
         }
 
@@ -187,4 +186,57 @@ pub fn backoff_delay(attempt_idx: u32, max_restarts: u32) -> Option<Duration> {
         return None;
     }
     Some(Duration::from_millis(BACKOFF_SEQUENCE_MS[idx]))
+}
+
+/// 可观察运行时三元组。构造函数是 tuple 合法性边界。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RuntimeStatusTuple {
+    pub state: ProcessState,
+    pub owner: ProcessOwner,
+    pub health: ProcessHealth,
+}
+
+impl RuntimeStatusTuple {
+    pub fn new(
+        state: ProcessState,
+        owner: ProcessOwner,
+        health: ProcessHealth,
+    ) -> Result<Self, String> {
+        if is_legal_runtime_tuple(state, owner, health) {
+            Ok(Self {
+                state,
+                owner,
+                health,
+            })
+        } else {
+            Err(format!(
+                "invalid runtime tuple: state={state:?}, owner={owner:?}, health={health:?}"
+            ))
+        }
+    }
+}
+
+/// Phase 07.4 D-13 锁定的合法 `state/owner/health` 表。
+pub fn is_legal_runtime_tuple(
+    state: ProcessState,
+    owner: ProcessOwner,
+    health: ProcessHealth,
+) -> bool {
+    use ProcessOwner::*;
+
+    matches!(
+        (state, owner, health),
+        (ProcessState::Starting, Supervisor, ProcessHealth::Unknown)
+            | (ProcessState::Running, Supervisor, ProcessHealth::Healthy)
+            | (ProcessState::Running, External, ProcessHealth::Healthy)
+            | (ProcessState::Degraded, Supervisor, ProcessHealth::Degraded)
+            | (ProcessState::Degraded, External, ProcessHealth::Degraded)
+            | (ProcessState::Unhealthy, Supervisor, ProcessHealth::Failed)
+            | (ProcessState::Unhealthy, External, ProcessHealth::Failed)
+            | (ProcessState::Stopped, Supervisor, ProcessHealth::Unknown)
+            | (ProcessState::Stopped, Supervisor, ProcessHealth::Failed)
+            | (ProcessState::Stopped, None, ProcessHealth::Unknown)
+            | (ProcessState::Stopped, None, ProcessHealth::Failed)
+            | (ProcessState::Conflict, None, ProcessHealth::Failed)
+    )
 }

@@ -3,7 +3,7 @@
   "processes": {
     "agent": {
       "cmd": ["uv", "run", "paladin-agent", "serve", "--dev"],
-      "cwd": "../../apps/agent",
+      "cwd": "../../agent",
       "env": {},
       "port": 9876,
       "health": {
@@ -13,7 +13,7 @@
     },
     "server": {
       "cmd": ["go", "run", "./cmd/server"],
-      "cwd": "../../apps/server",
+      "cwd": "../../server",
       "env": {},
       "port": 9880,
       "health": {

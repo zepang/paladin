@@ -12,9 +12,7 @@ pub mod port_probe;
 pub mod state_machine;
 pub mod supervisor;
 
-pub use supervisor::{
-    ProcessState, ProcessSupervisor,
-};
+pub use supervisor::{ProcessState, ProcessSupervisor};
 
 #[cfg(test)]
 mod config_tests;
@@ -27,3 +25,6 @@ mod port_probe_tests;
 
 #[cfg(test)]
 mod state_machine_tests;
+
+#[cfg(test)]
+mod supervisor_tests;

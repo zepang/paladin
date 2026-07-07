@@ -12,7 +12,8 @@
 
 #![allow(dead_code)]
 
-use std::net::TcpListener;
+use std::io::ErrorKind;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener};
 
 /// 探测 127.0.0.1:port 是否可被绑定 (空闲)。
 ///
@@ -21,7 +22,33 @@ use std::net::TcpListener;
 /// 调用方在 `is_port_available(p)` 返回 true 后立即再次 `bind(p)` 不会冲突
 /// (见 `test_listener_dropped_after_check`)。
 pub fn is_port_available(port: u16) -> bool {
-    TcpListener::bind(("127.0.0.1", port)).is_ok()
+    let required_addrs = [
+        SocketAddr::from((Ipv4Addr::LOCALHOST, port)),
+        SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)),
+    ];
+
+    for addr in required_addrs {
+        if !bind_available(addr).unwrap_or(false) {
+            return false;
+        }
+    }
+
+    let optional_ipv6_addrs = [
+        SocketAddr::from((Ipv6Addr::LOCALHOST, port)),
+        SocketAddr::from((Ipv6Addr::UNSPECIFIED, port)),
+    ];
+
+    optional_ipv6_addrs
+        .into_iter()
+        .all(|addr| bind_available(addr).unwrap_or(true))
+}
+
+fn bind_available(addr: SocketAddr) -> Option<bool> {
+    match TcpListener::bind(addr) {
+        Ok(_) => Some(true),
+        Err(e) if e.kind() == ErrorKind::AddrNotAvailable => None,
+        Err(_) => Some(false),
+    }
 }
 
 /// 把 `is_port_available` 包装成 supervisor 可直接 `?` 的 Result。

@@ -226,11 +226,7 @@ impl TerminalManager {
         Ok(())
     }
 
-    pub fn restart_terminal(
-        &self,
-        id: String,
-        channel: Channel<Vec<u8>>,
-    ) -> Result<(), String> {
+    pub fn restart_terminal(&self, id: String, channel: Channel<Vec<u8>>) -> Result<(), String> {
         let (shell, cwd) = {
             let terminals = self.terminals.lock().unwrap();
             if let Some(instance) = terminals.get(&id) {

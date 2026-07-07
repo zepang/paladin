@@ -28,6 +28,14 @@ pub struct ProcessConfig {
     pub shutdown_grace_secs: u64,
 }
 
+/// Runtime mode boundary. Serde keeps `ProcessConfig.mode` as String for schema stability,
+/// while validation exposes the typed meaning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuntimeMode {
+    Dev,
+    Packaged,
+}
+
 /// 单个进程描述 — 命令行、工作目录、端口、健康端点。
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ProcessEntry {
@@ -132,8 +140,7 @@ impl ProcessConfig {
             return Err(ConfigError::NotFound(p.to_path_buf()));
         }
         let bytes = std::fs::read(p).map_err(ConfigError::IoError)?;
-        let cfg: ProcessConfig =
-            serde_json::from_slice(&bytes).map_err(ConfigError::ParseError)?;
+        let cfg: ProcessConfig = serde_json::from_slice(&bytes).map_err(ConfigError::ParseError)?;
         cfg.validate().map_err(ConfigError::InvalidSchema)?;
         Ok(cfg)
     }
@@ -144,6 +151,7 @@ impl ProcessConfig {
     /// `ConfigError::InvalidSchema(String)`。这样 supervisor 与单元测试可以直接
     /// 调用 `validate()` 拿到人类可读消息，无需 unpack custom error。
     pub fn validate(&self) -> Result<(), String> {
+        let mode = self.runtime_mode()?;
         if self.backoff_secs.len() > BACKOFF_MAX_LEN {
             return Err(format!(
                 "backoff_secs length {} > {}",
@@ -169,6 +177,9 @@ impl ProcessConfig {
             if entry.cmd.is_empty() {
                 return Err(format!("{name:?} cmd empty"));
             }
+            if mode == RuntimeMode::Packaged {
+                validate_packaged_entry(*name, entry)?;
+            }
             if entry.port == 0 {
                 return Err(format!("{name:?} port 0"));
             }
@@ -179,13 +190,17 @@ impl ProcessConfig {
         }
         Ok(())
     }
+
+    pub fn runtime_mode(&self) -> Result<RuntimeMode, String> {
+        match self.mode.as_str() {
+            "dev" => Ok(RuntimeMode::Dev),
+            "packaged" => Ok(RuntimeMode::Packaged),
+            other => Err(format!("mode must be dev or packaged, got {other:?}")),
+        }
+    }
 }
 
-fn validate_endpoint(
-    name: ProcessNameKey,
-    kind: &str,
-    ep: &EndpointConfig,
-) -> Result<(), String> {
+fn validate_endpoint(name: ProcessNameKey, kind: &str, ep: &EndpointConfig) -> Result<(), String> {
     if ep.expect_status < HTTP_STATUS_MIN || ep.expect_status > HTTP_STATUS_MAX {
         return Err(format!(
             "{name:?} {kind} expect_status {} out of range ({}..={})",
@@ -193,4 +208,33 @@ fn validate_endpoint(
         ));
     }
     Ok(())
+}
+
+fn validate_packaged_entry(name: ProcessNameKey, entry: &ProcessEntry) -> Result<(), String> {
+    if is_dev_tool_command(entry) {
+        return Err(format!(
+            "{name:?} packaged mode rejects dev command {:?}",
+            entry.cmd.first().map(String::as_str).unwrap_or_default()
+        ));
+    }
+    if let Some(cwd) = &entry.cwd {
+        if is_repo_relative_dev_cwd(cwd) {
+            return Err(format!(
+                "{name:?} packaged mode rejects repo-relative dev cwd {}",
+                cwd.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub fn is_dev_tool_command(entry: &ProcessEntry) -> bool {
+    matches!(entry.cmd.first().map(String::as_str), Some("uv" | "go"))
+}
+
+pub fn is_repo_relative_dev_cwd(cwd: &Path) -> bool {
+    matches!(
+        cwd.to_str(),
+        Some("../../agent" | "../../server" | "../../apps/agent" | "../../apps/server")
+    )
 }

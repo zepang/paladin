@@ -42,6 +42,20 @@ fn test_is_port_available_returns_false_when_occupied() {
 }
 
 #[test]
+fn test_is_port_available_returns_false_when_unspecified_addr_occupied() {
+    let listener = TcpListener::bind(("0.0.0.0", 0)).expect("bind 0.0.0.0:0 failed");
+    let port = listener.local_addr().expect("local_addr").port();
+
+    assert!(
+        !is_port_available(port),
+        "port {} occupied on unspecified address should report unavailable",
+        port
+    );
+
+    drop(listener);
+}
+
+#[test]
 fn test_listener_dropped_after_check() {
     let port = pick_free_port();
 

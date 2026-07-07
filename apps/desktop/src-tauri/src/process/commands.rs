@@ -16,32 +16,38 @@ use tauri::State;
 
 /// 重启 Agent — 持 restart_lock,先 graceful_shutdown 再 spawn。
 #[tauri::command]
-pub async fn restart_agent(
-    supervisor: State<'_, ProcessSupervisor>,
-) -> Result<(), String> {
+pub async fn restart_agent(supervisor: State<'_, ProcessSupervisor>) -> Result<(), String> {
     supervisor.restart_one(ProcessName::Agent).await
 }
 
 /// 停止 Agent — SIGTERM + 5s grace,幂等 (已 Stopped 是 no-op)。
 #[tauri::command]
 pub async fn stop_agent(supervisor: State<'_, ProcessSupervisor>) -> Result<(), String> {
-    supervisor.stop_one(ProcessName::Agent).await;
-    Ok(())
+    supervisor.stop_one(ProcessName::Agent).await
+}
+
+/// 重新检测 Agent — dev hybrid attach/spawn/conflict,不复用 restart。
+#[tauri::command]
+pub async fn redetect_agent(supervisor: State<'_, ProcessSupervisor>) -> Result<(), String> {
+    supervisor.redetect_one(ProcessName::Agent).await
 }
 
 /// 重启 Server — 持 restart_lock,先 graceful_shutdown 再 spawn。
 #[tauri::command]
-pub async fn restart_server(
-    supervisor: State<'_, ProcessSupervisor>,
-) -> Result<(), String> {
+pub async fn restart_server(supervisor: State<'_, ProcessSupervisor>) -> Result<(), String> {
     supervisor.restart_one(ProcessName::Server).await
 }
 
 /// 停止 Server — SIGTERM + 5s grace,幂等。
 #[tauri::command]
 pub async fn stop_server(supervisor: State<'_, ProcessSupervisor>) -> Result<(), String> {
-    supervisor.stop_one(ProcessName::Server).await;
-    Ok(())
+    supervisor.stop_one(ProcessName::Server).await
+}
+
+/// 重新检测 Server — dev hybrid attach/spawn/conflict,不复用 restart。
+#[tauri::command]
+pub async fn redetect_server(supervisor: State<'_, ProcessSupervisor>) -> Result<(), String> {
+    supervisor.redetect_one(ProcessName::Server).await
 }
 
 /// 获取 agent + server 双路状态快照 (前端轮询 / 首屏遮罩用)。

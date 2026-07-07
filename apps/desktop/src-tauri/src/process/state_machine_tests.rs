@@ -7,11 +7,12 @@
 //! - P3 Stopped 终态不自恢复 (BackoffTick 不唤醒)
 //! - 手动 RestartRequested 在任意状态清零 fail_count/restart_count 并返回 Starting
 
-use crate::process::ProcessState;
 use crate::process::state_machine::{
-    BACKOFF_SEQUENCE_MS, PROBE_FAIL_THRESHOLD, STARTUP_GRACE_SECS, SupervisorSnapshot, backoff_delay,
-    transition, ProcessEvent,
+    backoff_delay, is_legal_runtime_tuple, transition, ProcessEvent, RuntimeStatusTuple,
+    SupervisorSnapshot, BACKOFF_SEQUENCE_MS, PROBE_FAIL_THRESHOLD, STARTUP_GRACE_SECS,
 };
+use crate::process::supervisor::{ProcessHealth, ProcessOwner};
+use crate::process::ProcessState;
 use std::time::Duration;
 
 // ────────────────────────────── ProbeOk ──────────────────────────────
@@ -19,8 +20,7 @@ use std::time::Duration;
 #[test]
 fn test_probe_ok_starting_to_running() {
     let snap = SupervisorSnapshot::default();
-    let (new_state, new_snap) =
-        transition(ProcessState::Starting, ProcessEvent::ProbeOk, &snap);
+    let (new_state, new_snap) = transition(ProcessState::Starting, ProcessEvent::ProbeOk, &snap);
     assert_eq!(new_state, ProcessState::Running);
     assert_eq!(new_snap.fail_count, 0);
 }
@@ -66,7 +66,10 @@ fn test_probe_degraded_no_fail_count_increment() {
     let (new_state, new_snap) =
         transition(ProcessState::Running, ProcessEvent::ProbeDegraded, &snap);
     assert_eq!(new_state, ProcessState::Degraded);
-    assert_eq!(new_snap.fail_count, 1, "ProbeDegraded MUST NOT bump fail_count");
+    assert_eq!(
+        new_snap.fail_count, 1,
+        "ProbeDegraded MUST NOT bump fail_count"
+    );
 }
 
 #[test]
@@ -76,8 +79,7 @@ fn test_degraded_to_running_on_probe_ok() {
         restart_count: 0,
         last_error_len: 0,
     };
-    let (new_state, new_snap) =
-        transition(ProcessState::Degraded, ProcessEvent::ProbeOk, &snap);
+    let (new_state, new_snap) = transition(ProcessState::Degraded, ProcessEvent::ProbeOk, &snap);
     assert_eq!(new_state, ProcessState::Running);
     assert_eq!(new_snap.fail_count, 0);
 }
@@ -95,7 +97,10 @@ fn test_spawn_failed_within_grace_goes_stopped() {
         &snap,
     );
     assert_eq!(new_state, ProcessState::Stopped);
-    assert_eq!(new_snap.restart_count, 0, "spawn failure MUST NOT consume a backoff slot");
+    assert_eq!(
+        new_snap.restart_count, 0,
+        "spawn failure MUST NOT consume a backoff slot"
+    );
 }
 
 #[test]
@@ -108,7 +113,11 @@ fn test_spawn_failed_at_grace_boundary_goes_stopped() {
         },
         &snap,
     );
-    assert_eq!(new_state, ProcessState::Stopped, "boundary 5.0s inclusive → startup failure");
+    assert_eq!(
+        new_state,
+        ProcessState::Stopped,
+        "boundary 5.0s inclusive → startup failure"
+    );
 }
 
 #[test]
@@ -202,6 +211,101 @@ fn test_spec_constants_locked() {
     assert_eq!(BACKOFF_SEQUENCE_MS.len(), 5, "SPEC: 退避最多 5 次");
 }
 
+// ─────────────────────── Phase 07.4 runtime tuple ───────────────────────
+
+#[test]
+fn runtime_tuple_accepts_locked_valid_combinations() {
+    use ProcessOwner::*;
+
+    let valid = [
+        (ProcessState::Starting, Supervisor, ProcessHealth::Unknown),
+        (ProcessState::Running, Supervisor, ProcessHealth::Healthy),
+        (ProcessState::Running, External, ProcessHealth::Healthy),
+        (ProcessState::Degraded, Supervisor, ProcessHealth::Degraded),
+        (ProcessState::Degraded, External, ProcessHealth::Degraded),
+        (ProcessState::Unhealthy, Supervisor, ProcessHealth::Failed),
+        (ProcessState::Unhealthy, External, ProcessHealth::Failed),
+        (ProcessState::Stopped, Supervisor, ProcessHealth::Unknown),
+        (ProcessState::Stopped, Supervisor, ProcessHealth::Failed),
+        (ProcessState::Stopped, None, ProcessHealth::Unknown),
+        (ProcessState::Stopped, None, ProcessHealth::Failed),
+        (ProcessState::Conflict, None, ProcessHealth::Failed),
+    ];
+
+    for (state, owner, health) in valid {
+        assert!(
+            is_legal_runtime_tuple(state, owner, health),
+            "{state:?}/{owner:?}/{health:?} should be valid"
+        );
+        assert!(
+            RuntimeStatusTuple::new(state, owner, health).is_ok(),
+            "constructor should accept {state:?}/{owner:?}/{health:?}"
+        );
+    }
+}
+
+#[test]
+fn runtime_tuple_rejects_invalid_ownership_combinations() {
+    use ProcessOwner::*;
+
+    let invalid = [
+        (ProcessState::Conflict, Supervisor, ProcessHealth::Healthy),
+        (ProcessState::Conflict, External, ProcessHealth::Failed),
+        (ProcessState::Conflict, None, ProcessHealth::Healthy),
+        (ProcessState::Running, None, ProcessHealth::Healthy),
+        (ProcessState::Starting, External, ProcessHealth::Unknown),
+        (ProcessState::Degraded, None, ProcessHealth::Degraded),
+        (ProcessState::Unhealthy, None, ProcessHealth::Failed),
+    ];
+
+    for (state, owner, health) in invalid {
+        assert!(
+            !is_legal_runtime_tuple(state, owner, health),
+            "{state:?}/{owner:?}/{health:?} should be invalid"
+        );
+        assert!(
+            RuntimeStatusTuple::new(state, owner, health).is_err(),
+            "constructor should reject {state:?}/{owner:?}/{health:?}"
+        );
+    }
+}
+
+#[test]
+fn runtime_tuple_enums_serialize_lowercase_for_frontend_dto() {
+    assert_eq!(
+        serde_json::to_string(&ProcessState::Conflict).expect("serialize state"),
+        r#""conflict""#
+    );
+    assert_eq!(
+        serde_json::to_string(&ProcessOwner::Supervisor).expect("serialize owner"),
+        r#""supervisor""#
+    );
+    assert_eq!(
+        serde_json::to_string(&ProcessOwner::External).expect("serialize owner"),
+        r#""external""#
+    );
+    assert_eq!(
+        serde_json::to_string(&ProcessOwner::None).expect("serialize owner"),
+        r#""none""#
+    );
+    assert_eq!(
+        serde_json::to_string(&ProcessHealth::Healthy).expect("serialize health"),
+        r#""healthy""#
+    );
+    assert_eq!(
+        serde_json::to_string(&ProcessHealth::Degraded).expect("serialize health"),
+        r#""degraded""#
+    );
+    assert_eq!(
+        serde_json::to_string(&ProcessHealth::Failed).expect("serialize health"),
+        r#""failed""#
+    );
+    assert_eq!(
+        serde_json::to_string(&ProcessHealth::Unknown).expect("serialize health"),
+        r#""unknown""#
+    );
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // REFACTOR 阶段 held-out 边界测试 (task 07.3-02-03)
 // ═══════════════════════════════════════════════════════════════════════
@@ -215,9 +319,12 @@ fn test_probe_fail_from_degraded_increments_fail_count() {
         restart_count: 0,
         last_error_len: 0,
     };
-    let (new_state, new_snap) =
-        transition(ProcessState::Degraded, ProcessEvent::ProbeFail, &snap);
-    assert_eq!(new_state, ProcessState::Unhealthy, "third ProbeFail from Degraded must trip");
+    let (new_state, new_snap) = transition(ProcessState::Degraded, ProcessEvent::ProbeFail, &snap);
+    assert_eq!(
+        new_state,
+        ProcessState::Unhealthy,
+        "third ProbeFail from Degraded must trip"
+    );
     assert_eq!(new_snap.fail_count, 0);
     assert_eq!(new_snap.restart_count, 1);
 }
@@ -250,10 +357,12 @@ fn test_stopped_ignores_probe_fail() {
         restart_count: 2,
         last_error_len: 4,
     };
-    let (new_state, new_snap) =
-        transition(ProcessState::Stopped, ProcessEvent::ProbeFail, &snap);
+    let (new_state, new_snap) = transition(ProcessState::Stopped, ProcessEvent::ProbeFail, &snap);
     assert_eq!(new_state, ProcessState::Stopped);
-    assert_eq!(new_snap.fail_count, 0, "ProbeFail MUST NOT bump fail_count on Stopped");
+    assert_eq!(
+        new_snap.fail_count, 0,
+        "ProbeFail MUST NOT bump fail_count on Stopped"
+    );
     assert_eq!(new_snap.restart_count, 2);
 }
 
@@ -262,8 +371,7 @@ fn test_stopped_ignores_probe_fail() {
 #[test]
 fn test_stopped_ignores_probe_ok() {
     let snap = SupervisorSnapshot::default();
-    let (new_state, _new_snap) =
-        transition(ProcessState::Stopped, ProcessEvent::ProbeOk, &snap);
+    let (new_state, _new_snap) = transition(ProcessState::Stopped, ProcessEvent::ProbeOk, &snap);
     assert_eq!(
         new_state,
         ProcessState::Stopped,
