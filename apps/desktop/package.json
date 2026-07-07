@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "tauri": "tauri"
+    "tauri": "node ./scripts/tauri-cli.mjs"
   },
   "dependencies": {
     "@ag-ui/client": "^0.0.57",
