@@ -10,8 +10,9 @@ use std::time::Duration;
 use crate::process::config::{EndpointConfig, HealthConfig, ProcessEntry, RuntimeMode};
 use crate::process::log_rotate::{RotatingLineWriter, RotationPolicy};
 use crate::process::supervisor::{
-    augmented_spawn_path, process_log_line, resolve_dev_runtime_path, should_shutdown_on_drop,
-    spawn_path_for_mode, DevRuntimePath, LogChunk, LogStream, ProcessHealth, ProcessInfoDTO,
+    augmented_spawn_path, environment_for_process, lifecycle_action, process_log_line,
+    resolve_dev_runtime_path, should_shutdown_on_drop, spawn_path_for_mode, DevRuntimePath,
+    LifecycleAction, LifecycleRequest, LogChunk, LogStream, ProcessHealth, ProcessInfoDTO,
     ProcessName, ProcessOwner, ProcessState,
 };
 use tempfile::tempdir;
@@ -103,6 +104,57 @@ fn test_spawn_path_for_mode_is_dev_only() {
     assert!(
         spawn_path_for_mode(RuntimeMode::Packaged, Some(OsString::from("/usr/bin"))).is_none(),
         "packaged mode must not apply login-shell/dev PATH augmentation"
+    );
+}
+
+#[test]
+fn environment_packaged_is_allowlisted_and_forces_runtime_marker() {
+    let parent = HashMap::from([
+        (OsString::from("HOME"), OsString::from("/Users/test")),
+        (OsString::from("DEEPSEEK_API_KEY"), OsString::from("secret")),
+        (OsString::from("PALADIN_RUNTIME_MODE"), OsString::from("dev")),
+        (OsString::from("UNLISTED_SECRET"), OsString::from("must-not-pass")),
+        (OsString::from("PALADIN_REDIS_URL"), OsString::from("")),
+    ]);
+
+    let result = environment_for_process(RuntimeMode::Packaged, &parent, &HashMap::new());
+
+    assert_eq!(result.get(&OsString::from("HOME")), Some(&OsString::from("/Users/test")));
+    assert_eq!(result.get(&OsString::from("DEEPSEEK_API_KEY")), Some(&OsString::from("secret")));
+    assert_eq!(result.get(&OsString::from("PALADIN_RUNTIME_MODE")), Some(&OsString::from("packaged")));
+    assert!(!result.contains_key(&OsString::from("UNLISTED_SECRET")));
+    assert!(!result.contains_key(&OsString::from("PALADIN_REDIS_URL")));
+}
+
+#[test]
+fn lifecycle_owner_external_stop_is_rejected_without_termination() {
+    assert_eq!(
+        lifecycle_action(ProcessOwner::External, false, LifecycleRequest::Stop),
+        LifecycleAction::RejectExternal
+    );
+}
+
+#[test]
+fn lifecycle_owner_external_restart_only_redetects() {
+    assert_eq!(
+        lifecycle_action(ProcessOwner::External, false, LifecycleRequest::Restart),
+        LifecycleAction::RedetectOnly
+    );
+}
+
+#[test]
+fn lifecycle_owner_external_shutdown_is_rejected_without_termination() {
+    assert_eq!(
+        lifecycle_action(ProcessOwner::External, false, LifecycleRequest::Shutdown),
+        LifecycleAction::RejectExternal
+    );
+}
+
+#[test]
+fn lifecycle_owner_supervisor_uses_tracked_child() {
+    assert_eq!(
+        lifecycle_action(ProcessOwner::Supervisor, true, LifecycleRequest::Shutdown),
+        LifecycleAction::TerminateTrackedChild
     );
 }
 
