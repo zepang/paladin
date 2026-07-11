@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::env;
 use std::ffi::OsString;
 use std::io::{Read, Write};
@@ -9,9 +9,55 @@ use std::time::Duration;
 
 use crate::process::config::{EndpointConfig, HealthConfig, ProcessEntry, RuntimeMode};
 use crate::process::supervisor::{
-    augmented_spawn_path, resolve_dev_runtime_path, should_shutdown_on_drop, spawn_path_for_mode,
-    DevRuntimePath, ProcessHealth, ProcessInfoDTO, ProcessOwner, ProcessState,
+    augmented_spawn_path, process_log_line, resolve_dev_runtime_path, should_shutdown_on_drop,
+    spawn_path_for_mode, DevRuntimePath, LogChunk, LogStream, ProcessHealth, ProcessInfoDTO,
+    ProcessName, ProcessOwner, ProcessState,
 };
+use crate::process::log_rotate::{RotatingLineWriter, RotationPolicy};
+use tempfile::tempdir;
+
+#[test]
+fn test_process_log_line_redacts_before_event_tail_and_disk() {
+    let dir = tempdir().expect("temp dir");
+    let path = dir.path().join("agent.log");
+    let mut writer = RotatingLineWriter::new(&path, RotationPolicy::new(1024, 5));
+    let mut tail = VecDeque::new();
+    let mut events: Vec<LogChunk> = Vec::new();
+
+    process_log_line(
+        ProcessName::Agent,
+        LogStream::Stderr,
+        "DEEPSEEK_API_KEY=sk-sensitive",
+        &mut writer,
+        &mut tail,
+        |chunk| events.push(chunk.clone()),
+    );
+
+    assert_eq!(events.len(), 1);
+    assert!(!events[0].line.contains("sk-sensitive"));
+    assert_eq!(tail.back(), Some(&events[0].line));
+    let disk = std::fs::read_to_string(path).expect("persisted log");
+    assert!(!disk.contains("sk-sensitive"));
+    assert!(disk.contains("[REDACTED]"));
+}
+
+#[test]
+fn test_process_log_line_keeps_emitting_after_persistence_failure() {
+    let dir = tempdir().expect("temp dir");
+    let missing_parent = dir.path().join("missing");
+    let path = missing_parent.join("server.log");
+    let mut writer = RotatingLineWriter::new(&path, RotationPolicy::new(4, 5));
+    let mut tail = VecDeque::new();
+    let mut events: Vec<LogChunk> = Vec::new();
+
+    process_log_line(ProcessName::Server, LogStream::Stdout, "one", &mut writer, &mut tail, |c| events.push(c.clone()));
+    std::fs::create_dir(&missing_parent).expect("restore persistence");
+    process_log_line(ProcessName::Server, LogStream::Stdout, "two", &mut writer, &mut tail, |c| events.push(c.clone()));
+
+    assert_eq!(events.iter().map(|e| e.line.as_str()).collect::<Vec<_>>(), ["one", "two"]);
+    assert!(tail.is_empty(), "stdout must not enter stderr tail");
+    assert_eq!(std::fs::read_to_string(path).unwrap(), "[stdout] two\n");
+}
 
 #[test]
 fn test_augmented_spawn_path_adds_common_dev_tool_dirs() {
