@@ -8,6 +8,7 @@
 pub mod commands;
 pub mod config;
 pub mod log_redact;
+pub mod log_rotate;
 pub mod port_probe;
 pub mod state_machine;
 pub mod supervisor;
@@ -19,6 +20,9 @@ mod config_tests;
 
 #[cfg(test)]
 mod log_redact_tests;
+
+#[cfg(test)]
+mod log_rotate_tests;
 
 #[cfg(test)]
 mod port_probe_tests;
