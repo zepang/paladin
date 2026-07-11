@@ -39,12 +39,12 @@ fn retains_active_plus_four_archives_and_preserves_newest_first_order() {
 #[test]
 fn write_failure_is_reported_and_a_later_attempt_can_recover() {
     let dir = tempdir().expect("temp dir");
-    let path = dir.path().join("service.log");
-    fs::create_dir(&path).expect("blocking directory");
+    let parent = dir.path().join("temporarily-missing");
+    let path = parent.join("service.log");
     let mut writer = RotatingLineWriter::new(&path, RotationPolicy::new(8, 5));
 
     assert!(writer.write_line("first\n").is_err());
-    fs::remove_dir(&path).expect("remove blocker");
+    fs::create_dir(&parent).expect("restore writable parent");
     writer.write_line("second\n").expect("retry succeeds");
     assert_eq!(fs::read_to_string(path).unwrap(), "second\n");
 }
