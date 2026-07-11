@@ -41,7 +41,7 @@ test('creates a deterministic non-secret Windows x86_64 artifact manifest', asyn
 
 test('rejects missing files, directories, and unexpected target or filenames', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'paladin-manifest-'));
-  const directory = path.join(root, 'directory.exe');
+  const directory = path.join(root, 'paladin-agent-sidecar-x86_64-pc-windows-msvc.exe');
   await mkdir(directory);
   const valid = path.join(root, 'paladin-server-sidecar-x86_64-pc-windows-msvc.exe');
   const msi = path.join(root, 'Paladin_x64.msi');
