@@ -1,74 +1,90 @@
 # Phase 10: Packaging - Context
 
-**Gathered:** 2026-07-07
-**Status:** Ready for planning
+**Gathered:** 2026-07-11
+**Status:** Ready for replanning
 
 <domain>
 ## Phase Boundary
 
-Phase 10 delivers distributable macOS and Windows desktop installers for Paladin. The installed app must launch with bundled Python Agent and Go Server sidecars, close the deferred packaged/platform UAT from Phase 07.3 and Phase 07.4, keep packaged sidecar logs bounded, and document first-run expectations for users.
+Phase 10 delivers a real installed macOS application with bundled Python Agent and Go Server sidecars, a Windows x64 `.msi` build proven on a native Windows CI runner, bounded packaged logs, and auditable installation/UAT documentation. macOS installed-app UAT is blocking; Windows installed-app UAT is deferred and Windows remains non-release-ready until that matrix is completed.
 
 </domain>
 
 <spec_lock>
 ## Requirements (locked via SPEC.md)
 
-**6 requirements are locked.** See `10-SPEC.md` for full requirements, boundaries, and acceptance criteria.
+**7 requirements are locked.** See `10-SPEC.md` for full requirements, boundaries, and acceptance criteria.
 
 Downstream agents MUST read `10-SPEC.md` before planning or implementing. Requirements are not duplicated here.
 
 **In scope (from SPEC.md):**
-- macOS `.dmg` build and installed-app UAT.
-- Windows `.msi` build and installed-app UAT.
-- PyInstaller-based Python Agent sidecar executable named `paladin-agent-sidecar`.
-- Go Server sidecar executable named `paladin-server-sidecar`.
-- Packaged-mode process supervision using real sidecar binaries rather than dev commands.
-- UAT closure for 07.3/07.4 packaged and cross-platform deferred items on macOS and Windows.
-- Log rotation for packaged sidecar logs.
-- User installation and first-run documentation.
+- macOS `.dmg` build, installation, and real installed-app UAT.
+- Windows `.msi` build capability and auditable artifact status; real Windows UAT may be deferred.
+- PyInstaller Agent sidecar and Go Server sidecar platform artifacts.
+- Packaged config, installed-resource lookup, and supervisor-owned sidecar startup.
+- Sidecar startup environment inheritance and missing-config diagnostics.
+- macOS closure and Windows deferral records for Phase 07.3/07.4 packaged UAT.
+- Packaged sidecar log rotation, redaction, and UI stream continuity.
+- User installation, first-run, troubleshooting, and per-platform release-status documentation.
 
 **Out of scope (from SPEC.md):**
-- Code signing, notarization, and auto-update distribution.
+- Real Windows installed-app UAT as a Phase 10 completion gate; it is deferred and Windows remains non-release-ready.
+- A settings screen, config-file editor, or other new user configuration surface.
+- Code signing, notarization, and auto-update.
 - Public release hosting or update channels.
 - Linux as a blocking packaging target.
 - Replacing the existing `cmd: string[]` process config schema.
-- Reworking Agent or Go Server product behavior beyond what is needed for packaged startup.
-- Desktop admin UI for Phase 9 systems.
+- Agent or Go Server product behavior unrelated to packaged startup.
+- Phase 9 desktop admin UI.
 
 </spec_lock>
 
 <decisions>
 ## Implementation Decisions
 
-### Sidecar Bundle Layout
-- **D-01:** Use the Tauri `externalBin` style or an equivalent bundled-resource layout for the packaged sidecars.
-- **D-02:** Build artifacts must use the locked executable names `paladin-agent-sidecar` and `paladin-server-sidecar`; packaged Rust runtime should resolve them from the installed app resource or sidecar location rather than from source-tree paths.
-- **D-03:** The packaged runtime must remain supervisor-owned and must not use dev PATH augmentation, `uv`, `go`, repo-relative cwd, or a login shell.
+### Sidecar Bundle and Build Chain
+- **D-01:** Use Tauri `externalBin` or an equivalent bundled-resource layout. Logical executable names remain `paladin-agent-sidecar` and `paladin-server-sidecar`; runtime resolution must handle Tauri target-triple names and Windows `.exe` suffixes.
+- **D-02:** Provide one release-oriented package-manager entry point that builds the PyInstaller Agent, Go Server, and Tauri installer in sequence. Missing sidecars or any `.env` file entering sidecar/bundle inputs fail the build before Tauri packaging.
+- **D-03:** Preserve the existing dev `processes.json`. Add or generate a separate packaged config using the existing `cmd: string[]` schema and load it from installed resources.
 
-### Build Chain
-- **D-04:** Provide one release-oriented orchestration path that runs PyInstaller, Go build, and Tauri build in sequence.
-- **D-05:** Expose that orchestration through the existing package-manager entrypoint pattern so contributors can run a single documented command rather than manually stitching subproject commands together.
-- **D-06:** The build chain should produce or verify both sidecar binaries before invoking the Tauri installer build; missing sidecars should fail the build early.
+### macOS Supported Launch Path
+- **D-04:** Provide a supported macOS launch wrapper that reads configuration from its current process environment and directly launches the installed Paladin executable without persisting secrets.
+- **D-05:** The wrapper is shared by first-run user documentation and macOS installed-app UAT so both paths exercise the same behavior.
+- **D-06:** The wrapper defaults to `/Applications/Paladin.app` and accepts `--app <path>` for custom or temporary installed locations. It must not auto-search for another copy.
+- **D-07:** The wrapper reports names of missing required variables but still starts Paladin; packaged application diagnostics remain the final truth source and can be tested in missing-config scenarios.
+- **D-08:** Configuration values must not be accepted as CLI arguments. Secrets come only from the current environment; the non-secret `--app` path argument is allowed.
 
-### Packaged Process Config
-- **D-07:** Keep the existing dev `apps/desktop/src-tauri/processes.json` for development.
-- **D-08:** Add or generate a packaged process config for the bundle. The schema remains the existing `cmd: string[]`; do not introduce `dev_cmd`, `packaged_cmd`, or a replacement binary field.
-- **D-09:** The packaged config should be included in the installed app bundle and loaded by packaged runtime. Rust validation must continue rejecting `uv`, `go`, and repo-relative dev cwd values.
+### Environment Forwarding and `.env` Boundary
+- **D-09:** Sidecars receive an explicit business-configuration allowlist rather than the complete Paladin parent environment. Empty allowlisted values count as missing.
+- **D-10:** In addition to business configuration, forward an explicit minimal system baseline needed for home/temp directories, locale, and TLS certificate discovery. Do not use an open-ended denylist.
+- **D-11:** Dev mode preserves current `.env` convenience. Packaged mode completely disables Python `load_dotenv` and Go `godotenv` loading; packaged sidecars accept only supervisor-forwarded environment.
+- **D-12:** Rust supervisor derives and forcibly injects `PALADIN_RUNTIME_MODE=packaged` from the validated process config. A same-named parent variable cannot override the internal runtime mode.
+- **D-13:** Release input validation fails closed if any `.env` file would enter PyInstaller or Tauri bundle inputs; silently excluding or merely warning is insufficient.
 
-### Installed UAT
-- **D-10:** macOS and Windows both require real installed-app UAT: build installer, install app, launch installed app, and record Agent/Server sidecar behavior.
-- **D-11:** PostgreSQL and Redis are UAT prerequisites for the passing Go `/readyz` path. The UAT record must also cover the unavailable-dependencies path where Go is degraded but Agent startup remains usable.
-- **D-12:** Podman/local services are acceptable as the documented PG/Redis setup for UAT. The important evidence is installed-app behavior, not the particular local dependency runner.
-- **D-13:** Any platform without passing installed-app UAT must be documented as not release-ready for this phase.
+### Windows Native Build Proof
+- **D-14:** Use GitHub Actions `windows-latest` to run the real PyInstaller, Go, and Tauri/WiX chain and generate the `.msi`; macOS cross-compilation is not accepted as MSI proof.
+- **D-15:** The Windows workflow supports manual dispatch and runs automatically on pull requests that change packaging-related files. It need not run for unrelated changes.
+- **D-16:** Upload the `.msi` plus a non-secret build manifest containing commit SHA, runner OS, target architecture, sidecar and installer filenames, file sizes, and SHA-256 values. Do not upload the entire build directory.
+- **D-17:** Phase 10 Windows support is limited to `x86_64-pc-windows-msvc`. Windows ARM64 is outside the current phase.
+- **D-18:** A successful native Windows build proves artifact buildability only. Until real installed-app UAT is completed later, documentation must state Windows is unverified and non-release-ready.
+
+### Installed-App UAT Evidence
+- **D-19:** Use a human-readable Markdown UAT summary paired with structured JSON results. JSON is the machine-checkable record for scenario completeness and evidence references.
+- **D-20:** Store necessary screenshots and short redacted log excerpts in a phase-local `evidence/` directory. JSON references them by relative path; installer binaries are never committed to Git.
+- **D-21:** Every UAT scenario records date, tester, OS version and architecture, commit SHA, installer filename and SHA-256, install path, dependency scenario, Agent/Go states, PASS/FAIL result, and evidence paths.
+- **D-22:** Retests append immutable attempt records instead of overwriting history. Per-platform release-ready status is derived only from the latest complete required matrix.
+- **D-23:** macOS UAT covers PG+Redis both available, PostgreSQL missing, Redis missing, and both missing. Go may degrade in the latter three cases while Agent and the main workspace remain usable.
 
 ### Packaged Log Rotation
-- **D-14:** Implement the 10 MB x 5 retained-file policy inside the Rust supervisor log persistence path around `capture_lines`.
-- **D-15:** Rotation must happen after line-level redaction and must preserve complete lines; no raw secrets, tokens, or environment values may appear in logs, UI diagnostics, or documentation examples.
-- **D-16:** Rotation must not interrupt `process-log` event emission to the Logs panel. If file rotation fails, the existing "emit continues even when disk logging degrades" behavior should be preserved.
+- **D-24:** Implement the 10 MB × 5 retained-file policy inside the Rust supervisor logging path around `capture_lines`, after line-level redaction and at complete-line boundaries.
+- **D-25:** Rotation or disk-write failure must not interrupt redacted `process-log` event delivery to the Logs panel.
 
-### Agent Discretion
-- Planner may choose exact script filenames, output directories, and config generation mechanics as long as the decisions above and `10-SPEC.md` are satisfied.
-- Planner may choose whether the packaged config is checked into source, generated from a template, or copied from a release config, provided the installed app loads packaged mode and validation covers both valid and invalid cases.
+### the agent's Discretion
+- Choose exact wrapper/build script filenames and output directories while preserving the supported behaviors above.
+- Define the exact business allowlist and minimal system baseline from currently consumed Agent/Server variables; keep the lists explicit and tested.
+- Choose packaged-config generation/copy mechanics and exact resource paths, provided installed lookup and validation are deterministic.
+- Choose exact JSON field names/schema version, evidence filenames, and CI artifact retention period while retaining all D-16 and D-21 fields.
+- Choose the focused test implementation for the three test-tier prohibitions in `10-SPEC.md`; tests must remain fail-closed and prove real negative behavior.
 
 </decisions>
 
@@ -77,28 +93,30 @@ Downstream agents MUST read `10-SPEC.md` before planning or implementing. Requir
 
 **Downstream agents MUST read these before planning or implementing.**
 
-### Locked Scope
-- `.planning/phases/10-packaging/10-SPEC.md` - Locked Phase 10 requirements, acceptance criteria, boundaries, edge coverage, and prohibitions.
-- `.planning/ROADMAP.md` - Phase 10 goal and PKG-01~03 roadmap scope.
-- `.planning/REQUIREMENTS.md` - PKG-01 macOS package, PKG-02 Windows package, and PKG-03 documentation traceability.
-- `.planning/STATE.md` - Current project state and deferred packaged/platform UAT items from Phase 07.3 and Phase 07.4.
+### Locked Scope and Phase State
+- `.planning/phases/10-packaging/10-SPEC.md` — Locked requirements, boundaries, acceptance criteria, edge coverage, and prohibitions; MUST read before planning.
+- `.planning/ROADMAP.md` — Phase 10 PKG-01 through PKG-03 goal and milestone placement.
+- `.planning/REQUIREMENTS.md` — Packaging requirement traceability.
+- `.planning/STATE.md` — Deferred packaged/platform UAT and current milestone status.
 
-### Prior Sidecar Decisions
-- `.planning/notes/sidecar-runtime-mode.md` - Hybrid dev mode and packaged supervisor-owned sidecar direction.
-- `.planning/phases/07.4-sidecar-runtime-mode/07.4-CONTEXT.md` - Runtime mode decisions: packaged mode is dev-tool-free, external processes are never killed, and packaged binaries remain Phase 10 scope.
-- `.planning/phases/07.3-sidecar-process-management/07.3-CONTEXT.md` - Existing ProcessSupervisor, logging, status, and frontend process-management context.
+### Prior Runtime and UI Decisions
+- `.planning/notes/sidecar-runtime-mode.md` — Hybrid dev runtime and packaged supervisor-owned direction.
+- `.planning/phases/07.4-sidecar-runtime-mode/07.4-CONTEXT.md` — Strict packaged mode, ownership safety, readiness, and UI diagnostic semantics.
+- `.planning/phases/07.3-sidecar-process-management/07.3-CONTEXT.md` — ProcessSupervisor lifecycle, logging, and deferred UAT decisions.
+- `.planning/phases/10-packaging/10-UI-SPEC.md` — Existing packaged startup, degraded-state, LogsPanel, and release-honesty UI contract.
 
 ### Active Implementation Surfaces
-- `apps/desktop/src-tauri/tauri.conf.json` - Existing Tauri bundle configuration.
-- `apps/desktop/src-tauri/processes.json` - Current dev process config.
-- `apps/desktop/src-tauri/src/process/config.rs` - Process config schema and packaged validation.
-- `apps/desktop/src-tauri/src/process/supervisor.rs` - Spawn path, runtime ownership, log capture, and process lifecycle behavior.
-- `apps/desktop/src-tauri/src/process/log_redact.rs` - Existing log redaction utility.
-- `apps/desktop/scripts/tauri-cli.mjs` - Existing package-script wrapper around Tauri CLI and dev sidecar cleanup.
-- `apps/agent/pyproject.toml` - Agent package metadata and console scripts.
-- `apps/agent/src/server/cli.py` - Agent HTTP server CLI entrypoint.
-- `apps/server/go.mod` - Go module metadata.
-- `apps/server/cmd/server/main.go` - Go Server executable entrypoint and readiness dependencies.
+- `apps/desktop/src-tauri/tauri.conf.json` — Tauri bundle configuration and future external binary/resource wiring.
+- `apps/desktop/src-tauri/processes.json` — Existing dev configuration that must remain intact.
+- `apps/desktop/src-tauri/src/process/config.rs` — Runtime mode parsing and packaged command/cwd validation.
+- `apps/desktop/src-tauri/src/process/supervisor.rs` — Environment forwarding, executable/cwd resolution, ownership, health probes, and log capture.
+- `apps/desktop/src-tauri/src/process/log_redact.rs` — Existing line-level secret redaction.
+- `apps/desktop/src-tauri/src/lib.rs` — Current source-tree config lookup and Tauri setup integration.
+- `apps/desktop/scripts/tauri-cli.mjs` — Existing package-manager/Tauri wrapper pattern.
+- `apps/agent/pyproject.toml` — Agent dependencies and console entry points.
+- `apps/agent/src/server/cli.py` — Current Python `.env` loading and server entry point.
+- `apps/server/cmd/server/main.go` — Go server startup and current `.env` load call.
+- `apps/server/internal/config/config.go` — Required Go environment variables and validation.
 
 </canonical_refs>
 
@@ -106,49 +124,55 @@ Downstream agents MUST read `10-SPEC.md` before planning or implementing. Requir
 ## Existing Code Insights
 
 ### Reusable Assets
-- `ProcessConfig::load_from_path` and `ProcessConfig::validate` already load the `processes.json` schema and enforce runtime-mode constraints.
-- Packaged validation tests already define accepted sidecar command shapes using `paladin-agent-sidecar` and `paladin-server-sidecar`.
-- `ProcessSupervisor::spawn_child_to_slot` already centralizes command spawning, cwd resolution, env passing, stdout/stderr capture, health probing, and ownership state.
-- `spawn_path_for_mode` already separates dev PATH augmentation from packaged runtime.
-- `capture_lines` already emits live `process-log` events, redacts each line, appends to per-service logs, and degrades gracefully when file logging fails.
-- `redact_log_line` and its tests cover API keys, JWT secrets, bearer tokens, password-like values, multiple secrets, JSON password forms, long lines, and case-insensitive matching.
+- `ProcessConfig::load_from_path`, `validate`, and `runtime_mode`: packaged config loading and strict no-dev-command boundary.
+- `ProcessSupervisor::spawn_child_to_slot`: central integration point for executable resolution, explicit environment forwarding, lifecycle ownership, and log tasks.
+- `spawn_path_for_mode`: already prevents dev PATH augmentation in packaged mode.
+- `capture_lines` and `redact_log_line`: existing emit-first/redacted-line path to extend with bounded rotation.
+- Existing packaged config tests: already accept locked sidecar logical names and reject `uv`, `go`, and repo-relative dev cwd values.
 
 ### Established Patterns
-- Rust owns the process URL truth source; frontend should continue consuming status/log events rather than hardcoding sidecar URLs.
-- Process config commands remain argument arrays, not shell command strings.
-- Packaged mode is supervisor-owned. Dev mode may attach external services, but packaged lifecycle actions must only target tracked child handles.
-- Config load or validation failure is surfaced through the diagnostic fallback supervisor rather than hidden in stderr.
-- Agent liveness gates the main workspace; Go readiness may degrade without blocking Agent startup.
+- Rust remains the process/runtime truth source; frontend consumes typed status/log events.
+- Commands remain argv arrays and never pass through a shell.
+- Packaged services are supervisor-owned; lifecycle operations only affect tracked child handles.
+- Config failures surface through the diagnostic fallback supervisor rather than raw stderr alone.
+- Agent availability gates the workspace; Go readiness degradation is non-blocking.
+- Podman-first PostgreSQL/Redis setup is the established local integration-test convention.
 
 ### Integration Points
-- `apps/desktop/src-tauri/tauri.conf.json` needs bundle/resource/sidecar configuration for packaged binaries and installers.
-- `apps/desktop/package.json` and/or root `package.json` need a release command that orchestrates sidecar builds and Tauri packaging.
-- `apps/agent` needs PyInstaller configuration or scripts to produce `paladin-agent-sidecar`.
-- `apps/server` needs a release build target producing `paladin-server-sidecar`.
-- `apps/desktop/src-tauri/src/lib.rs` currently loads `processes.json` from `CARGO_MANIFEST_DIR`; packaged runtime needs a bundle-aware config lookup.
-- `apps/desktop/src-tauri/src/process/supervisor.rs` needs packaged path resolution and log rotation in or near `capture_lines`.
-- Documentation should point users to app log locations, packaged config diagnostics, PG/Redis readiness expectations, and UAT status.
+- Bundle config must add platform sidecars/resources and platform-specific target names.
+- Tauri setup must select dev vs installed resource config without `CARGO_MANIFEST_DIR` assumptions.
+- Rust process spawning must replace implicit full-environment inheritance with explicit allowlists and force the internal runtime mode marker.
+- Python and Go startup must gate `.env` loading on runtime mode.
+- Release orchestration must build/validate sidecars before Tauri and reject bundled `.env` files.
+- A Windows-native workflow must execute the same release entry point and emit the manifest.
+- Phase-local UAT summary, JSON, and `evidence/` files must describe macOS results and Windows deferral honestly.
 
 </code_context>
 
 <specifics>
 ## Specific Ideas
 
-- Prefer an `externalBin` style layout because Phase 07.4 already pointed packaged builds at Tauri sidecar/external binary patterns.
-- Prefer a single release orchestration command so Phase 10 can produce repeatable artifacts and UAT evidence from one documented path.
-- Keep development ergonomics intact by preserving the current dev `processes.json`; packaged behavior should be introduced through bundled/generated packaged config rather than by making dev config harder to use.
-- Treat PG/Redis as readiness dependencies for Go Server, not as prerequisites for Agent startup.
+- The supported macOS user path and UAT path must be identical; the wrapper is not merely a developer helper.
+- Missing configuration is intentionally allowed to reach the installed app so its redacted diagnostics can be verified.
+- Buildability, installed behavior, and release-ready status are three separate facts and must never be collapsed.
+- UAT history should show failure-to-fix progression rather than presenting only the latest green result.
 
 </specifics>
 
 <deferred>
 ## Deferred Ideas
 
-None - discussion stayed within phase scope.
+- Windows real installed-app UAT — deferred until a Windows environment is available; Windows remains non-release-ready.
+- Windows ARM64 packaging — outside the Phase 10 x64 target.
+
+### Reviewed Todos (not folded)
+- `Implement Resizable CopilotSidebar` — weak keyword-only match; unrelated to packaging and already belongs to chat/sidebar work.
+- `Integrate Conversation List into CopilotSidebar` — weak keyword-only match; unrelated to packaging.
+- `Refactor App.tsx to separate workspace and chat sidebar` — weak keyword-only match; unrelated to packaging.
 
 </deferred>
 
 ---
 
 *Phase: 10-packaging*
-*Context gathered: 2026-07-07*
+*Context gathered: 2026-07-11*

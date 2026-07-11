@@ -1,82 +1,80 @@
 # Phase 10: Packaging - Discussion Log
 
 > **Audit trail only.** Do not use as input to planning, research, or execution agents.
-> Decisions are captured in CONTEXT.md - this log preserves the alternatives considered.
+> Decisions are captured in CONTEXT.md — this log preserves the alternatives considered.
 
-**Date:** 2026-07-07
+**Date:** 2026-07-11
 **Phase:** 10-packaging
-**Areas discussed:** Sidecar bundle layout, Build chain, Packaged process config, Installed UAT, Packaged log rotation
+**Areas discussed:** macOS launch environment, packaged `.env` boundary, Windows build proof, UAT evidence format
 
 ---
 
-## Sidecar Bundle Layout
+## macOS Launch Environment
 
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Tauri externalBin style | Use Tauri `externalBin` style or equivalent resource layout. Build `paladin-agent-sidecar` and `paladin-server-sidecar`; Rust packaged runtime resolves them from app resources/sidecar paths. | x |
-| Plain resources | Copy sidecars as ordinary resources and maintain custom cross-platform path lookup. | |
-| Agent decides | Leave exact layout to the planner. | |
+| Decision | Alternatives considered | Selected |
+|----------|-------------------------|----------|
+| Injection entry | Supported wrapper; docs-only terminal launch; `launchctl setenv` | Supported wrapper |
+| Audience | User + UAT; UAT-only; user-only | User + UAT |
+| Missing variables | Report names and continue; abort; no precheck | Report names and continue |
+| App lookup | `/Applications` default + `--app`; fixed path; auto-search | Default + explicit override |
+| Sidecar environment | Business allowlist; full inheritance; separate per-service lists | Business allowlist |
+| Empty values | Missing; present; per-variable rules | Missing |
+| System variables | Explicit minimal baseline; business-only; denylist | Explicit minimal baseline |
+| Secret CLI args | Prohibited; all allowed; some allowed | Prohibited |
 
-**User's choice:** 1.1 - Tauri `externalBin` style or equivalent resource layout.
-**Notes:** This matches prior Phase 07.4 direction: packaged builds use supervisor-owned bundled sidecars and no dev tools.
-
----
-
-## Build Chain
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Single release command | One release script orchestrates PyInstaller, Go build, and Tauri build, exposed through an npm/pnpm command. | x |
-| Distributed scripts | Each subproject owns its build command and documentation manually strings them together. | |
-| Agent decides | Leave exact scripting shape to the planner. | |
-
-**User's choice:** 2.1 - single release-oriented command.
-**Notes:** The command should fail early if sidecar binaries are missing before installer packaging starts.
+**User's choice:** Selected the recommended strict, non-persisting path for all eight decisions.
+**Notes:** `--app <path>` remains allowed because it is a non-secret location argument. Application diagnostics remain the final truth source.
 
 ---
 
-## Packaged Process Config
+## Packaged `.env` Boundary
 
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Separate/generated packaged config | Preserve dev `processes.json`; add or generate packaged config for the bundle while keeping `cmd: string[]`. | x |
-| Rust fallback only | Embed packaged config in Rust and use external `processes.json` only for dev. | |
-| Agent decides | Leave config mechanics to the planner. | |
+| Decision | Alternatives considered | Selected |
+|----------|-------------------------|----------|
+| `.env` behavior | Disable only in packaged; disable everywhere; fixed packaged `.env` | Disable only in packaged |
+| Mode signal | Supervisor marker; executable name; cwd/resource inference | Supervisor marker |
+| Marker precedence | Supervisor override; parent override; conflict failure | Supervisor override |
+| `.env` in release inputs | Fail build; silently exclude; warning | Fail build |
 
-**User's choice:** 3.1 - keep dev config, add or generate packaged config.
-**Notes:** The existing `cmd: string[]` schema remains locked by SPEC and prior phases.
-
----
-
-## Installed UAT
-
-| Option | Description | Selected |
-|--------|-------------|----------|
-| macOS and Windows installed UAT | Both platforms require real installed-app UAT; PG/Redis use Podman/local services as prerequisites; record ready and degraded paths. | x |
-| macOS installed, Windows checklist | macOS is real installed UAT; Windows is initially a manual checklist. | |
-| Agent decides | Leave UAT split to the planner. | |
-
-**User's choice:** 4.1 - macOS and Windows both require installed-app UAT.
-**Notes:** Any platform that lacks passing UAT must be marked not release-ready.
+**User's choice:** Preserve dev convenience but make packaged environment-only and fail closed.
+**Notes:** `PALADIN_RUNTIME_MODE=packaged` is internal supervisor truth, not user configuration.
 
 ---
 
-## Packaged Log Rotation
+## Windows Build Proof
 
-| Option | Description | Selected |
-|--------|-------------|----------|
-| Rotate in supervisor capture path | Implement 10 MB x 5 retention around Rust `capture_lines`, preserving UI event emission. | x |
-| Logging/appender crate | Introduce a logging/appender crate for rotation and keep supervisor focused on events. | |
-| Agent decides | Leave logging implementation to the planner. | |
+| Decision | Alternatives considered | Selected |
+|----------|-------------------------|----------|
+| Build host | GitHub Actions Windows runner; script-only; macOS cross-build | Windows runner |
+| Trigger | Manual + packaging PR paths; manual-only; every change | Manual + packaging PR paths |
+| Evidence | MSI + manifest; MSI-only; full build directory | MSI + manifest |
+| Architecture | x64 only; x64 + ARM64; parameterized | x64 only |
 
-**User's choice:** 5.1 - rotate in the Rust supervisor capture path.
-**Notes:** Rotation must happen after redaction, preserve complete lines, and keep `process-log` emission uninterrupted.
+**User's choice:** Native Windows x64 CI build with auditable artifact metadata.
+**Notes:** Build success is not installed-app UAT and does not make Windows release-ready.
 
-## Agent Discretion
+---
 
-- Exact script filenames, release output directories, and generated-config mechanics are left to the planner.
-- The planner may choose checked-in packaged config, generated packaged config, or copied release config if installed-app runtime and validation requirements are met.
+## UAT Evidence Format
+
+| Decision | Alternatives considered | Selected |
+|----------|-------------------------|----------|
+| Primary record | Markdown + JSON; Markdown-only; JSON-only | Markdown + JSON |
+| Evidence storage | Phase-local redacted evidence; external links; full raw logs | Phase-local redacted evidence |
+| Required metadata | Full reproducible fields; PASS/FAIL only; free-form | Full reproducible fields |
+| Retest history | Immutable attempts + current verdict; overwrite; separate documents | Immutable attempts + current verdict |
+
+**User's choice:** Human-readable and machine-checkable evidence with durable, redacted local references.
+**Notes:** Installer binaries stay outside Git. Release-ready derives from the latest complete required matrix.
+
+---
+
+## the agent's Discretion
+
+- Exact script/file names, allowlist contents derived from actual consumers, JSON schema naming, evidence filenames, and CI retention period.
+- Exact packaged config copy/generation mechanics and focused negative-test implementation within locked constraints.
 
 ## Deferred Ideas
 
-None.
+- Real Windows installed-app UAT, pending access to Windows hardware or VM.
+- Windows ARM64 packaging.
