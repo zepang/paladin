@@ -1,153 +1,162 @@
-# Phase 10: Packaging - Specification
+# Phase 10: Packaging — Specification
 
-**Created:** 2026-07-07
-**Ambiguity score:** 0.15 (gate: <= 0.20)
-**Requirements:** 6 locked
+**Created:** 2026-07-11
+**Ambiguity score:** 0.10 (gate: ≤ 0.20)
+**Requirements:** 7 locked
 
 ## Goal
 
-Paladin produces installable macOS and Windows desktop packages that launch the app with bundled Agent and Go Server sidecars, verify real packaged startup behavior, and provide first-run user documentation.
+Paladin 产出可安装的 macOS `.dmg` 和可构建的 Windows `.msi`，在不依赖开发工具或源码目录的情况下启动内置 Agent 与 Go Server sidecar；macOS 完成真实安装后 UAT，Windows UAT 可延后但必须明确标记为未验证且非 release-ready。
 
 ## Background
 
-Paladin currently has a working Tauri desktop app, a Python Agent served by `uv run paladin-agent serve --dev`, and a Go Server served by `go run ./cmd/server`. Phase 07.3 added a Rust `ProcessSupervisor` driven by `apps/desktop/src-tauri/processes.json`; Phase 07.4 added dev attach/spawn/conflict semantics and packaged-mode validation that rejects dev commands such as `uv` and `go` and repo-relative dev working directories.
+Paladin 已有可运行的 Tauri 桌面应用、Python Agent 和 Go Server。Phase 07.3 实现了由 `apps/desktop/src-tauri/processes.json` 驱动的 Rust `ProcessSupervisor`，Phase 07.4 增加了 dev attach/spawn/conflict 语义以及 packaged 模式校验。
 
-The current `processes.json` is still `mode: "dev"` and uses development commands. `apps/desktop/src-tauri/tauri.conf.json` enables Tauri bundling, but no Phase 10 packaging spec, packaged sidecar binary production, installer UAT, or user installation documentation exists yet. Prior 07.3/07.4 UAT explicitly deferred real packaged and cross-platform validation to Phase 10.
+当前 `processes.json` 仍为 `mode: "dev"`，Agent 通过 `uv` 启动，Go Server 通过 `go run` 启动；`tauri.conf.json` 虽已启用 bundle，但尚无 sidecar 构建链、`externalBin` 或等效资源布局、安装包资源查找、日志轮转和安装后 UAT 证据。当前执行环境只有 macOS，因此本阶段要求 macOS 完成真实安装后 UAT；Windows 必须具备 `.msi` 构建能力，但真实 Windows UAT 可以延后，并保持非 release-ready 状态。
 
 ## Requirements
 
-1. **macOS installer**: Produce a macOS `.dmg` installer for the Paladin desktop app.
-   - Current: Tauri bundle config exists, but no Phase 10 `.dmg` artifact or installed-app UAT is recorded.
-   - Target: A `.dmg` can be built from the repo and installed on macOS without requiring development commands at runtime.
-   - Acceptance: Installing the `.dmg` and launching Paladin starts the packaged app without requiring `pnpm`, `cargo`, `uv`, `go run`, or a repo checkout.
+1. **macOS 安装包与验证**：从仓库生成 macOS `.dmg`，并在真实安装位置完成安装后启动验证。
+   - Current: Tauri bundle 配置存在，但没有 Phase 10 `.dmg` 产物或已安装应用 UAT 记录。
+   - Target: `.dmg` 可从仓库构建、安装并首次启动；运行时不依赖开发工具、源码目录或仓库状态。
+   - Acceptance: 在全新安装位置启动 Paladin，Agent 与 Go Server 均从安装包资源启动，且无需 `pnpm`、`cargo`、`uv`、`go run` 或源码 checkout。
 
-2. **Windows installer**: Produce a Windows `.msi` installer for the Paladin desktop app.
-   - Current: Tauri bundle config targets all platforms, but no `.msi` artifact or Windows installed-app UAT is recorded.
-   - Target: An `.msi` can be built from the repo and installed on Windows without requiring development commands at runtime.
-   - Acceptance: Installing the `.msi` and launching Paladin starts the packaged app without requiring `pnpm`, `cargo`, `uv`, `go run`, or a repo checkout.
+2. **Windows 安装包与延后验证状态**：从仓库生成 Windows `.msi`；真实 Windows UAT 可以延后，但构建状态与验证状态必须分开记录。
+   - Current: Tauri 配置声明跨平台 bundle，但没有 `.msi` 构建产物或 Windows 安装后 UAT 记录。
+   - Target: 仓库具备 `.msi` 构建能力；若当前环境无法完成真实 Windows UAT，则文档明确标记“已构建、未完成已安装应用验证、非 release-ready”。
+   - Acceptance: 构建记录能够分别证明 `.msi` 是否生成、Windows 安装后 UAT 是否完成、Windows 是否 release-ready；成功构建本身不得自动将 Windows 标记为 release-ready。
 
-3. **Packaged sidecar binaries**: Package the Python Agent and Go Server as real sidecar executables for packaged supervision.
-   - Current: Agent runs via `uv`; Go Server runs via `go run`; packaged config validation rejects those commands but real packaged binaries are not produced.
-   - Target: The Python Agent is frozen with PyInstaller into `paladin-agent-sidecar`, the Go Server is compiled into `paladin-server-sidecar`, and packaged supervision starts those binaries.
-   - Acceptance: Packaged runtime validation rejects `uv`, `go`, and repo-relative dev `cwd` values, while a packaged config using `paladin-agent-sidecar` and `paladin-server-sidecar` passes validation and launches both services.
+3. **Packaged sidecar 二进制**：将 Python Agent 与 Go Server 构建为由 packaged supervisor 管理的内置可执行文件。
+   - Current: Agent 通过 `uv` 启动，Go Server 通过 `go run` 启动；packaged 校验会拒绝这些命令，但尚无真实 packaged sidecar 产物。
+   - Target: PyInstaller 产出逻辑名为 `paladin-agent-sidecar` 的 Agent，Go build 产出逻辑名为 `paladin-server-sidecar` 的 Server；允许 Tauri 所需的 target-triple 命名或 Windows `.exe` 后缀，运行时必须解析到安装包内的正确二进制。
+   - Acceptance: packaged 配置使用两个锁定逻辑名并通过校验；macOS 和 Windows 构建布局中的实际文件名符合平台规则；运行时不依赖 PATH 即可解析并启动安装包内二进制。
 
-4. **Installed sidecar UAT**: Verify installed macOS and Windows builds run the bundled sidecars correctly.
-   - Current: Automated Rust/frontend gates pass, but manual packaged/installer UAT from 07.3/07.4 remains deferred.
-   - Target: On installed macOS and Windows builds, the supervisor starts Agent and Go sidecars, Agent liveness passes, Go liveness passes, and Go readiness passes when PostgreSQL and Redis are available.
-   - Acceptance: UAT records show Agent liveness green, Go `/healthz` green, Go `/readyz` green with PostgreSQL/Redis available, and Go degraded but non-blocking when PostgreSQL/Redis are unavailable.
+4. **启动环境配置契约**：安装后的 sidecar 仅在进程启动时继承 Paladin 启动环境提供的 API Key、PostgreSQL、Redis 和 JWT 配置，本阶段不新增用户配置入口。
+   - Current: Agent 和 Go Server 依赖环境配置，现有产品没有 packaged 用户配置入口或明确的继承契约。
+   - Target: 每次 sidecar 启动时读取 Paladin 进程继承的环境；运行期间外部环境变化不热加载，重新启动 Paladin 后生效；缺失配置时显示脱敏且可操作的诊断。
+   - Acceptance: 使用完整环境启动时 sidecar 能读取所需配置；缺失配置时诊断只指出缺失项或失败类别而不显示值；Paladin 运行期间修改外部环境不会改变已启动 sidecar，重启 Paladin 后新环境生效。
 
-5. **Bounded packaged logs**: Keep sidecar log persistence redacted and bounded in packaged sessions.
-   - Current: Logs are redacted and written to the app log directory, but Phase 07.3 explicitly deferred rotation/compression and long-running hardening to Phase 10.
-   - Target: Packaged sidecar logs rotate at 10 MB per file with 5 retained files per service, preserving full log lines and keeping the UI log stream usable during rotation.
-   - Acceptance: Long-running log output never grows beyond 5 retained 10 MB files per service, redaction still applies, no complete log line is split or lost during rotation, and the Logs panel continues receiving new lines.
+5. **安装后 sidecar UAT**：使用统一矩阵验证安装后的 sidecar 启动、liveness、readiness 与 degraded 行为。
+   - Current: Rust 与前端自动化门禁通过，但 Phase 07.3/07.4 的 packaged/platform UAT 仍处于 deferred 状态。
+   - Target: macOS 完成真实安装后 UAT；Windows 使用同一矩阵但允许延后。Agent liveness 与 Go liveness 必须通过；依赖可用时 Go readiness 通过；PostgreSQL、Redis 分别缺失或同时缺失时 Go 为 degraded，但 Agent 与主工作区仍可使用。
+   - Acceptance: macOS UAT 记录覆盖依赖全部可用、仅 PostgreSQL 缺失、仅 Redis 缺失、两者均缺失四种场景；Windows 若未执行同一矩阵，明确记录为 deferred 且非 release-ready。
 
-6. **User first-run documentation**: Document installation and first-run expectations for users.
-   - Current: README files exist, but no Phase 10 user-facing installation and packaged sidecar troubleshooting guide exists.
-   - Target: User documentation explains macOS and Windows installation, first launch, sidecar startup expectations, PostgreSQL/Redis readiness expectations, log locations, and common startup/config failures.
-   - Acceptance: README or linked docs contain pass/fail-verifiable sections for macOS install, Windows install, first launch, PG/Redis readiness, log location, sidecar startup failure, packaged config failure, and where to find UAT status.
+6. **有界 packaged 日志**：packaged sidecar 日志在逐行脱敏后按每服务每文件 10 MB、最多 5 个文件轮转。
+   - Current: 日志会脱敏并写入应用日志目录，但文件无限追加，Phase 07.3 将轮转与长时间运行加固留给 Phase 10。
+   - Target: 日志在恰好达到或超过 10 MB 时，于完整日志行边界轮转；每个服务最多保留 5 个文件；轮转或磁盘写入失败不打断脱敏后的 `process-log` UI 事件流。
+   - Acceptance: 自动化测试证明 10 MB 边界、最多 5 个文件、完整行不拆分、落盘内容已脱敏，并证明轮转失败时 LogsPanel 仍持续收到新行。
+
+7. **用户安装与首次运行文档**：提供可验证的安装、环境配置、故障排查和平台发布状态文档。
+   - Current: 仓库 README 存在，但没有 packaged 安装、启动环境、sidecar 排障或逐平台 UAT 状态说明。
+   - Target: 文档覆盖 macOS/Windows 安装、所需启动环境变量名称但不包含真实值、首次启动、PostgreSQL/Redis readiness、日志位置、常见 sidecar/config 失败，并分别展示两个平台的构建、安装后 UAT 与 release-ready 状态。
+   - Acceptance: 文档检查能找到所有目标章节，且 macOS 与 Windows 状态分开呈现；任何未完成或失败的安装后 UAT 均明确标记为非 release-ready。
 
 ## Boundaries
 
 **In scope:**
-- macOS `.dmg` build and installed-app UAT.
-- Windows `.msi` build and installed-app UAT.
-- PyInstaller-based Python Agent sidecar executable named `paladin-agent-sidecar`.
-- Go Server sidecar executable named `paladin-server-sidecar`.
-- Packaged-mode process supervision using real sidecar binaries rather than dev commands.
-- UAT closure for 07.3/07.4 packaged and cross-platform deferred items on macOS and Windows.
-- Log rotation for packaged sidecar logs.
-- User installation and first-run documentation.
+- macOS `.dmg` 构建、安装与真实已安装应用 UAT。
+- Windows `.msi` 构建能力及可审计产物状态；真实 Windows UAT 允许延后。
+- PyInstaller Agent sidecar 与 Go Server sidecar 的平台构建产物。
+- packaged 配置、安装包资源查找及 supervisor-owned sidecar 启动。
+- sidecar 启动时继承 Paladin 的环境配置及缺失配置诊断。
+- Phase 07.3/07.4 deferred packaged UAT 的 macOS 闭环与 Windows 延后记录。
+- packaged sidecar 日志轮转、脱敏和 UI 流连续性。
+- 用户安装、首次运行、排障及逐平台发布状态文档。
 
 **Out of scope:**
-- Code signing, notarization, and auto-update distribution - excluded from v1 local packaging scope.
-- Public release hosting or update channels - installer artifacts are sufficient for this phase.
-- Linux as a blocking packaging target - Linux may be documented or recorded as non-blocking, but PKG-01/PKG-02 are macOS and Windows.
-- Replacing the existing `cmd: string[]` process config schema - prior phases intentionally preserved this schema.
-- Reworking Agent or Go Server product behavior beyond what is needed for packaged startup.
-- Desktop admin UI for Phase 9 systems - Phase 9 explicitly kept desktop admin out of scope.
+- Windows 真实安装后 UAT 作为本阶段完成的硬门槛 — 当前只有 macOS 环境，Windows UAT 延后且保持非 release-ready。
+- 新增设置页、配置文件编辑器或其他用户配置入口 — 本阶段只锁定启动环境继承与文档说明。
+- 代码签名、公证和自动更新 — 不属于 v1 本地打包范围。
+- 公共发布托管或更新渠道 — 本阶段以本地产物和验证证据为交付。
+- Linux 作为阻塞打包目标 — PKG-01/PKG-02 只要求 macOS 和 Windows。
+- 替换现有 `cmd: string[]` 进程配置 schema — 继续保留 argv 语义。
+- 重构 Agent 或 Go Server 产品功能 — 仅处理 packaged 启动所需改动。
+- Phase 9 的桌面管理 UI — 与打包目标无关。
 
 ## Constraints
 
-- Packaged runtime must not require `pnpm`, `cargo`, `uv`, `go run`, a login-shell PATH, or a source checkout after installation.
-- Python Agent packaging is locked to PyInstaller for this phase.
-- Go Server must be compiled as a platform executable and launched as a sidecar.
-- Packaged process validation must continue rejecting `uv`, `go`, and repo-relative dev `cwd` values.
-- macOS and Windows are blocking validation targets; Linux is non-blocking.
-- PostgreSQL and Redis are required for the passing Go `/readyz` UAT path; without them Go may be degraded but must not block Agent startup.
-- Sidecar log rotation limit is 10 MB x 5 retained files per service.
+- 安装后的 packaged runtime 不得依赖 `pnpm`、`cargo`、`uv`、`go run`、login-shell PATH 或源码 checkout。
+- Python Agent 本阶段使用 PyInstaller；Go Server 构建为平台原生可执行文件。
+- 逻辑 sidecar 名称保持 `paladin-agent-sidecar` 与 `paladin-server-sidecar`，实际文件可按 Tauri target triple 和 Windows `.exe` 规则命名。
+- packaged 校验继续拒绝 `uv`、`go` 和 repo-relative dev `cwd`。
+- macOS 是真实 UAT 阻塞目标；Windows 必须可构建，但 UAT 可延后且在完成前非 release-ready；Linux 非阻塞。
+- 本阶段不持久化或提供 UI 编辑运行配置；sidecar 在每次启动时继承 Paladin 的启动环境。
+- PostgreSQL 与 Redis 是 Go `/readyz` 通过路径的前提；依赖不可用不得阻塞 Agent 或主工作区。
+- sidecar 日志限制为每服务每文件 10 MB、最多 5 个文件，并保持先脱敏后落盘。
 
 ## Acceptance Criteria
 
-- [ ] A macOS `.dmg` artifact is generated from the repo.
-- [ ] The installed macOS app launches without `pnpm`, `cargo`, `uv`, `go run`, or a repo checkout.
-- [ ] A Windows `.msi` artifact is generated from the repo.
-- [ ] The installed Windows app launches without `pnpm`, `cargo`, `uv`, `go run`, or a repo checkout.
-- [ ] PyInstaller produces a packaged Agent executable named `paladin-agent-sidecar`.
-- [ ] Go build produces a packaged Server executable named `paladin-server-sidecar`.
-- [ ] Packaged config validation rejects `uv`, `go`, and repo-relative dev `cwd` values.
-- [ ] Packaged config using the sidecar binary names passes validation.
-- [ ] Installed macOS UAT records Agent liveness pass and Go liveness pass.
-- [ ] Installed Windows UAT records Agent liveness pass and Go liveness pass.
-- [ ] With PostgreSQL and Redis available, installed macOS and Windows UAT record Go `/readyz` pass.
-- [ ] Without PostgreSQL or Redis, Go is shown as degraded and does not block Agent startup.
-- [ ] Sidecar logs rotate at 10 MB x 5 retained files per service.
-- [ ] Log redaction remains active after rotation.
-- [ ] Log rotation does not split or lose complete log lines and does not interrupt the Logs panel stream.
-- [ ] User documentation covers macOS install, Windows install, first launch, PG/Redis readiness, log locations, common sidecar/config errors, and UAT status.
-- [ ] Any platform that does not pass UAT is explicitly marked not release-ready in the documentation and phase output.
-- [ ] Packaged logs, UI diagnostics, and documentation examples do not expose raw secrets, tokens, or environment values.
-- [ ] Packaged stop/restart/shutdown only affects supervisor-owned child processes and does not kill user-managed external processes by port or process name.
+- [ ] 从仓库生成 macOS `.dmg`，并在全新安装位置完成真实启动验证。
+- [ ] 已安装 macOS 应用无需 `pnpm`、`cargo`、`uv`、`go run` 或源码 checkout 即可启动内置 sidecar。
+- [ ] Windows `.msi` 构建路径可执行并记录是否生成产物。
+- [ ] Windows 的构建、安装后 UAT、release-ready 三种状态分别记录；未执行 UAT 时明确标记 deferred 且非 release-ready。
+- [ ] PyInstaller 生成逻辑名为 `paladin-agent-sidecar` 的平台产物。
+- [ ] Go build 生成逻辑名为 `paladin-server-sidecar` 的平台产物。
+- [ ] packaged runtime 能解析 target-triple 文件名及 Windows `.exe` 后缀，并从安装包资源启动 sidecar。
+- [ ] packaged 配置拒绝 `uv`、`go` 与 repo-relative dev `cwd`，并接受两个锁定 sidecar 逻辑名。
+- [ ] sidecar 每次启动时继承 Paladin 启动环境，运行期间不热加载外部环境变化，重启 Paladin 后使用新环境。
+- [ ] 缺失 API Key、数据库、Redis 或 JWT 配置时，诊断指出缺失项或失败类别但不显示配置值。
+- [ ] macOS 已安装应用 UAT 记录 Agent liveness 与 Go liveness 通过。
+- [ ] macOS UAT 覆盖 PostgreSQL/Redis 全部可用、仅 PostgreSQL 缺失、仅 Redis 缺失、两者均缺失四种场景。
+- [ ] 依赖不可用时 Go 显示 degraded，但 Agent 与主工作区仍可使用。
+- [ ] 日志在恰好达到或超过 10 MB 时于完整行边界轮转，并且每服务最多保留 5 个文件。
+- [ ] 日志轮转前完成逐行脱敏，不拆分或丢失完整日志行。
+- [ ] 轮转或磁盘写入失败不打断脱敏后的 LogsPanel 实时日志流。
+- [ ] 文档覆盖 macOS/Windows 安装、启动环境配置、首次启动、readiness、日志位置、常见失败与逐平台 UAT 状态。
+- [ ] 文档分别展示 macOS 与 Windows 的构建状态、安装后 UAT 状态和 release-ready 状态。
+- [ ] 不得把仅成功构建或 UAT 未通过的平台标记为 release-ready。
+- [ ] 不得把继承的 API Key、数据库、Redis 或 JWT 配置值写入日志、UI 诊断、文档示例或打包资源。
+- [ ] packaged 模式诊断不得要求用户运行 `uv`、`go`、`pnpm`、`cargo` 或编辑源码目录中的配置。
+- [ ] stop/restart/shutdown 只能操作 supervisor 持有的子进程句柄，不得按端口或进程名终止用户管理的外部进程。
 
 ## Edge Coverage
 
-**Coverage:** 8/8 applicable edges resolved - 0 unresolved
+**Coverage:** 7/7 applicable edges resolved · 0 unresolved
 
 | Category | Requirement | Status | Resolution / Reason |
 |----------|-------------|--------|---------------------|
-| unclassified | R1 | resolved / explicit | AC: macOS installed app launches without `pnpm`, `cargo`, `uv`, `go run`, or repo checkout. |
-| unclassified | R2 | resolved / explicit | AC: Windows installed app launches without `pnpm`, `cargo`, `uv`, `go run`, or repo checkout. |
-| unclassified | R3 | resolved / explicit | AC: named sidecar binaries exist and packaged validation rejects dev commands and repo-relative cwd. |
-| unclassified | R4 | resolved / explicit | AC: PG/Redis available path passes `/readyz`; unavailable path is degraded but non-blocking. |
-| boundary | R5 | resolved / explicit | AC: each service keeps at most 5 log files of 10 MB each. |
-| precision | R5 | resolved / explicit | AC: rotation preserves complete log lines and redaction remains active. |
-| concurrency | R5 | resolved / explicit | AC: rotation does not interrupt the live Logs panel stream. |
-| unclassified | R6 | resolved / explicit | AC: user docs cover install, first launch, readiness, logs, common failures, and UAT status. |
+| unclassified | R1 | ✅ resolved / explicit | AC：`.dmg` 在全新安装位置首次启动，不读取源码目录或依赖开发工具。 |
+| unclassified | R2 | ✅ resolved / explicit | AC：`.msi` 构建、Windows UAT、release-ready 状态分别记录。 |
+| unclassified | R3 | ✅ resolved / explicit | AC：运行时解析 Tauri target-triple 命名和 Windows `.exe` 后缀。 |
+| concurrency | R4 | ✅ resolved / explicit | AC：环境在 sidecar 启动时继承，运行期间不热加载，重启应用后生效。 |
+| unclassified | R5 | ✅ resolved / explicit | AC：PG/Redis 分别缺失及同时缺失均为 Go degraded、Agent 非阻塞。 |
+| unclassified | R6 | ✅ resolved / explicit | AC：10 MB 边界按完整行轮转，轮转失败不打断 UI 日志流。 |
+| unclassified | R7 | ✅ resolved / explicit | AC：逐平台分别展示构建、UAT 与 release-ready 状态。 |
 
 ## Prohibitions (must-NOT)
 
-**Coverage:** 3/3 applicable prohibitions resolved - 0 unresolved
+**Coverage:** 4/4 applicable prohibitions resolved · 0 unresolved
 
 | Prohibition (must-NOT statement) | Requirement | Status | Verification / Reason |
 |----------------------------------|-------------|--------|------------------------|
-| MUST NOT mark a dev-only or failed-UAT package as release-ready; any platform with missing or failed UAT must be explicitly marked not release-ready. | R1/R2/R4/R6 | resolved | verification: judgment |
-| MUST NOT expose raw secrets, tokens, or environment values in packaged logs, UI diagnostics, or documentation examples. | R5/R6 | resolved | verification: test |
-| MUST NOT stop, restart, or shut down user-managed external processes by matching ports or process names; packaged lifecycle actions may only target supervisor-owned child handles. | R4 | resolved | verification: test |
+| MUST NOT 将仅成功构建、未完成或未通过安装后 UAT 的平台标记为 release-ready。 | R1/R2/R5/R7 | resolved | verification: judgment |
+| MUST NOT 将继承的 API Key、数据库、Redis 或 JWT 配置值写入日志、UI 诊断、文档示例或打包资源。 | R4/R6/R7 | resolved | verification: test；尚无已接线的负向测试描述符，verify 阶段须 fail-closed 定位或补充。 |
+| MUST NOT 在 packaged 模式诊断中要求用户运行 `uv`、`go`、`pnpm`、`cargo` 或编辑源码目录中的配置。 | R4/R7 | resolved | verification: test；尚无已接线的负向测试描述符，verify 阶段须 fail-closed 定位或补充。 |
+| MUST NOT 按端口或进程名终止用户管理的外部进程；生命周期操作只能作用于 supervisor 持有的子进程句柄。 | R5 | resolved | verification: test；尚无已接线的负向测试描述符，verify 阶段须 fail-closed 定位或补充。 |
+
+通用 OWASP、命令注入和凭据安全属于规范安全检查范围，由 `$gsd-secure-phase` 负责，不在本 SPEC 重复生成禁令。
 
 ## Ambiguity Report
 
-| Dimension          | Score | Min   | Status | Notes |
-|--------------------|-------|-------|--------|-------|
-| Goal Clarity       | 0.92  | 0.75  | met    | Installer, sidecar, UAT, and documentation outputs are measurable. |
-| Boundary Clarity   | 0.84  | 0.70  | met    | Signing/notarization/auto-update/Linux blocking scope explicitly excluded. |
-| Constraint Clarity | 0.82  | 0.65  | met    | PyInstaller, packaged no-dev-deps, PG/Redis readiness, and log limits are locked. |
-| Acceptance Criteria| 0.80  | 0.70  | met    | 19 pass/fail criteria cover artifacts, runtime, logs, docs, and prohibitions. |
-| **Ambiguity**      | 0.15  | <=0.20| met    | Gate passed after round 4. |
-
-Status: met = dimension meets minimum.
+| Dimension | Score | Min | Status | Notes |
+|-----------|-------|-----|--------|-------|
+| Goal Clarity | 0.94 | 0.75 | ✓ | macOS 必须真实 UAT；Windows 可延后但状态明确。 |
+| Boundary Clarity | 0.90 | 0.70 | ✓ | Windows UAT 与新用户配置入口均明确排除为本阶段硬交付。 |
+| Constraint Clarity | 0.88 | 0.65 | ✓ | 启动环境继承、平台命名、无开发依赖和日志限制均锁定。 |
+| Acceptance Criteria | 0.86 | 0.70 | ✓ | 22 条 pass/fail 标准覆盖产物、环境、UAT、日志、文档和禁令。 |
+| **Ambiguity** | **0.10** | **≤ 0.20** | **✓** | 加权清晰度 0.90，门槛通过。 |
 
 ## Interview Log
 
 | Round | Perspective | Question summary | Decision locked |
 |-------|-------------|------------------|-----------------|
-| 1 | Researcher | Final deliverable, sidecar strategy, platform scope | Deliver installable macOS/Windows packages with bundled runnable sidecars; Linux is non-blocking. |
-| 2 | Researcher + Simplifier | Python freezing, PG/Redis readiness, documentation scope | Lock Python packaging to a real binary path, require PG/Redis UAT for `/readyz`, and deliver user install/first-run docs. |
-| 3 | Boundary Keeper | Freezing tool, exclusions, final evidence | Use PyInstaller, exclude signing/notarization/auto-update, require `.dmg`/`.msi` plus installed sidecar UAT evidence. |
-| 4 | Failure Analyst | Critical failure, packaged config validation, log rotation | Sidecar startup failure is blocking; Rust validation rejects dev config; log rotation is required. |
-| Edge Probe | Completeness | Packaging, sidecar, runtime, log, and docs edges | All raised edges resolved as explicit acceptance criteria. |
-| Prohibition Probe | Must-NOT | Release honesty, secret exposure, external process safety | Three bespoke prohibitions retained and resolved. |
+| 1 | Researcher | 当前平台能力与 packaged 运行配置来源 | macOS 完成真实安装后 UAT；Windows UAT 延后且非 release-ready；sidecar 只继承启动环境，不新增配置入口。 |
+| Gate | Ambiguity scoring | 是否按 0.10 歧义分数写入 | 用户确认门槛通过并写入 SPEC。 |
+| Edge Probe | Completeness | 7 个安装、平台、环境、依赖、日志与文档边缘 | 7 项全部转为明确 acceptance criteria。 |
+| Prohibition Probe | Must-NOT | 发布诚实、配置隐私、packaged 诊断与外部进程安全 | 4 条 bespoke 禁令全部保留并锁定。 |
 
 ---
 
 *Phase: 10-packaging*
-*Spec created: 2026-07-07*
-*Next step: $gsd-discuss-phase 10 - implementation decisions (how to build what's specified above)*
+*Spec updated: 2026-07-11*
+*Next step: `$gsd-discuss-phase 10` — implementation decisions (how to build what is specified above)*
