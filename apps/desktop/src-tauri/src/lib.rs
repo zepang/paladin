@@ -12,7 +12,9 @@ use crate::process::commands::{
     get_process_status, get_runtime_config, redetect_agent, redetect_server, restart_agent,
     restart_server, stop_agent, stop_server,
 };
-use crate::process::config::ProcessConfig;
+use crate::process::config::{
+    resolve_packaged_executable, resolve_process_config_path, ProcessConfig, ProcessNameKey,
+};
 use crate::process::ProcessSupervisor;
 use crate::terminal::TerminalManager;
 
@@ -91,9 +93,12 @@ pub fn run() {
             // 管理 TerminalManager 实例
             app.manage(TerminalManager::new(app.handle().clone()));
 
-            // plan 07.3-06: 加载 processes.json + 实例化 ProcessSupervisor
-            // SPEC D-07: 单一 Rust 真相源 — cmd/port/health 全来自此配置
-            let config_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("processes.json");
+            // Dev 保留仓库 processes.json；release 只从已安装资源读取 packaged config。
+            let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+            let packaged = !cfg!(debug_assertions);
+            let resource_dir = app.path().resource_dir().ok();
+            let config_path =
+                resolve_process_config_path(packaged, &manifest_dir, resource_dir.as_deref());
             // log_dir: 优先 Tauri app_log_dir,失败降级到 src-tauri/logs
             let log_dir = app
                 .path()
@@ -102,15 +107,53 @@ pub fn run() {
             // 创建 log_dir (已存在则 no-op) — SPEC Edge R10 失败时 capture_lines 仍 emit
             let _ = std::fs::create_dir_all(&log_dir);
 
-            let (supervisor, should_start) = match ProcessConfig::load_from_path(&config_path) {
+            let loaded_config = config_path.and_then(|path| ProcessConfig::load_from_path(path));
+            let loaded_config = loaded_config.and_then(|mut config| {
+                if packaged {
+                    let executable_dir = std::env::current_exe()
+                        .ok()
+                        .and_then(|path| path.parent().map(PathBuf::from))
+                        .or_else(|| resource_dir.clone())
+                        .ok_or_else(|| {
+                            crate::process::config::ConfigError::InvalidSchema(
+                                "packaged executable directory is unavailable".to_string(),
+                            )
+                        })?;
+                    let target = tauri::utils::platform::target_triple().map_err(|error| {
+                        crate::process::config::ConfigError::InvalidSchema(format!(
+                            "cannot determine packaged target triple: {error}"
+                        ))
+                    })?;
+                    for name in [ProcessNameKey::Agent, ProcessNameKey::Server] {
+                        let entry = config.processes.get_mut(&name).ok_or_else(|| {
+                            crate::process::config::ConfigError::InvalidSchema(format!(
+                                "packaged config missing {name:?}"
+                            ))
+                        })?;
+                        let logical_name = entry.cmd.first().cloned().ok_or_else(|| {
+                            crate::process::config::ConfigError::InvalidSchema(format!(
+                                "packaged config {name:?} cmd is empty"
+                            ))
+                        })?;
+                        entry.cmd[0] = resolve_packaged_executable(
+                            &executable_dir,
+                            &logical_name,
+                            &target,
+                            cfg!(windows),
+                        )?
+                        .to_string_lossy()
+                        .into_owned();
+                    }
+                }
+                Ok(config)
+            });
+            let (supervisor, should_start) = match loaded_config {
                 Ok(config) => (
                     ProcessSupervisor::new(app.handle().clone(), config, log_dir),
                     true,
                 ),
                 Err(e) => {
-                    let message = format!(
-                        "运行时配置无效: 加载 processes.json 失败 ({config_path:?}): {e:?}"
-                    );
+                    let message = format!("运行时配置无效: 无法加载已选择的进程资源: {e}");
                     (
                         ProcessSupervisor::from_config_error(
                             app.handle().clone(),

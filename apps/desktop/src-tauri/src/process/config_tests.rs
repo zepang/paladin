@@ -387,7 +387,10 @@ fn test_process_config_path_keeps_dev_manifest_config() {
 
     let resolved = resolve_process_config_path(false, manifest.path(), Some(resource.path()))
         .expect("dev config resolves");
-    assert_eq!(resolved, dev_config.canonicalize().expect("canonical dev path"));
+    assert_eq!(
+        resolved,
+        dev_config.canonicalize().expect("canonical dev path")
+    );
 }
 
 #[test]
@@ -405,7 +408,9 @@ fn test_process_config_path_uses_installed_resource_in_packaged_mode() {
         .expect("packaged config resolves");
     assert_eq!(
         resolved,
-        packaged_config.canonicalize().expect("canonical resource path")
+        packaged_config
+            .canonicalize()
+            .expect("canonical resource path")
     );
 }
 
@@ -413,8 +418,7 @@ fn test_process_config_path_uses_installed_resource_in_packaged_mode() {
 fn test_packaged_config_missing_fails_without_dev_fallback() {
     let manifest = tempdir().expect("manifest tempdir");
     let resource = tempdir().expect("resource tempdir");
-    fs::write(manifest.path().join("processes.json"), DEV_CONFIG_JSON)
-        .expect("dev config written");
+    fs::write(manifest.path().join("processes.json"), DEV_CONFIG_JSON).expect("dev config written");
 
     let err = resolve_process_config_path(true, manifest.path(), Some(resource.path()))
         .expect_err("missing packaged config must fail closed");
@@ -433,14 +437,13 @@ fn test_packaged_executable_resolves_target_triple_and_windows_suffix() {
         let executable = resource.path().join(&filename);
         fs::write(&executable, b"binary").expect("executable fixture written");
 
-        let resolved = resolve_packaged_executable(
-            resource.path(),
-            "paladin-agent-sidecar",
-            target,
-            windows,
-        )
-        .expect("target sidecar resolves");
-        assert_eq!(resolved, executable.canonicalize().expect("canonical executable"));
+        let resolved =
+            resolve_packaged_executable(resource.path(), "paladin-agent-sidecar", target, windows)
+                .expect("target sidecar resolves");
+        assert_eq!(
+            resolved,
+            executable.canonicalize().expect("canonical executable")
+        );
     }
 }
 

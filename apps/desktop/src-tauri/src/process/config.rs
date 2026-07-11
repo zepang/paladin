@@ -128,10 +128,7 @@ const SHUTDOWN_GRACE_MAX_SECS: u64 = 60;
 const HTTP_STATUS_MIN: u16 = 100;
 const HTTP_STATUS_MAX: u16 = 599;
 const PACKAGED_CONFIG_NAME: &str = "processes.packaged.json";
-const PACKAGED_EXECUTABLE_NAMES: [&str; 2] = [
-    "paladin-agent-sidecar",
-    "paladin-server-sidecar",
-];
+const PACKAGED_EXECUTABLE_NAMES: [&str; 2] = ["paladin-agent-sidecar", "paladin-server-sidecar"];
 
 /// Resolve the runtime config without allowing packaged builds to fall back to source files.
 pub fn resolve_process_config_path(

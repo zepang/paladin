@@ -29,6 +29,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "externalBin": [
+      "binaries/paladin-agent-sidecar",
+      "binaries/paladin-server-sidecar"
+    ],
+    "resources": ["processes.packaged.json"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
