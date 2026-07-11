@@ -26,6 +26,7 @@ dist/
 # Rust / Tauri — apps/desktop/src-tauri
 # =====================
 target/
+apps/desktop/src-tauri/binaries/
 
 # =====================
 # Python — apps/agent
@@ -38,6 +39,7 @@ venv/
 .python-version
 uv.lock
 Pipfile.lock
+apps/agent/build/
 
 # =====================
 # Go — apps/server
@@ -46,6 +48,7 @@ Pipfile.lock
 *.test
 *.out
 vendor/
+apps/server/paladin-server-sidecar
 
 # =====================
 # Environment & Secrets

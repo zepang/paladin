@@ -5,7 +5,8 @@
   "scripts": {
     "lint": "biome check .",
     "format": "biome format --write .",
-    "check": "biome ci ."
+    "check": "biome ci .",
+    "release": "pnpm --filter @paladin/desktop release"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4"

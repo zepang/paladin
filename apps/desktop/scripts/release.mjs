@@ -1,8 +1,15 @@
-import { readdir } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { access, copyFile, lstat, mkdir, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const LOGICAL_SIDECARS = new Set(['paladin-agent-sidecar', 'paladin-server-sidecar']);
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(scriptDir, '../../..');
+const agentDir = path.join(repoRoot, 'apps/agent');
+const serverDir = path.join(repoRoot, 'apps/server');
+const desktopDir = path.join(repoRoot, 'apps/desktop');
+const binariesDir = path.join(desktopDir, 'src-tauri/binaries');
 
 export function sidecarFileName(logicalName, targetTriple) {
   if (!LOGICAL_SIDECARS.has(logicalName)) {
@@ -17,7 +24,13 @@ export function sidecarFileName(logicalName, targetTriple) {
 
 export async function auditBundleInputs(inputRoots) {
   for (const root of inputRoots) {
-    await auditTree(path.resolve(root), path.resolve(root));
+    const resolved = path.resolve(root);
+    const stats = await lstat(resolved);
+    if (stats.isFile()) {
+      assertAllowedInput(path.basename(resolved), resolved, resolved);
+    } else {
+      await auditTree(resolved, resolved);
+    }
   }
 }
 
@@ -32,9 +45,13 @@ async function auditTree(root, current) {
       await auditTree(root, entryPath);
       continue;
     }
-    if (entry.name === '.env' || entry.name.startsWith('.env.')) {
-      throw new Error(`Release input contains a forbidden .env file: ${path.relative(root, entryPath)}`);
-    }
+    assertAllowedInput(entry.name, root, entryPath);
+  }
+}
+
+function assertAllowedInput(name, root, inputPath) {
+  if (name === '.env' || name.startsWith('.env.')) {
+    throw new Error(`Release input contains a forbidden .env file: ${path.relative(root, inputPath)}`);
   }
 }
 
@@ -46,10 +63,130 @@ export async function orchestrateRelease(steps) {
   await steps.buildTauri();
 }
 
+export async function runCommand(command, args, options = {}) {
+  await new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: options.cwd,
+      env: options.env ?? process.env,
+      stdio: 'inherit',
+      shell: false,
+    });
+    child.once('error', reject);
+    child.once('close', (code, signal) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`${command} failed (${signal ?? `exit ${code ?? 'unknown'}`})`));
+      }
+    });
+  });
+}
+
+export async function currentTargetTriple() {
+  let stdout = '';
+  await new Promise((resolve, reject) => {
+    const child = spawn('rustc', ['-vV'], { shell: false, stdio: ['ignore', 'pipe', 'inherit'] });
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.once('error', reject);
+    child.once('close', (code) => code === 0 ? resolve() : reject(new Error('rustc -vV failed')));
+  });
+  const target = stdout.match(/^host:\s*(\S+)$/m)?.[1];
+  if (!target) {
+    throw new Error('Unable to determine current target triple');
+  }
+  return target;
+}
+
+export async function buildAgent({ run = runCommand } = {}) {
+  await rm(path.join(agentDir, 'dist'), { recursive: true, force: true });
+  await run('uv', ['run', 'pyinstaller', '--noconfirm', '--clean', 'paladin-agent-sidecar.spec'], {
+    cwd: agentDir,
+  });
+  return path.join(agentDir, 'dist', process.platform === 'win32'
+    ? 'paladin-agent-sidecar.exe'
+    : 'paladin-agent-sidecar');
+}
+
+export async function buildServer({ targetTriple, run = runCommand } = {}) {
+  const output = path.join(serverDir, process.platform === 'win32'
+    ? 'paladin-server-sidecar.exe'
+    : 'paladin-server-sidecar');
+  await run('go', ['build', '-trimpath', '-o', output, './cmd/server'], { cwd: serverDir });
+  return output;
+}
+
+async function stageSidecar(source, logicalName, targetTriple) {
+  await access(source);
+  await mkdir(binariesDir, { recursive: true });
+  const destination = path.join(binariesDir, sidecarFileName(logicalName, targetTriple));
+  await copyFile(source, destination);
+  return destination;
+}
+
+async function verifySidecars(paths) {
+  for (const sidecarPath of paths) {
+    await access(sidecarPath);
+  }
+}
+
+function parseArgs(argv) {
+  const options = { sidecarsOnly: false, target: 'current', verify: false };
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === '--') continue;
+    if (argument === '--sidecars-only') options.sidecarsOnly = true;
+    else if (argument === '--verify') options.verify = true;
+    else if (argument === '--target') options.target = argv[++index];
+    else throw new Error(`Unknown release argument: ${argument}`);
+  }
+  if (!options.target) throw new Error('--target requires a value');
+  return options;
+}
+
+export async function main(argv = process.argv.slice(2)) {
+  const options = parseArgs(argv);
+  const targetTriple = options.target === 'current' ? await currentTargetTriple() : options.target;
+  let agentArtifact;
+  let serverArtifact;
+  let staged = [];
+  await orchestrateRelease({
+    buildAgent: async () => { agentArtifact = await buildAgent(); },
+    buildServer: async () => { serverArtifact = await buildServer({ targetTriple }); },
+    auditBundleInputs: async () => auditBundleInputs([
+      path.join(agentDir, 'src'),
+      path.join(agentDir, 'config'),
+      path.join(agentDir, 'prompts'),
+      path.join(agentDir, 'skills'),
+      path.join(desktopDir, 'src'),
+      path.join(desktopDir, 'src-tauri/tauri.conf.json'),
+    ]),
+    verifySidecars: async () => {
+      staged = [
+        await stageSidecar(agentArtifact, 'paladin-agent-sidecar', targetTriple),
+        await stageSidecar(serverArtifact, 'paladin-server-sidecar', targetTriple),
+      ];
+      await verifySidecars(staged);
+    },
+    buildTauri: async () => {
+      if (!options.sidecarsOnly) {
+        await runCommand(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['tauri', 'build'], {
+          cwd: desktopDir,
+        });
+      }
+    },
+  });
+  if (options.verify) {
+    console.log(`Verified ${staged.length} staged sidecars for ${targetTriple}.`);
+  }
+  return { targetTriple, staged };
+}
+
 const isDirectInvocation = process.argv[1]
   && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isDirectInvocation) {
-  console.error('Release build steps are not configured yet.');
-  process.exitCode = 1;
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
 }
