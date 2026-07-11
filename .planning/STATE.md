@@ -5,14 +5,14 @@ milestone_name: milestone
 current_phase: 10
 current_phase_name: Packaging
 status: Phase 10 in progress
-stopped_at: Completed 10-02-PLAN.md
-last_updated: "2026-07-11T10:20:31.971Z"
+stopped_at: Completed 10-03-PLAN.md
+last_updated: "2026-07-11T10:25:51.624Z"
 progress:
   total_phases: 17
   completed_phases: 14
   total_plans: 66
-  completed_plans: 50
-  percent: 76
+  completed_plans: 51
+  percent: 77
 ---
 
 # Project State: Paladin
@@ -59,6 +59,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Recent Activity
 
+- 2026-07-11: Phase 10 Plan 03 completed — env-clear explicit sidecar allowlists, forced packaged runtime marker, ownership-safe lifecycle, and Python/Go packaged dotenv prohibition; Rust 87/87, pytest 3/3, and Go focused tests passed.
 - 2026-07-11: Phase 10 Plan 02 completed — separate packaged config, Tauri resource/externalBin wiring, canonical installed lookup, target-triple and Windows suffix resolution; Rust process tests 82/82 and cargo check passed.
 - 2026-07-11: Phase 10 Plan 01 completed — single shell-free release entrypoint, PyInstaller Agent + native Go Server sidecars, target-triple staging, fail-closed `.env` input audit; Node contracts 4/4 and current `aarch64-apple-darwin` sidecars-only build/verify passed.
 - 2026-07-06: Phase 07.4 completed — Sidecar Runtime Mode: Rust `state+owner+health` tuple, dev health-first attach/spawn/conflict, packaged no-dev-deps validation, external action safety, redetect commands, frontend tuple UX, config diagnostic path; gates green (`cargo test process:: --lib` 70/70, `cargo test`, clippy, desktop build, Vitest 43/43). Manual packaged/platform UAT deferred to Phase 10.
@@ -99,8 +100,8 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Session
 
-**Last session:** 2026-07-11T10:20:31.961Z
-**Stopped at:** Completed 10-02-PLAN.md
+**Last session:** 2026-07-11T10:25:51.617Z
+**Stopped at:** Completed 10-03-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -133,6 +134,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | Phase 10 P10-01 | 8 min | 3 tasks | 8 files |
 | Phase 10 P04 | 4min | 2 tasks | 5 files |
 | Phase 10 P02 | 8 min | 2 tasks | 5 files |
+| Phase 10 P03 | 8 min | 2 tasks | 7 files |
 
 ## Decisions
 
@@ -140,6 +142,9 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 - Generated target binaries remain ignored build outputs and are regenerated from repository source.
 - Debug builds retain repository `processes.json`; release builds require `processes.packaged.json` from Tauri `resource_dir`.
 - Packaged executable resolution accepts only the two locked logical sidecar names and canonical installed paths.
+- [Phase 10]: Sidecars start from env_clear and receive only non-empty explicit business/system variables.
+- [Phase 10]: The supervisor always overwrites PALADIN_RUNTIME_MODE from validated runtime config.
+- [Phase 10]: External restart means redetection only; stop and shutdown never terminate external processes.
 
 ## Quick Tasks Completed
 
