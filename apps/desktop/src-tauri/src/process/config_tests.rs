@@ -11,7 +11,10 @@ use std::path::PathBuf;
 
 use tempfile::{tempdir, TempDir};
 
-use crate::process::config::{ConfigError, ProcessConfig, ProcessNameKey};
+use crate::process::config::{
+    resolve_packaged_executable, resolve_process_config_path, ConfigError, ProcessConfig,
+    ProcessNameKey,
+};
 
 /// plan 01 写的 dev 模式 processes.json — round-trip 黄金样本。
 const DEV_CONFIG_JSON: &str = include_str!("../../processes.json");
@@ -373,6 +376,96 @@ fn test_dev_skeleton_still_allows_dev_commands_and_cwd() {
     let (_dir, path) = write_temp_config(DEV_CONFIG_JSON);
     let cfg = ProcessConfig::load_from_path(&path).expect("dev skeleton remains valid");
     assert_eq!(cfg.mode, "dev");
+}
+
+#[test]
+fn test_process_config_path_keeps_dev_manifest_config() {
+    let manifest = tempdir().expect("manifest tempdir");
+    let resource = tempdir().expect("resource tempdir");
+    let dev_config = manifest.path().join("processes.json");
+    fs::write(&dev_config, DEV_CONFIG_JSON).expect("dev config written");
+
+    let resolved = resolve_process_config_path(false, manifest.path(), Some(resource.path()))
+        .expect("dev config resolves");
+    assert_eq!(resolved, dev_config.canonicalize().expect("canonical dev path"));
+}
+
+#[test]
+fn test_process_config_path_uses_installed_resource_in_packaged_mode() {
+    let manifest = tempdir().expect("manifest tempdir");
+    let resource = tempdir().expect("resource tempdir");
+    let packaged_config = resource.path().join("processes.packaged.json");
+    fs::write(
+        &packaged_config,
+        packaged_skeleton_json(PACKAGED_AGENT_OK, PACKAGED_SERVER_OK),
+    )
+    .expect("packaged config written");
+
+    let resolved = resolve_process_config_path(true, manifest.path(), Some(resource.path()))
+        .expect("packaged config resolves");
+    assert_eq!(
+        resolved,
+        packaged_config.canonicalize().expect("canonical resource path")
+    );
+}
+
+#[test]
+fn test_packaged_config_missing_fails_without_dev_fallback() {
+    let manifest = tempdir().expect("manifest tempdir");
+    let resource = tempdir().expect("resource tempdir");
+    fs::write(manifest.path().join("processes.json"), DEV_CONFIG_JSON)
+        .expect("dev config written");
+
+    let err = resolve_process_config_path(true, manifest.path(), Some(resource.path()))
+        .expect_err("missing packaged config must fail closed");
+    assert!(matches!(err, ConfigError::NotFound(_)));
+    assert!(format!("{err}").contains("processes.packaged.json"));
+}
+
+#[test]
+fn test_packaged_executable_resolves_target_triple_and_windows_suffix() {
+    for (target, windows, suffix) in [
+        ("aarch64-apple-darwin", false, ""),
+        ("x86_64-pc-windows-msvc", true, ".exe"),
+    ] {
+        let resource = tempdir().expect("resource tempdir");
+        let filename = format!("paladin-agent-sidecar-{target}{suffix}");
+        let executable = resource.path().join(&filename);
+        fs::write(&executable, b"binary").expect("executable fixture written");
+
+        let resolved = resolve_packaged_executable(
+            resource.path(),
+            "paladin-agent-sidecar",
+            target,
+            windows,
+        )
+        .expect("target sidecar resolves");
+        assert_eq!(resolved, executable.canonicalize().expect("canonical executable"));
+    }
+}
+
+#[test]
+fn test_packaged_executable_rejects_unknown_name_traversal_and_missing_file() {
+    let resource = tempdir().expect("resource tempdir");
+    for logical_name in ["../paladin-agent-sidecar", "unknown-sidecar"] {
+        let err = resolve_packaged_executable(
+            resource.path(),
+            logical_name,
+            "aarch64-apple-darwin",
+            false,
+        )
+        .expect_err("unsafe or unknown name rejected");
+        assert!(matches!(err, ConfigError::InvalidSchema(_)));
+    }
+
+    let err = resolve_packaged_executable(
+        resource.path(),
+        "paladin-server-sidecar",
+        "aarch64-apple-darwin",
+        false,
+    )
+    .expect_err("missing sidecar rejected");
+    assert!(matches!(err, ConfigError::NotFound(_)));
 }
 
 #[test]
