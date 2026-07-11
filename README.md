@@ -32,6 +32,10 @@ pnpm check
 pnpm format
 ```
 
+## Packaging / 安装
+
+安装、首次运行、逐平台验证状态和排障说明见 [Packaging 文档](docs/packaging.md)。Windows native MSI 构建成功仅表示 buildability；在完成 installed-app UAT 前不视为 release-ready。
+
 ## 项目结构
 
 ```

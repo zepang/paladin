@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { lstat } from 'node:fs/promises';
+import { lstat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const WINDOWS_TARGET = 'x86_64-pc-windows-msvc';
 
@@ -58,4 +59,37 @@ export async function createBuildManifest({ commitSha, runnerOs, target, artifac
     target,
     artifacts: [agent, server, installer],
   };
+}
+
+function parseArgs(argv) {
+  const options = {};
+  for (let index = 0; index < argv.length; index += 2) {
+    const key = argv[index];
+    const value = argv[index + 1];
+    if (!key?.startsWith('--') || value === undefined) throw new Error(`Invalid argument: ${key ?? ''}`);
+    options[key.slice(2)] = value;
+  }
+  return options;
+}
+
+async function main(argv = process.argv.slice(2)) {
+  const options = parseArgs(argv);
+  if (!options.output) throw new Error('--output is required');
+  const manifest = await createBuildManifest({
+    commitSha: options.commit,
+    runnerOs: options['runner-os'],
+    target: options.target,
+    artifacts: { agent: options.agent, server: options.server, installer: options.installer },
+  });
+  await writeFile(options.output, `${JSON.stringify(manifest, null, 2)}\n`, { flag: 'wx' });
+}
+
+const isDirectInvocation = process.argv[1]
+  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectInvocation) {
+  main().catch((error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
 }
