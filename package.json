@@ -6,6 +6,7 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "check": "biome ci .",
+    "test": "pnpm --filter @paladin/desktop test --run && node --test apps/desktop/scripts/*.test.mjs",
     "release": "pnpm --filter @paladin/desktop release"
   },
   "devDependencies": {

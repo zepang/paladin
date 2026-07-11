@@ -17,6 +17,7 @@ export default defineConfig(async () => ({
   test: {
     globals: false,
     environment: 'jsdom',
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
     server: {
       deps: {
         // CopilotKit v2 imports CSS; inline it so Vitest lets Vite process that import.
