@@ -16,7 +16,10 @@ fn keeps_complete_lines_and_rotates_before_exceeding_threshold() {
 
     writer.write_line("abc\n").expect("overflowing line");
     assert_eq!(fs::read_to_string(&path).unwrap(), "abc\n");
-    assert_eq!(fs::read_to_string(path.with_extension("log.1")).unwrap(), "1234567\n");
+    assert_eq!(
+        fs::read_to_string(path.with_extension("log.1")).unwrap(),
+        "1234567\n"
+    );
 }
 
 #[test]
@@ -31,7 +34,10 @@ fn retains_active_plus_four_archives_and_preserves_newest_first_order() {
 
     assert_eq!(fs::read_to_string(&path).unwrap(), "55\n");
     for (suffix, expected) in [(1, "44\n"), (2, "33\n"), (3, "22\n"), (4, "11\n")] {
-        assert_eq!(fs::read_to_string(format!("{}.{}", path.display(), suffix)).unwrap(), expected);
+        assert_eq!(
+            fs::read_to_string(format!("{}.{}", path.display(), suffix)).unwrap(),
+            expected
+        );
     }
     assert!(!std::path::Path::new(&format!("{}.5", path.display())).exists());
 }

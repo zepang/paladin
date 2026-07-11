@@ -8,12 +8,12 @@ use std::thread;
 use std::time::Duration;
 
 use crate::process::config::{EndpointConfig, HealthConfig, ProcessEntry, RuntimeMode};
+use crate::process::log_rotate::{RotatingLineWriter, RotationPolicy};
 use crate::process::supervisor::{
     augmented_spawn_path, process_log_line, resolve_dev_runtime_path, should_shutdown_on_drop,
     spawn_path_for_mode, DevRuntimePath, LogChunk, LogStream, ProcessHealth, ProcessInfoDTO,
     ProcessName, ProcessOwner, ProcessState,
 };
-use crate::process::log_rotate::{RotatingLineWriter, RotationPolicy};
 use tempfile::tempdir;
 
 #[test]
@@ -50,11 +50,28 @@ fn test_process_log_line_keeps_emitting_after_persistence_failure() {
     let mut tail = VecDeque::new();
     let mut events: Vec<LogChunk> = Vec::new();
 
-    process_log_line(ProcessName::Server, LogStream::Stdout, "one", &mut writer, &mut tail, |c| events.push(c.clone()));
+    process_log_line(
+        ProcessName::Server,
+        LogStream::Stdout,
+        "one",
+        &mut writer,
+        &mut tail,
+        |c| events.push(c.clone()),
+    );
     std::fs::create_dir(&missing_parent).expect("restore persistence");
-    process_log_line(ProcessName::Server, LogStream::Stdout, "two", &mut writer, &mut tail, |c| events.push(c.clone()));
+    process_log_line(
+        ProcessName::Server,
+        LogStream::Stdout,
+        "two",
+        &mut writer,
+        &mut tail,
+        |c| events.push(c.clone()),
+    );
 
-    assert_eq!(events.iter().map(|e| e.line.as_str()).collect::<Vec<_>>(), ["one", "two"]);
+    assert_eq!(
+        events.iter().map(|e| e.line.as_str()).collect::<Vec<_>>(),
+        ["one", "two"]
+    );
     assert!(tail.is_empty(), "stdout must not enter stderr tail");
     assert_eq!(std::fs::read_to_string(path).unwrap(), "[stdout] two\n");
 }

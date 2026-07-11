@@ -29,6 +29,7 @@ use crate::process::config::{
     EndpointConfig, HealthConfig, ProcessConfig, ProcessEntry, ProcessNameKey, RuntimeMode,
 };
 use crate::process::log_redact::redact_log_line;
+use crate::process::log_rotate::{RotatingLineWriter, RotationPolicy};
 use crate::process::port_probe::{check_port_or_error, is_port_available};
 use crate::process::state_machine::{
     backoff_delay, transition, ProcessEvent, SupervisorSnapshot, STARTUP_GRACE_SECS,
@@ -46,7 +47,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
 use tokio::io::AsyncBufReadExt;
-use tokio::io::{AsyncRead, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncRead, BufReader};
 use tokio::process::{Child, ChildStderr, ChildStdout, Command};
 use tokio::sync::Mutex;
 
@@ -173,6 +174,43 @@ pub struct LogChunk {
     pub line: String,
     /// Unix epoch 毫秒时间戳。
     pub ts: i64,
+}
+
+/// Apply the security-sensitive log ordering shared by capture and deterministic tests:
+/// redact first, then emit/tail, and only then attempt bounded persistence.
+pub(crate) fn process_log_line<F>(
+    name: ProcessName,
+    stream: LogStream,
+    raw_line: &str,
+    writer: &mut RotatingLineWriter,
+    stderr_tail: &mut VecDeque<String>,
+    mut emit: F,
+) where
+    F: FnMut(&LogChunk),
+{
+    let redacted = redact_log_line(raw_line);
+    let chunk = LogChunk {
+        process: name,
+        stream,
+        line: redacted.clone(),
+        ts: now_ms(),
+    };
+    emit(&chunk);
+
+    if stream == LogStream::Stderr {
+        if stderr_tail.len() >= STDERR_TAIL_CAPACITY {
+            stderr_tail.pop_front();
+        }
+        stderr_tail.push_back(redacted.clone());
+    }
+
+    let persisted = match stream {
+        LogStream::Stderr => format!("[stderr] {redacted}\n"),
+        LogStream::Stdout => format!("[stdout] {redacted}\n"),
+    };
+    // Persistence is deliberately best-effort. The writer remains available so a transient
+    // rename/open/write failure cannot silence later lines or the process-log event stream.
+    let _ = writer.write_line(&persisted);
 }
 
 /// 单进程的对外 DTO (get_process_status 命令与 process-status payload 共用)。
@@ -1425,13 +1463,7 @@ async fn capture_lines<R>(
 {
     let mut buf = BufReader::new(reader);
 
-    // SPEC Edge R10: logs-dir-not-writable 降级 — 文件打开失败时仍 emit 不阻塞。
-    let mut file: Option<tokio::fs::File> = tokio::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_path)
-        .await
-        .ok();
+    let mut writer = RotatingLineWriter::new(log_path, RotationPolicy::default());
 
     let mut line_buf = String::new();
     loop {
@@ -1440,38 +1472,17 @@ async fn capture_lines<R>(
             Ok(0) => break, // EOF — child stdout/stderr 关闭
             Ok(_) => {
                 let trimmed = line_buf.trim_end_matches(['\n', '\r']);
-                // plan 05 已脱敏 (内联 token / 路径 / DSN — 6 用例覆盖)
-                let redacted = redact_log_line(trimmed);
-
-                // emit process-log — 前端按 (process, stream) 路由到对应 console tab
-                let chunk = LogChunk {
-                    process: name,
+                let mut mp = slot.state.lock().await;
+                process_log_line(
+                    name,
                     stream,
-                    line: redacted.clone(),
-                    ts: now_ms(),
-                };
-                let _ = app.emit("process-log", &chunk);
-
-                // SPEC Prohibition P2: stderr_tail 保留末尾 50 行,供 Stopped/Unhealthy
-                // 时 emit_status 暴露退出原因;stdout 不进 tail (避免噪音)。
-                if stream == LogStream::Stderr {
-                    let mut mp = slot.state.lock().await;
-                    if mp.stderr_tail.len() >= STDERR_TAIL_CAPACITY {
-                        mp.stderr_tail.pop_front();
-                    }
-                    mp.stderr_tail.push_back(redacted.clone());
-                }
-
-                // 落盘 (若文件可用) — 写失败则降级为 None,避免反复失败占用 CPU
-                if let Some(ref mut f) = file {
-                    let to_write = match stream {
-                        LogStream::Stderr => format!("[stderr] {redacted}\n"),
-                        LogStream::Stdout => format!("[stdout] {redacted}\n"),
-                    };
-                    if f.write_all(to_write.as_bytes()).await.is_err() {
-                        file = None;
-                    }
-                }
+                    trimmed,
+                    &mut writer,
+                    &mut mp.stderr_tail,
+                    |chunk| {
+                        let _ = app.emit("process-log", chunk);
+                    },
+                );
             }
             Err(_) => break,
         }
