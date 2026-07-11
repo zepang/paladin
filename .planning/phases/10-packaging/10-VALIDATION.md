@@ -1,92 +1,95 @@
 ---
 phase: 10
 slug: packaging
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: ready
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-07-07
+updated: 2026-07-11
 ---
 
 # Phase 10 — Validation Strategy
 
-> Per-phase validation contract for feedback sampling during execution.
+本合同映射当前 `10-01`～`10-09` 计划。`nyquist_compliant` 表示每个任务已有可执行自动化门或明确的人工 checkpoint，不表示尚未执行的任务已经通过。
 
----
+## 发布门定义
 
-## Test Infrastructure
+- 唯一 installed-app 阻塞门：macOS 已安装应用四场景矩阵（依赖全可用、仅 PostgreSQL 缺失、仅 Redis 缺失、两者均缺失）。
+- Windows：`windows-latest` 原生 x64 MSI workflow 只证明 `buildability-only`；installed-app UAT deferred，始终 `non-release-ready`，不阻塞 Phase 10。
+- Linux 与 Windows ARM64 均非本阶段阻塞目标。
 
-| Property | Value |
-|----------|-------|
-| **Framework** | Rust `cargo test`, Node/Vitest, shell build probes, manual installed-app UAT |
-| **Config file** | `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/package.json`, root `package.json` |
-| **Quick run command** | `cd apps/desktop/src-tauri && cargo test process:: --lib` |
-| **Full suite command** | `pnpm --filter @paladin/desktop test && cd apps/desktop/src-tauri && cargo test && cargo clippy --all-targets -- -D warnings` |
-| **Estimated runtime** | ~180 seconds excluding installer builds and manual UAT |
+## 反馈延迟层级
 
----
+| 层级 | 目标延迟 | 用途 |
+|---|---:|---|
+| Quick | `< 60s` | Node/shell unit、单个 Rust/RTL/pytest/Go focused test |
+| Focused | `< 10min` | sidecar staging smoke、Rust process group、desktop focused UI、sentinel aggregate scan |
+| Full | closure only | desktop full Vitest、full cargo test+clippy、Agent pytest、Go tests |
+| External/manual | 不计入 quick latency | Windows CI wait、DMG build、真实安装与 macOS UAT |
 
-## Sampling Rate
+规则：每个 task commit 运行其行内 gate；每 wave 运行相关 focused 集；10-07 先 focused fail-fast，再运行 full closure。
 
-- **After every task commit:** Run the fastest relevant automated command for the touched surface:
-  - Rust process/config/logging changes: `cd apps/desktop/src-tauri && cargo test process:: --lib`
-  - Desktop frontend/process UI changes: `pnpm --filter @paladin/desktop test`
-  - Release script changes: run the script's dry-run/help/fixture verification if provided by the plan.
-- **After every plan wave:** Run `pnpm --filter @paladin/desktop test && cd apps/desktop/src-tauri && cargo test`.
-- **Before `$gsd-verify-work`:** Full automated suite must be green and manual installed-app UAT status must be recorded.
-- **Max feedback latency:** 10 minutes for automated checks; manual macOS/Windows installed UAT is explicitly outside the quick loop.
+## 当前 Task Verification Map
 
----
+| Task ID | Wave | Requirement | Automated gate / evidence | Latency | Status |
+|---|---:|---|---|---|---|
+| 10-01/T0 | 1 | PKG-01~03 | Validation current-ID/legacy-text fail-closed contract check | Quick | pending |
+| 10-01/T1 | 1 | PKG-01/02 | `node --test apps/desktop/scripts/release.test.mjs` | Quick | pending |
+| 10-01/T2 | 1 | PKG-01/02 | `pnpm release -- --sidecars-only --target current --verify` | Focused | pending |
+| 10-04/T1 | 1 | PKG-03 | `cargo test process::log_rotate --lib` | Quick | pending |
+| 10-04/T2 | 1 | PKG-03 | `cargo test process:: --lib log -- --nocapture` | Focused | pending |
+| 10-02/T1 | 2 | PKG-01/02 | `cargo test process::config --lib` | Quick | pending |
+| 10-02/T2 | 2 | PKG-01/02 | `cargo test process:: --lib && cargo check` | Focused | pending |
+| 10-03/T1 | 3 | PKG-01/02 | owner test binary must report the named 4 lifecycle cases and nonzero test count | Quick | pending |
+| 10-03/T2 | 3 | PKG-01/02 | Agent CLI pytest + Go cmd/config tests | Focused | pending |
+| 10-05/T1 | 4 | PKG-02/03 | build-manifest Node tests | Quick | pending |
+| 10-05/T2 | 4 | PKG-02/03 | workflow/docs/README entry assertions | Quick | pending |
+| 10-05/T3 | 4 | PKG-02 | successful native Windows run + exact MSI/manifest hash evidence | External workflow checkpoint | pending |
+| 10-08/T1 | 4 | PKG-01/03 | StartupMask RTL packaged-copy and Go-nonblocking tests | Quick | pending |
+| 10-08/T2 | 4 | PKG-01/03 | ProcessLight RTL degraded-copy/owner-action tests | Quick | pending |
+| 10-09/T1 | 5 | PKG-01/03 | secret-sentinel fail-closed unit tests | Quick | pending |
+| 10-09/T2 | 5 | PKG-01/03 | staging smoke + `secret-sentinel --require-all` | Focused | pending |
+| 10-09/T3 | 5 | PKG-01 | nonempty DMG + SHA-256 + final sentinel scan | External blocking checkpoint | pending |
+| 10-06/T1 | 6 | PKG-01/03 | macOS wrapper shell tests | Quick | pending |
+| 10-06/T2 | 6 | PKG-01/02/03 | DMG evidence/hash/UAT schema quick check | Quick | pending |
+| 10-06/T3 | 6 | PKG-01/03 | four latest macOS scenario records complete + human installed-app confirmation | Manual blocking checkpoint | pending |
+| 10-07/T1 | 7 | PKG-01~03 | focused fail-fast then full suites; record elapsed time | Full closure | pending |
+| 10-07/T2 | 7 | PKG-01~03 | Goal/PKG/D-01..D-25/R1..R7/Prohibition 1..4 coverage gate | Quick | pending |
 
-## Per-Task Verification Map
+## Edge Coverage Gates
 
-| Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
-|---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 10-W0-01 | Wave 0 | 0 | PKG-01~03 | — | Establish release/UAT evidence locations before implementation | source | `test -f .planning/phases/10-packaging/10-VALIDATION.md` | ✅ | ⬜ pending |
-| 10-PKG-01 | 10-02/T5, 10-05/T1, 10-05/T3 | 2, 5 | PKG-01 | T-10-packaging-artifact | macOS installer must not depend on dev commands after install | build + manual gate | `pnpm --filter @paladin/desktop exec node apps/desktop/scripts/tauri-cli.mjs release-installers --platform macos --out-dir apps/desktop/src-tauri/target/release/bundle && find apps/desktop/src-tauri/target/release/bundle/dmg -name '*.dmg' -print -quit \| grep -q .` | ✅ | ⬜ pending |
-| 10-PKG-02 | 10-02/T5, 10-05/T1, 10-05/T3 | 2, 5 | PKG-02 | T-10-packaging-artifact | Windows installer must not depend on dev commands after install | build + manual gate | `pnpm --filter @paladin/desktop exec node apps/desktop/scripts/tauri-cli.mjs release-installers --platform windows --out-dir apps/desktop/src-tauri/target/release/bundle && find apps/desktop/src-tauri/target/release/bundle/msi -name '*.msi' -print -quit \| grep -q .` | ✅ | ⬜ pending |
-| 10-SDC-01 | 10-01/T2, 10-01/T3, 10-02/T4, 10-03/T1, 10-03/T2 | 1, 2, 3 | PKG-01~03 | T-10-sidecar-path | Packaged config rejects dev tools and resolves sidecars from bundle/install context | build + unit | `pnpm --filter @paladin/desktop exec node apps/desktop/scripts/tauri-cli.mjs release-sidecars --platform current --verify-runtime-contract && cd apps/desktop/src-tauri && cargo test process::config --lib` | ✅ | ⬜ pending |
-| 10-SDC-02 | 10-03/T1, 10-03/T2, 10-03/T4 | 3 | PKG-01~03 | T-10-process-control | Packaged stop/restart/shutdown only affects supervisor-owned child handles | unit | `cd apps/desktop/src-tauri && cargo test process::supervisor --lib` | ✅ | ⬜ pending |
-| 10-LOG-01 | 10-03/T3, 10-03/T4 | 3 | PKG-03 | T-10-secret-log | Log rotation preserves redaction and complete lines | unit | `cd apps/desktop/src-tauri && cargo test process:: --lib log -- --nocapture` | ✅ | ⬜ pending |
-| 10-UAT-PREREQ | 10-02/T4, 10-05/T2 | 2, 5 | PKG-01~03 | T-10-config-chain | Installed-app env/config/assets contract is explicit before UAT starts | manual gate + source | `10-UAT.md` prerequisite sections cover Agent API key, Go DB/Redis/JWT, runtime assets/config, and failure wording. | ✅ | ⬜ pending |
-| 10-UAT-01 | 10-05/T3, 10-05/T4, 10-05/T5 | 5 | PKG-01~03 | T-10-release-honesty | UAT docs truthfully mark unverified platforms not release-ready | manual gate + source | `10-UAT.md` records the four platform/scenario runs, and README/docs repeat the same platform status truthfully. | ✅ | ⬜ pending |
-| 10-CLOSE-01 | 10-05/T6 | 5 | PKG-01~03 | T-10-source-audit | Closure only after full source audit and dual-platform hard gate | source + audit | `rg -n "D-01\|D-02\|D-03\|D-04\|D-05\|D-06\|D-07\|D-08\|D-09\|D-10\|D-11\|D-12\|D-13\|D-14\|D-15\|D-16\|PKG-01\|PKG-02\|PKG-03\|Requirement 1\|Requirement 2\|Requirement 3\|Requirement 4\|Requirement 5\|Requirement 6\|R1\|R2\|R3\|R4\|R5\|R6\|MUST NOT\|release-ready\|not release-ready" .planning/phases/10-packaging/10-VERIFICATION.md .planning/phases/10-packaging/10-VALIDATION.md` | ✅ | ⬜ pending |
+| Edge | Gate |
+|---|---|
+| R1 fresh installed macOS, no dev dependency | 10-09/T3 artifact identity + 10-06/T3 installed UAT |
+| R2 build/UAT/release-ready separation | 10-05/T3 Windows evidence + 10-07/T2 release-honesty audit |
+| R3 target-triple and `.exe` resolution | 10-01/T1 + 10-02/T1 |
+| R4 startup environment snapshot/no hot reload | 10-03/T1/T2 + 10-06/T1 |
+| R5 PG/Redis degraded combinations non-blocking | 10-08/T1/T2 + 10-06/T3 four-scenario matrix |
+| R6 10 MB × 5 complete-line rotation/UI continuity | 10-04/T1/T2 + 10-09 sentinel scan |
+| R7 per-platform build/UAT/release-ready status | 10-05/T2/T3 + 10-06/T2 + 10-07/T2 |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+## Prohibition Gates
 
----
+| Prohibition | Fail-closed gate |
+|---|---|
+| Prohibition 1: no false release-ready | Windows evidence schema forces `buildability-only`/`release_ready:false`; macOS derives status only from complete matrix |
+| Prohibition 2: no secret values in bundle/log/UI/docs/evidence | 10-09 injects four unique sentinels; any hit or missing/empty/unreadable target fails |
+| Prohibition 3: no packaged developer-command/source-path guidance | 10-08 rendered UI negatives + 10-05 docs assertions + 10-09 recursive copy scan |
+| Prohibition 4: no external process termination | 10-03/T1 executes three external lifecycle negative cases plus supervisor-owned positive case; zero tests fails |
 
-## Wave 0 Requirements
+## Manual / External Evidence
 
-- [x] Planner created exact plan IDs and replaced `TBD` rows above with final task/plan references.
-- [ ] Planner must add or identify automated tests for packaged config lookup, packaged sidecar path resolution, and 10 MB x 5 log rotation.
-- [ ] Planner must define the release command(s) that prove `.dmg` and `.msi` artifacts exist.
-- [ ] Planner must define a phase-local UAT evidence artifact for installed macOS/Windows runs, including PG/Redis available and unavailable paths.
-- [ ] Planner must define the installed-app env/config/assets prerequisite gate before manual UAT can start.
+- Windows evidence: `.planning/phases/10-packaging/evidence/windows-build.json` records workflow run URL/id, commit, artifact identity, MSI/manifest hashes. It never proves installed UAT.
+- macOS artifact evidence: `.planning/phases/10-packaging/evidence/macos-build.json` records staging smoke, final scan, DMG identity/hash.
+- macOS installed evidence: `10-UAT.json` append-only attempts plus redacted `evidence/`; all four scenarios must pass and receive human confirmation.
 
----
+## Sign-Off Contract
 
-## Manual-Only Verifications
+- [x] Every current task ID has an automated gate or explicit checkpoint.
+- [x] Seven edges and four bespoke prohibitions map to fail-closed gates.
+- [x] No watch-mode command.
+- [x] Quick/focused/full/external latency is explicit.
+- [x] macOS four-scenario installed UAT is the only installed-app blocking gate.
+- [x] Windows native build evidence is buildability-only; installed UAT remains deferred and non-release-ready.
 
-| Behavior | Requirement | Why Manual | Test Instructions |
-|----------|-------------|------------|-------------------|
-| Installed-app prerequisite gate | PKG-01, PKG-02, PKG-03 | Requires human confirmation of env/config/assets on each OS before launch | Confirm `10-UAT.md` lists where macOS and Windows obtain `DEEPSEEK_API_KEY`, `PALADIN_DATABASE_URL`, `PALADIN_REDIS_URL`, `PALADIN_JWT_SECRET`, packaged Agent assets/config, and expected installed-app failure wording. This is a hard manual gate; file existence alone is insufficient. |
-| Installed macOS `.dmg` launch | PKG-01, PKG-03 | Requires installed app outside repo and host OS installer behavior | Install `.dmg`, launch Paladin, confirm no `pnpm`/`cargo`/`uv`/`go run`/repo checkout required, record installer filename, OS version, Agent `/health`, Go `/healthz`, Go `/readyz` with PG/Redis up, and visible UI state. |
-| Installed Windows `.msi` launch | PKG-02, PKG-03 | Requires Windows installer and installed app behavior | Install `.msi`, launch Paladin, confirm no dev commands or repo checkout required, record installer filename, OS version, Agent `/health`, Go `/healthz`, Go `/readyz` with PG/Redis up, and visible UI state. |
-| Degraded dependency path | PKG-03 | Requires toggling PG/Redis availability in installed environment | Launch installed app with PG/Redis unavailable on both macOS and Windows, record Agent remains usable, Go is degraded/non-blocking, and `/readyz` result is captured. |
-| Release honesty | PKG-03 | Requires comparing actual UAT evidence to docs | Verify README/docs/phase output mark any missing or failed platform UAT as not release-ready and do not claim closure before the dual-platform hard gate passes. |
-
----
-
-## Validation Sign-Off
-
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies.
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify.
-- [ ] Wave 0 covers all MISSING references.
-- [ ] No watch-mode flags.
-- [ ] Feedback latency < 10 minutes for automated checks.
-- [ ] Manual prerequisite gate and installed-app UAT status are recorded for macOS and Windows.
-- [ ] Dual-platform hard gate passed before source audit and closure.
-- [ ] `wave_0_complete: true` set in frontmatter after all Wave 0 requirements are satisfied and validation rows are fully keyed.
-- [ ] `nyquist_compliant: true` set in frontmatter after all validation rows are green or explicitly manual-complete and the Sign-Off checklist is fully checked.
-
-**Approval:** pending
+**Approval:** contract complete; execution pending

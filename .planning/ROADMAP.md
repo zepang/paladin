@@ -24,7 +24,7 @@
 | 7.4 | Sidecar Runtime Mode | dev Hybrid attach/spawn 运行模式与 ownership 语义 | Phase 7.3 |
 | 8 | Go Server | 认证/数据库/WebSocket Hub | — |
 | 9 | Admin Systems | 审计日志 + 配额管理 | Phase 8 |
-| 10 | Packaging | 打包发布 + 文档 | Phase 1-9 |
+| 10 | 0/9 | Planned    |  |
 
 ## Phase Details
 
