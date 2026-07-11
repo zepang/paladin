@@ -127,6 +127,84 @@ const SHUTDOWN_GRACE_MIN_SECS: u64 = 1;
 const SHUTDOWN_GRACE_MAX_SECS: u64 = 60;
 const HTTP_STATUS_MIN: u16 = 100;
 const HTTP_STATUS_MAX: u16 = 599;
+const PACKAGED_CONFIG_NAME: &str = "processes.packaged.json";
+const PACKAGED_EXECUTABLE_NAMES: [&str; 2] = [
+    "paladin-agent-sidecar",
+    "paladin-server-sidecar",
+];
+
+/// Resolve the runtime config without allowing packaged builds to fall back to source files.
+pub fn resolve_process_config_path(
+    packaged: bool,
+    manifest_dir: &Path,
+    resource_dir: Option<&Path>,
+) -> Result<PathBuf, ConfigError> {
+    let path = if packaged {
+        resource_dir
+            .ok_or_else(|| {
+                ConfigError::InvalidSchema(
+                    "packaged resource directory is unavailable; installed config cannot be loaded"
+                        .to_string(),
+                )
+            })?
+            .join(PACKAGED_CONFIG_NAME)
+    } else {
+        manifest_dir.join("processes.json")
+    };
+    canonical_existing_file(&path, path.parent())
+}
+
+/// Resolve a locked packaged sidecar name inside the canonical installed resource root.
+///
+/// Tauri build inputs carry a target-triple suffix. Some installed layouts retain that
+/// filename while others install the logical name, so both deterministic forms are accepted.
+pub fn resolve_packaged_executable(
+    resource_dir: &Path,
+    logical_name: &str,
+    target_triple: &str,
+    windows: bool,
+) -> Result<PathBuf, ConfigError> {
+    if !PACKAGED_EXECUTABLE_NAMES.contains(&logical_name)
+        || target_triple.is_empty()
+        || !target_triple
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    {
+        return Err(ConfigError::InvalidSchema(format!(
+            "invalid packaged executable identity {logical_name:?} for target {target_triple:?}"
+        )));
+    }
+
+    let suffix = if windows { ".exe" } else { "" };
+    let candidates = [
+        resource_dir.join(format!("{logical_name}-{target_triple}{suffix}")),
+        resource_dir.join(format!("{logical_name}{suffix}")),
+    ];
+    for candidate in &candidates {
+        if candidate.is_file() {
+            return canonical_existing_file(candidate, Some(resource_dir));
+        }
+    }
+
+    Err(ConfigError::NotFound(candidates[0].clone()))
+}
+
+fn canonical_existing_file(path: &Path, root: Option<&Path>) -> Result<PathBuf, ConfigError> {
+    if !path.is_file() {
+        return Err(ConfigError::NotFound(path.to_path_buf()));
+    }
+    let canonical = path.canonicalize().map_err(ConfigError::IoError)?;
+    if let Some(root) = root {
+        let canonical_root = root.canonicalize().map_err(ConfigError::IoError)?;
+        if !canonical.starts_with(&canonical_root) {
+            return Err(ConfigError::InvalidSchema(format!(
+                "packaged resource escapes installed resource directory: {}",
+                path.display()
+            )));
+        }
+    }
+    Ok(canonical)
+}
 
 impl ProcessConfig {
     /// 从本地文件系统路径加载并校验配置。
