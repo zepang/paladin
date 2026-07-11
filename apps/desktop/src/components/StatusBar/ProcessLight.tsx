@@ -69,7 +69,7 @@ export function ProcessLight({ name, label }: { name: ProcessName; label: string
           </div>
           {isExternal && (
             <div className="text-xs text-muted-foreground">
-              外部服务由你手动管理，Paladin 不会停止或重启它。
+              外部服务由你手动管理，Paladin 不会停止、重启或捕获它的日志。
             </div>
           )}
           {status.last_error && (
@@ -93,6 +93,8 @@ export function ProcessLight({ name, label }: { name: ProcessName; label: string
             <Button
               size="sm"
               variant="ghost"
+              disabled={isExternal}
+              title={isExternal ? '外部服务日志请查看启动它的终端' : '查看日志'}
               onClick={openLogsPanel}
             >
               查看日志
