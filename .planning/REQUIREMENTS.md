@@ -77,8 +77,8 @@
 
 ### Packaging
 
-- [ ] **PKG-01**: macOS 打包（.dmg）
-- [ ] **PKG-02**: Windows 打包（.msi）
+- [x] **PKG-01**: macOS 打包（.dmg）
+- [x] **PKG-02**: Windows 打包（.msi）
 - [ ] **PKG-03**: README + 项目文档
 
 ## Out of Scope

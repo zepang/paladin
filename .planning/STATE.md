@@ -2,17 +2,17 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 08
-current_phase_name: Go Server
-status: Phase 07.4 complete
-stopped_at: Phase 10 context gathered
-last_updated: "2026-07-11T08:55:40.795Z"
+current_phase: 10
+current_phase_name: Packaging
+status: Phase 10 in progress
+stopped_at: Completed 10-01-PLAN.md
+last_updated: "2026-07-11T09:50:43.678Z"
 progress:
   total_phases: 17
   completed_phases: 14
-  total_plans: 62
-  completed_plans: 47
-  percent: 76
+  total_plans: 66
+  completed_plans: 48
+  percent: 73
 ---
 
 # Project State: Paladin
@@ -25,7 +25,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 07.4 — sidecar-runtime-mode
+**Current focus:** Phase 10 — packaging
 
 ## Phase Status
 
@@ -59,6 +59,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Recent Activity
 
+- 2026-07-11: Phase 10 Plan 01 completed — single shell-free release entrypoint, PyInstaller Agent + native Go Server sidecars, target-triple staging, fail-closed `.env` input audit; Node contracts 4/4 and current `aarch64-apple-darwin` sidecars-only build/verify passed.
 - 2026-07-06: Phase 07.4 completed — Sidecar Runtime Mode: Rust `state+owner+health` tuple, dev health-first attach/spawn/conflict, packaged no-dev-deps validation, external action safety, redetect commands, frontend tuple UX, config diagnostic path; gates green (`cargo test process:: --lib` 70/70, `cargo test`, clippy, desktop build, Vitest 43/43). Manual packaged/platform UAT deferred to Phase 10.
 - 2026-07-06: Quick task completed — optimized desktop Agent stopped/error startup mask with shadcn-style status panel, lucide icons, diagnostic error blocks, and responsive layout; desktop build and browser preview checks passed.
 - 2026-07-05: Phase 07.3 Plan 10 (Phase 闭环) completed — UAT deferred to Phase 10 Packaging (macOS/Win/Linux all deferred, automated gates all green); 7 tasks (cargo test 54/54 + tsc 0 errors + clippy 0 errors + build ✓ + 7 source gates PASS); SPEC 21 Acceptance + 13 Edge + 4 Prohibitions 逐条验证完成; STATE.md/ROADMAP.md 标记 code-complete
@@ -90,16 +91,16 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Next Actions
 
-1. Phase 10 Packaging — 三平台 UAT 回填(来自 07.3/07.4 UAT deferred 项),processes.json mode=packaged 切换,externalBin 配置,日志轮转引入
-2. `$gsd-plan-phase 10` — 规划 Packaging：真实 sidecar binaries、externalBin、installer/platform UAT
-3. VALIDATION.md DEFERRED 10 项回填(Phase 10 真实环境手测后)
-4. biome 29 preexisting errors 修复(非 07.3 引入,跨 phase 技术债)
+1. Phase 10 Plan 02 — packaged config、Tauri bundle resources/externalBin 与 installed resource lookup
+2. Phase 10 Plan 04 — 10 MB × 5 完整行日志轮转
+3. 后续 Windows native buildability evidence 与 macOS installed-app UAT
+4. biome 29 preexisting errors 修复（跨 phase 技术债）
 
 ## Session
 
-**Last session:** 2026-07-11T08:55:40.783Z
-**Stopped at:** Phase 10 context gathered
-**Resume file:** .planning/phases/10-packaging/10-CONTEXT.md
+**Last session:** 2026-07-11T09:50:43.671Z
+**Stopped at:** Completed 10-01-PLAN.md
+**Resume file:** None
 
 ## Accumulated Context
 
@@ -128,6 +129,12 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | Phase 07.3 P08 | 5 min | 2 tasks | 3 files |
 | Phase 07.3 P09 | 13 min | 3 tasks | 2 files |
 | Phase 07.3 P10 | 15 min | 7 tasks | 5 files |
+| Phase 10 P10-01 | 8 min | 3 tasks | 8 files |
+
+## Decisions
+
+- Release children are invoked only with explicit argv and `shell:false`.
+- Generated target binaries remain ignored build outputs and are regenerated from repository source.
 
 ## Quick Tasks Completed
 
