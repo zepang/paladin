@@ -29,6 +29,15 @@ updated: 2026-07-11
 
 规则：每个 task commit 运行其行内 gate；每 wave 运行相关 focused 集；10-07 先 focused fail-fast，再运行 full closure。
 
+## 执行依赖顺序
+
+- Wave 1 同时建立 release 链（10-01）与日志轮转（10-04）的快速反馈基线。
+- 10-02 仅在 10-01 sidecar staging 合约完成后接入 bundle resources；10-03 再基于 10-02 的 installed-resource lookup 收紧运行时边界。
+- 10-05 依赖 10-01～10-03 生成 Windows native buildability evidence；10-08 依赖 10-03 的诊断语义。
+- 10-09 聚合 10-02/10-04/10-05/10-08 的产物并执行 DMG 前负向门；10-06 只消费 10-09 已验证 DMG；10-07 最后闭环。
+
+依赖关系只表示 gate 的先后顺序，不表示任何 pending task 已执行或已通过。
+
 ## 当前 Task Verification Map
 
 | Task ID | Wave | Requirement | Automated gate / evidence | Latency | Status |
