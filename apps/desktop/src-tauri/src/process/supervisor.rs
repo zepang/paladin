@@ -64,6 +64,100 @@ const DEV_PREFLIGHT_GRACE_SECS: u64 = 5;
 /// stderr_tail VecDeque 容量,保留末尾 N 行 (SPEC Prohibition P2 暴露退出原因)。
 const STDERR_TAIL_CAPACITY: usize = 50;
 
+const BUSINESS_ENV_ALLOWLIST: &[&str] = &[
+    "DEEPSEEK_API_KEY",
+    "PALADIN_PORT",
+    "PALADIN_DATABASE_URL",
+    "PALADIN_REDIS_URL",
+    "PALADIN_JWT_SECRET",
+    "PALADIN_JWT_TTL",
+    "PALADIN_BCRYPT_COST",
+    "PALADIN_ADMIN_EMAIL",
+    "PALADIN_ADMIN_PASSWORD",
+    "PALADIN_AUTO_MIGRATE",
+    "PALADIN_QUOTA_LIMIT",
+    "PALADIN_QUOTA_WINDOW",
+];
+
+const SYSTEM_ENV_ALLOWLIST: &[&str] = &[
+    "HOME",
+    "USERPROFILE",
+    "TMPDIR",
+    "TMP",
+    "TEMP",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "REQUESTS_CA_BUNDLE",
+    "CURL_CA_BUNDLE",
+];
+
+pub(crate) fn environment_for_process(
+    mode: RuntimeMode,
+    parent: &HashMap<OsString, OsString>,
+    configured: &HashMap<String, String>,
+) -> HashMap<OsString, OsString> {
+    let mut result = HashMap::new();
+    for name in BUSINESS_ENV_ALLOWLIST.iter().chain(SYSTEM_ENV_ALLOWLIST) {
+        let key = OsString::from(name);
+        if let Some(value) = parent.get(&key).filter(|value| !value.is_empty()) {
+            result.insert(key, value.clone());
+        }
+    }
+    for (name, value) in configured {
+        if !value.is_empty()
+            && BUSINESS_ENV_ALLOWLIST.contains(&name.as_str())
+            && name != "PALADIN_RUNTIME_MODE"
+        {
+            result.insert(OsString::from(name), OsString::from(value));
+        }
+    }
+    result.insert(
+        OsString::from("PALADIN_RUNTIME_MODE"),
+        OsString::from(match mode {
+            RuntimeMode::Dev => "dev",
+            RuntimeMode::Packaged => "packaged",
+        }),
+    );
+    result
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LifecycleRequest {
+    Stop,
+    Restart,
+    Shutdown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LifecycleAction {
+    RejectExternal,
+    RedetectOnly,
+    TerminateTrackedChild,
+    NoTrackedChild,
+}
+
+pub(crate) fn lifecycle_action(
+    owner: ProcessOwner,
+    has_tracked_child: bool,
+    request: LifecycleRequest,
+) -> LifecycleAction {
+    if owner == ProcessOwner::External {
+        return if request == LifecycleRequest::Restart {
+            LifecycleAction::RedetectOnly
+        } else {
+            LifecycleAction::RejectExternal
+        };
+    }
+    if owner == ProcessOwner::Supervisor && has_tracked_child {
+        LifecycleAction::TerminateTrackedChild
+    } else {
+        LifecycleAction::NoTrackedChild
+    }
+}
+
 pub(crate) fn augmented_spawn_path(base: Option<OsString>) -> OsString {
     let mut paths: Vec<PathBuf> = base
         .as_ref()
@@ -660,12 +754,11 @@ impl ProcessSupervisor {
     /// SPEC Edge R7: 手动 restart_X 命令 — 持 restart_lock,先 graceful_shutdown 再 spawn。
     pub async fn restart_one(&self, name: ProcessName) -> Result<(), String> {
         let slot = self.slot_of(name).clone();
+        if slot.state.lock().await.owner == ProcessOwner::External {
+            return self.redetect_one(name).await;
+        }
         // restart_lock 串行化 — 防止 restart_agent / restart_server / wait_exit 同时触发
         let _guard = slot.restart_lock.lock().await;
-
-        if slot.state.lock().await.owner == ProcessOwner::External {
-            return Err("external_not_owned: 外部服务由你手动管理，Paladin 不会重启它".into());
-        }
 
         // graceful shutdown 当前 child (若有)
         graceful_shutdown_slot(&slot, name, &self.app_handle).await;
@@ -889,8 +982,10 @@ pub(crate) fn spawn_child_to_slot<'a>(
             })
             .unwrap_or_else(|| base.clone());
         cmd.current_dir(&cwd);
-        // env 字面透传 (plan 03 已验证字面值不展开)。
-        cmd.envs(&entry.env);
+        // 子进程不继承开放式 parent env；仅显式业务/系统 allowlist 可进入边界。
+        let parent: HashMap<OsString, OsString> = env::vars_os().collect();
+        let process_env = environment_for_process(config.runtime_mode()?, &parent, &entry.env);
+        cmd.env_clear().envs(process_env);
         if let Some(path) = spawn_path_for_mode(config.runtime_mode()?, env::var_os("PATH")) {
             // GUI/Tauri dev shells may not inherit login-shell PATH. Add common tool dirs so
             // `uv` and `go` can be found without falling back to a shell.
