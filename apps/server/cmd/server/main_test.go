@@ -20,7 +20,15 @@ func TestPackagedModeIgnoresDotenv(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chdir(old) })
 	t.Setenv("PALADIN_RUNTIME_MODE", "packaged")
-	t.Setenv("PALADIN_DATABASE_URL", "")
+	previous, existed := os.LookupEnv("PALADIN_DATABASE_URL")
+	_ = os.Unsetenv("PALADIN_DATABASE_URL")
+	t.Cleanup(func() {
+		if existed {
+			_ = os.Setenv("PALADIN_DATABASE_URL", previous)
+		} else {
+			_ = os.Unsetenv("PALADIN_DATABASE_URL")
+		}
+	})
 
 	loadDotenvForRuntime()
 
@@ -43,7 +51,15 @@ func TestDevModePreservesDotenvConvenience(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chdir(old) })
 	t.Setenv("PALADIN_RUNTIME_MODE", "dev")
-	t.Setenv("PALADIN_DATABASE_URL", "")
+	previous, existed := os.LookupEnv("PALADIN_DATABASE_URL")
+	_ = os.Unsetenv("PALADIN_DATABASE_URL")
+	t.Cleanup(func() {
+		if existed {
+			_ = os.Setenv("PALADIN_DATABASE_URL", previous)
+		} else {
+			_ = os.Unsetenv("PALADIN_DATABASE_URL")
+		}
+	})
 
 	loadDotenvForRuntime()
 

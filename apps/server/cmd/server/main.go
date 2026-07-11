@@ -21,9 +21,7 @@ import (
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Printf("load .env (non-fatal, relying on env vars): %v", err)
-	}
+	loadDotenvForRuntime()
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -77,5 +75,14 @@ func main() {
 	defer shutdownCancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown: %v", err)
+	}
+}
+
+func loadDotenvForRuntime() {
+	if os.Getenv("PALADIN_RUNTIME_MODE") == "packaged" {
+		return
+	}
+	if err := godotenv.Load(); err != nil {
+		log.Printf("load .env (non-fatal, relying on env vars): %v", err)
 	}
 }

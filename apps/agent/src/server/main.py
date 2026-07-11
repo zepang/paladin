@@ -15,6 +15,7 @@ from starlette.responses import JSONResponse, Response
 from pydantic_ai.ui.ag_ui import AGUIAdapter
 
 from ..agent.paladin_agent import create_paladin_agent
+from .cli import dotenv_enabled
 
 # ---- 日志 ----
 logger = structlog.get_logger(__name__)
@@ -51,7 +52,8 @@ app.add_middleware(
 
 # 加载 .env
 project_root = _find_project_root()
-load_dotenv(project_root / ".env")
+if dotenv_enabled():
+    load_dotenv(project_root / ".env")
 
 # 创建 Agent（模块加载时初始化）
 _config_path = project_root / "config" / "config.json"

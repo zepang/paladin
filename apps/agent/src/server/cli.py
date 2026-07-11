@@ -27,9 +27,16 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
+def dotenv_enabled(runtime_mode: str | None = None) -> bool:
+    """Packaged sidecars trust only the supervisor-forwarded environment."""
+    mode = runtime_mode if runtime_mode is not None else os.environ.get("PALADIN_RUNTIME_MODE")
+    return mode != "packaged"
+
+
 def setup_environment():
     """加载 .env 并配置日志"""
-    load_dotenv(PROJECT_ROOT / ".env")
+    if dotenv_enabled():
+        load_dotenv(PROJECT_ROOT / ".env")
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
