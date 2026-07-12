@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -12,6 +13,7 @@ import {
   resolveTauriInvocation,
   runCommand,
   sidecarFileName,
+  smokeAgentSidecar,
 } from './release.mjs';
 
 test('builds Agent then Server before invoking Tauri', async () => {
@@ -130,4 +132,67 @@ test('falls back to create-dmg skip-jenkins when the macOS app bundle exists', a
   assert.match(calls[0][0], /bundle_dmg\.sh$/);
   assert.deepEqual(calls[0][1].slice(0, 2), ['--skip-jenkins', '--volname']);
   assert.ok(calls[0][1].some((arg) => arg.endsWith('paladin_0.1.0_aarch64.dmg')));
+});
+
+test('smokes packaged Agent sidecar through health endpoint and terminates it', async () => {
+  const child = new EventEmitter();
+  child.stderr = new EventEmitter();
+  let killed = false;
+  child.kill = () => {
+    killed = true;
+    queueMicrotask(() => child.emit('close', null, 'SIGTERM'));
+  };
+  const spawnCalls = [];
+  const spawnImpl = (command, args, options) => {
+    spawnCalls.push([command, args, options]);
+    return child;
+  };
+  const get = (_url, callback) => {
+    const response = new EventEmitter();
+    response.statusCode = 200;
+    response.resume = () => {};
+    queueMicrotask(() => {
+      callback(response);
+      response.emit('end');
+    });
+    return { once: () => {}, setTimeout: () => {} };
+  };
+
+  await smokeAgentSidecar({
+    executable: '/tmp/paladin-agent-sidecar',
+    spawnImpl,
+    get,
+    timeoutMs: 1000,
+  });
+
+  assert.equal(killed, true);
+  assert.deepEqual(spawnCalls[0][1], ['serve', '--port', '19976']);
+  assert.equal(spawnCalls[0][2].env.PALADIN_RUNTIME_MODE, 'packaged');
+  assert.equal(spawnCalls[0][2].env.LOGFIRE_PYDANTIC_RECORD, 'off');
+});
+
+test('fails packaged Agent sidecar smoke when process exits before health', async () => {
+  const child = new EventEmitter();
+  child.stderr = new EventEmitter();
+  child.kill = () => {};
+  const spawnImpl = () => {
+    queueMicrotask(() => {
+      child.stderr.emit('data', Buffer.from('ModuleNotFoundError: hidden import missing'));
+      child.emit('close', 1, null);
+    });
+    return child;
+  };
+  const get = () => {
+    throw new Error('not listening yet');
+  };
+
+  await assert.rejects(
+    smokeAgentSidecar({
+      executable: '/tmp/paladin-agent-sidecar',
+      spawnImpl,
+      get,
+      timeoutMs: 1000,
+    }),
+    /ModuleNotFoundError: hidden import missing/,
+  );
 });

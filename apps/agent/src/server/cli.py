@@ -37,6 +37,12 @@ def setup_environment():
     """加载 .env 并配置日志"""
     if dotenv_enabled():
         load_dotenv(PROJECT_ROOT / ".env")
+    else:
+        # Logfire's Pydantic plugin inspects Python source while constructing
+        # validators. PyInstaller one-file executables do not always expose
+        # importable source, so packaged sidecars must disable this optional
+        # instrumentation before FastAPI/Pydantic models are imported.
+        os.environ.setdefault("LOGFIRE_PYDANTIC_RECORD", "off")
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",

@@ -13,6 +13,7 @@ def test_packaged_mode_ignores_dotenv(tmp_path, monkeypatch):
     cli.setup_environment()
 
     assert os.environ.get("DEEPSEEK_API_KEY") is None
+    assert os.environ["LOGFIRE_PYDANTIC_RECORD"] == "off"
 
 
 def test_dev_mode_preserves_dotenv_convenience(tmp_path, monkeypatch):

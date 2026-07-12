@@ -162,11 +162,9 @@ def _create_model(config: ModelConfig) -> OpenAIChatModel:
     else:
         raise ValueError(f"不支持的 provider: {config.provider}")
     
-    # 日志: 显示实际请求的模型和 API Key 预览
-    key_preview = resolved_key[:8] + "..." if len(resolved_key) > 8 else resolved_key
     logger.info(
-        "创建模型连接: model=%s, provider=%s, api_key=%s",
-        resolved_model, config.provider, key_preview,
+        "创建模型连接: model=%s, provider=%s, api_key_env=%s",
+        resolved_model, config.provider, config.api_key,
     )
     
     return OpenAIChatModel(resolved_model, provider=provider)

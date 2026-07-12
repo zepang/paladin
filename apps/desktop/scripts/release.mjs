@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { access, copyFile, lstat, mkdir, readdir, rm } from 'node:fs/promises';
+import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -215,6 +216,88 @@ async function verifySidecars(paths) {
   }
 }
 
+function httpGetStatus(url, { get = http.get } = {}) {
+  return new Promise((resolve, reject) => {
+    const request = get(url, (response) => {
+      response.resume();
+      response.once('end', () => resolve(response.statusCode));
+    });
+    request.once('error', reject);
+    request.setTimeout(500, () => {
+      request.destroy(new Error('health probe timed out'));
+    });
+  });
+}
+
+export async function smokeAgentSidecar({
+  executable,
+  port = 19976,
+  timeoutMs = 45000,
+  spawnImpl = spawn,
+  get = http.get,
+  env = process.env,
+} = {}) {
+  if (!executable) {
+    throw new Error('Agent sidecar smoke requires an executable path');
+  }
+  const child = spawnImpl(executable, ['serve', '--port', String(port)], {
+    env: {
+      ...env,
+      PALADIN_RUNTIME_MODE: 'packaged',
+      LOGFIRE_PYDANTIC_RECORD: 'off',
+    },
+    stdio: ['ignore', 'ignore', 'pipe'],
+    shell: false,
+  });
+  let stderr = '';
+  child.stderr?.on('data', (chunk) => {
+    stderr += chunk.toString();
+    stderr = stderr.replace(/sk-[A-Za-z0-9_-]{6,}/g, '[REDACTED_API_KEY]');
+    if (stderr.length > 8000) {
+      stderr = stderr.slice(-8000);
+    }
+  });
+
+  let closed = false;
+  const closePromise = new Promise((resolve) => {
+    child.once('close', (code, signal) => {
+      closed = true;
+      resolve({ code, signal });
+    });
+  });
+  const startedAt = Date.now();
+  try {
+    while (Date.now() - startedAt < timeoutMs) {
+      const closedResult = await Promise.race([
+        closePromise,
+        new Promise((resolve) => setTimeout(() => resolve(null), 200)),
+      ]);
+      if (closedResult) {
+        throw new Error(`Agent sidecar exited during smoke (${closedResult.signal ?? `exit ${closedResult.code ?? 'unknown'}`}): ${stderr.trim()}`);
+      }
+      try {
+        const status = await httpGetStatus(`http://127.0.0.1:${port}/health`, { get });
+        if (status === 200) {
+          return true;
+        }
+      } catch {
+        if (closed) {
+          break;
+        }
+      }
+    }
+    throw new Error(`Agent sidecar smoke timed out: ${stderr.trim()}`);
+  } finally {
+    if (!closed) {
+      child.kill();
+      await Promise.race([
+        closePromise,
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ]);
+    }
+  }
+}
+
 function parseArgs(argv) {
   const options = { sidecarsOnly: false, target: 'current', verify: false };
   for (let index = 0; index < argv.length; index += 1) {
@@ -252,6 +335,9 @@ export async function main(argv = process.argv.slice(2)) {
         await stageSidecar(serverArtifact, 'paladin-server-sidecar', targetTriple),
       ];
       await verifySidecars(staged);
+      if (options.verify && process.platform === 'darwin') {
+        await smokeAgentSidecar({ executable: agentArtifact });
+      }
     },
     buildTauri: async () => {
       if (!options.sidecarsOnly) {

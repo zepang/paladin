@@ -77,6 +77,7 @@ const BUSINESS_ENV_ALLOWLIST: &[&str] = &[
     "PALADIN_AUTO_MIGRATE",
     "PALADIN_QUOTA_LIMIT",
     "PALADIN_QUOTA_WINDOW",
+    "LOGFIRE_PYDANTIC_RECORD",
 ];
 
 const SYSTEM_ENV_ALLOWLIST: &[&str] = &[
@@ -121,6 +122,12 @@ pub(crate) fn environment_for_process(
             RuntimeMode::Packaged => "packaged",
         }),
     );
+    if mode == RuntimeMode::Packaged {
+        result.insert(
+            OsString::from("LOGFIRE_PYDANTIC_RECORD"),
+            OsString::from("off"),
+        );
+    }
     result
 }
 

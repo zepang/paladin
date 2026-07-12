@@ -2,7 +2,7 @@
   "schema_version": 1,
   "phase": "10-packaging",
   "plan": "10-06",
-  "updated_at": "2026-07-12T11:35:00+08:00",
+  "updated_at": "2026-07-12T12:45:00+08:00",
   "source_artifact": {
     "platform": "macos",
     "architecture": "aarch64",
@@ -107,6 +107,37 @@
           "size_bytes": 214136,
           "redacted": true,
           "note": "Screenshot shows Agent startup failure after environment variables were configured; no secret values visible."
+        }
+      ],
+      "human_confirmed": true,
+      "release_ready_after_attempt": false
+    },
+    {
+      "id": "macos-all-available-003",
+      "date": "2026-07-12T12:35:00+08:00",
+      "tester": "kdocs",
+      "platform": "macos",
+      "os_version": "macOS 13.7.8 (22H730)",
+      "architecture": "arm64",
+      "commit_sha": "a2c003ed7987a128c606a881bb82675cf7b02667",
+      "installer_filename": "paladin_0.1.0_aarch64.dmg",
+      "installer_sha256": "48341d096b70c1628f123f8b438b3b2989cb667cd89c9fb2c51fdb320787f726",
+      "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06-a2c003e/Paladin.app",
+      "scenario": "all_available",
+      "dependency_scenario": "environment variables configured; rebuilt app exposed frozen logfire/pydantic source-inspection failure",
+      "agent_state": "exited during startup protection window",
+      "go_state": "stopped/not reached because Agent failed first",
+      "workspace_state": "blocked by Agent startup failure mask",
+      "result": "FAIL",
+      "failure_reason": "Packaged Agent initialized FastAPI/Pydantic under PyInstaller; logfire Pydantic plugin attempted inspect.getsource and failed with OSError: could not get source code. Fixed by forcing LOGFIRE_PYDANTIC_RECORD=off in packaged mode and adding frozen Agent sidecar smoke to release --verify.",
+      "evidence": [
+        {
+          "path": "evidence/macos-uat-all-available-logfire-source-failure.png",
+          "type": "screenshot",
+          "sha256": "a0e4b0b5554d1a6389305e2701c11d061881ed603cc32fb46b716c301e676343",
+          "size_bytes": 210678,
+          "redacted": true,
+          "note": "Screenshot shows Agent startup failure; no secret values visible."
         }
       ],
       "human_confirmed": true,

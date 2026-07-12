@@ -122,6 +122,7 @@ fn environment_packaged_is_allowlisted_and_forces_runtime_marker() {
     assert_eq!(result.get(&OsString::from("HOME")), Some(&OsString::from("/Users/test")));
     assert_eq!(result.get(&OsString::from("DEEPSEEK_API_KEY")), Some(&OsString::from("secret")));
     assert_eq!(result.get(&OsString::from("PALADIN_RUNTIME_MODE")), Some(&OsString::from("packaged")));
+    assert_eq!(result.get(&OsString::from("LOGFIRE_PYDANTIC_RECORD")), Some(&OsString::from("off")));
     assert!(!result.contains_key(&OsString::from("UNLISTED_SECRET")));
     assert!(!result.contains_key(&OsString::from("PALADIN_REDIS_URL")));
 }

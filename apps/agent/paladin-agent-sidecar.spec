@@ -1,9 +1,10 @@
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, copy_metadata
 
 datas = [
     ("config", "config"),
     ("prompts", "prompts"),
     ("skills", "skills"),
+    *copy_metadata("genai-prices"),
 ]
 hiddenimports = []
 for package in ("pydantic_ai", "pydantic_deep", "ag_ui", "uvicorn", "fastapi"):
