@@ -31,13 +31,13 @@ while [[ $# -gt 0 ]]; do
       APP_PATH="$2"
       shift 2
       ;;
-    --OPENAI_API_KEY|--OPENAI_BASE_URL|--OPENAI_MODEL|--DATABASE_URL|--DATABASE_MAX_CONNS|--REDIS_URL|--PALADIN_AGENT_PORT|--PALADIN_SERVER_PORT)
+    --DEEPSEEK_API_KEY|--PALADIN_DATABASE_URL|--PALADIN_REDIS_URL|--PALADIN_PORT|--PALADIN_JWT_SECRET|--PALADIN_ADMIN_PASSWORD)
       print_rejected_config_arg "$1"
       exit 64
       ;;
     --*=*)
       case "$1" in
-        --OPENAI_API_KEY=*|--OPENAI_BASE_URL=*|--OPENAI_MODEL=*|--DATABASE_URL=*|--DATABASE_MAX_CONNS=*|--REDIS_URL=*|--PALADIN_AGENT_PORT=*|--PALADIN_SERVER_PORT=*)
+        --DEEPSEEK_API_KEY=*|--PALADIN_DATABASE_URL=*|--PALADIN_REDIS_URL=*|--PALADIN_PORT=*|--PALADIN_JWT_SECRET=*|--PALADIN_ADMIN_PASSWORD=*)
           print_rejected_config_arg "${1%%=*}"
           exit 64
           ;;
@@ -62,7 +62,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 missing=()
-for name in OPENAI_API_KEY DATABASE_URL REDIS_URL; do
+for name in DEEPSEEK_API_KEY PALADIN_DATABASE_URL PALADIN_REDIS_URL; do
   if [[ -z "${!name:-}" ]]; then
     missing+=("$name")
   fi

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "phase": "10-packaging",
   "plan": "10-06",
-  "updated_at": "2026-07-12T11:04:37+08:00",
+  "updated_at": "2026-07-12T11:15:00+08:00",
   "source_artifact": {
     "platform": "macos",
     "architecture": "aarch64",
@@ -49,5 +49,37 @@
       "release_ready": false
     }
   },
-  "attempts": []
+  "attempts": [
+    {
+      "id": "macos-all-available-001",
+      "date": "2026-07-12T11:15:00+08:00",
+      "tester": "kdocs",
+      "platform": "macos",
+      "os_version": "macOS 13.7.8 (22H730)",
+      "architecture": "arm64",
+      "commit_sha": "e90106eda048a0b1cb1a5a232c93109f18726683",
+      "installer_filename": "paladin_0.1.0_aarch64.dmg",
+      "installer_sha256": "efba7fc1b27dbb946a6d45f3bb1e5c780336128da3edf348f855151e27c9ef60",
+      "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06/Paladin.app",
+      "scenario": "all_available",
+      "dependency_scenario": "direct wrapper launch without required environment variables configured",
+      "agent_state": "exited during startup protection window",
+      "go_state": "stopped/not reached because Agent failed first",
+      "workspace_state": "blocked by Agent startup failure mask",
+      "result": "FAIL",
+      "failure_reason": "Agent exited with code 1; UI showed installed-app diagnostic asking for configuration/environment setup.",
+      "evidence": [
+        {
+          "path": "evidence/macos-uat-all-available-missing-env.png",
+          "type": "screenshot",
+          "sha256": "1e939ea3c4549051e920d8ab6fbeaadd4012ef08fc4900a97b8d1f6056050254",
+          "size_bytes": 213490,
+          "redacted": true,
+          "note": "Screenshot shows Agent startup failure after launching installed app without required environment variables; no secret values visible."
+        }
+      ],
+      "human_confirmed": true,
+      "release_ready_after_attempt": false
+    }
+  ]
 }

@@ -26,7 +26,7 @@ Use the same wrapper for first-run documentation and UAT:
 scripts/launch-paladin-macos.sh --app "/Users/kdocs/Applications/Paladin-UAT-10-06/Paladin.app"
 ```
 
-Configuration values must be provided through the current process environment. Do not pass API keys, database URLs, Redis URLs, tokens, or passwords as CLI arguments. The wrapper may report missing variable names, but it must not print their values.
+Configuration values must be provided through the current process environment. For the current DeepSeek-backed Agent and Go Server, the required names are `DEEPSEEK_API_KEY`, `PALADIN_DATABASE_URL`, and `PALADIN_REDIS_URL`. Do not pass API keys, database URLs, Redis URLs, tokens, or passwords as CLI arguments. The wrapper may report missing variable names, but it must not print their values.
 
 ## Required macOS scenarios
 

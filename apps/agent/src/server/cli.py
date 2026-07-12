@@ -158,6 +158,7 @@ def run_serve(dev: bool = False, port: int = 9876):
         port: 监听端口
     """
     import uvicorn
+    from src.server.main import app
 
     print(f"Paladin Agent — HTTP 服务器")
     print(f"地址:       http://localhost:{port}")
@@ -167,7 +168,7 @@ def run_serve(dev: bool = False, port: int = 9876):
     print("-" * 50)
 
     uvicorn.run(
-        "src.server.main:app",
+        "src.server.main:app" if dev else app,
         host="0.0.0.0",
         port=port,
         reload=dev,

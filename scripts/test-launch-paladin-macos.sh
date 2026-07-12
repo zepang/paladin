@@ -36,7 +36,7 @@ make_fake_app() {
 #!/usr/bin/env bash
 echo "PALADIN_FAKE_APP_EXECUTED"
 echo "PALADIN_FAKE_APP_ARGC=$#"
-echo "PALADIN_FAKE_APP_OPENAI_API_KEY=${OPENAI_API_KEY:-}"
+echo "PALADIN_FAKE_APP_DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}"
 APP
   chmod +x "$app_path/Contents/MacOS/$executable_name"
 }
@@ -44,30 +44,30 @@ APP
 APP="$TMP_DIR/Paladin.app"
 make_fake_app "$APP"
 
-output="$(OPENAI_API_KEY='sk-test-secret' DATABASE_URL='postgres://secret' REDIS_URL='redis://secret' "$WRAPPER" --app "$APP" 2>&1)"
+output="$(DEEPSEEK_API_KEY='sk-test-secret' PALADIN_DATABASE_URL='postgres://secret' PALADIN_REDIS_URL='redis://secret' "$WRAPPER" --app "$APP" 2>&1)"
 assert_contains "$output" "PALADIN_FAKE_APP_EXECUTED"
 assert_contains "$output" "PALADIN_FAKE_APP_ARGC=0"
-assert_contains "$output" "PALADIN_FAKE_APP_OPENAI_API_KEY=sk-test-secret"
+assert_contains "$output" "PALADIN_FAKE_APP_DEEPSEEK_API_KEY=sk-test-secret"
 
 LOWER_APP="$TMP_DIR/PaladinLower.app"
 make_fake_app "$LOWER_APP" "paladin"
-lower_output="$(OPENAI_API_KEY='sk-test-secret' DATABASE_URL='postgres://secret' REDIS_URL='redis://secret' "$WRAPPER" --app "$LOWER_APP" 2>&1)"
+lower_output="$(DEEPSEEK_API_KEY='sk-test-secret' PALADIN_DATABASE_URL='postgres://secret' PALADIN_REDIS_URL='redis://secret' "$WRAPPER" --app "$LOWER_APP" 2>&1)"
 assert_contains "$lower_output" "PALADIN_FAKE_APP_EXECUTED"
 
-missing_output="$(env -u OPENAI_API_KEY -u DATABASE_URL -u REDIS_URL "$WRAPPER" --app "$APP" 2>&1)"
+missing_output="$(env -u DEEPSEEK_API_KEY -u PALADIN_DATABASE_URL -u PALADIN_REDIS_URL "$WRAPPER" --app "$APP" 2>&1)"
 assert_contains "$missing_output" "Missing recommended environment variables:"
-assert_contains "$missing_output" "OPENAI_API_KEY"
-assert_contains "$missing_output" "DATABASE_URL"
-assert_contains "$missing_output" "REDIS_URL"
+assert_contains "$missing_output" "DEEPSEEK_API_KEY"
+assert_contains "$missing_output" "PALADIN_DATABASE_URL"
+assert_contains "$missing_output" "PALADIN_REDIS_URL"
 assert_contains "$missing_output" "PALADIN_FAKE_APP_EXECUTED"
 assert_not_contains "$missing_output" "postgres://secret"
 assert_not_contains "$missing_output" "redis://secret"
 assert_not_contains "$missing_output" "sk-test-secret"
 
-empty_output="$(OPENAI_API_KEY='' DATABASE_URL='' REDIS_URL='' "$WRAPPER" --app "$APP" 2>&1)"
-assert_contains "$empty_output" "OPENAI_API_KEY"
-assert_contains "$empty_output" "DATABASE_URL"
-assert_contains "$empty_output" "REDIS_URL"
+empty_output="$(DEEPSEEK_API_KEY='' PALADIN_DATABASE_URL='' PALADIN_REDIS_URL='' "$WRAPPER" --app "$APP" 2>&1)"
+assert_contains "$empty_output" "DEEPSEEK_API_KEY"
+assert_contains "$empty_output" "PALADIN_DATABASE_URL"
+assert_contains "$empty_output" "PALADIN_REDIS_URL"
 
 if "$WRAPPER" --app "$TMP_DIR/Missing.app" >/tmp/paladin-missing-app.out 2>&1; then
   echo "Expected missing app to fail" >&2
@@ -76,13 +76,13 @@ fi
 assert_contains "$(cat /tmp/paladin-missing-app.out)" "Paladin executable not found or not executable"
 assert_contains "$(cat /tmp/paladin-missing-app.out)" "$TMP_DIR/Missing.app/Contents/MacOS/Paladin"
 
-if "$WRAPPER" --OPENAI_API_KEY sk-test-secret --app "$APP" >/tmp/paladin-secret-arg.out 2>&1; then
+if "$WRAPPER" --DEEPSEEK_API_KEY sk-test-secret --app "$APP" >/tmp/paladin-secret-arg.out 2>&1; then
   echo "Expected secret CLI argument to fail" >&2
   exit 1
 fi
 secret_arg_output="$(cat /tmp/paladin-secret-arg.out)"
 assert_contains "$secret_arg_output" "Configuration values must be provided through the current environment"
-assert_contains "$secret_arg_output" "--OPENAI_API_KEY"
+assert_contains "$secret_arg_output" "--DEEPSEEK_API_KEY"
 assert_not_contains "$secret_arg_output" "sk-test-secret"
 
 if "$WRAPPER" --app >/tmp/paladin-missing-app-arg.out 2>&1; then

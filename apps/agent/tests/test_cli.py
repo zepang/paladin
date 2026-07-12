@@ -1,4 +1,5 @@
 import os
+import inspect
 
 from src.server import cli
 
@@ -29,3 +30,9 @@ def test_dotenv_policy_is_shared_with_server_module():
     assert cli.dotenv_enabled("packaged") is False
     assert cli.dotenv_enabled("dev") is True
     assert cli.dotenv_enabled(None) is True
+
+
+def test_packaged_serve_avoids_uvicorn_dynamic_import_string():
+    source = inspect.getsource(cli.run_serve)
+
+    assert '"src.server.main:app" if dev else app' in source
