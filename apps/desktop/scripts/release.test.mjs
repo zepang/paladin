@@ -114,7 +114,7 @@ test('falls back to create-dmg skip-jenkins when the macOS app bundle exists', a
   const root = await mkdtemp(path.join(tmpdir(), 'paladin-dmg-'));
   const desktop = path.join(root, 'apps', 'desktop');
   await mkdir(path.join(desktop, 'src-tauri', 'target', 'release', 'bundle', 'dmg'), { recursive: true });
-  await mkdir(path.join(desktop, 'src-tauri', 'target', 'release', 'bundle', 'macos', 'paladin.app'));
+  await mkdir(path.join(desktop, 'src-tauri', 'target', 'release', 'bundle', 'macos', 'paladin.app'), { recursive: true });
   await writeFile(path.join(desktop, 'src-tauri', 'target', 'release', 'bundle', 'dmg', 'bundle_dmg.sh'), '#!/usr/bin/env bash\n');
 
   const calls = [];
@@ -129,5 +129,5 @@ test('falls back to create-dmg skip-jenkins when the macOS app bundle exists', a
   assert.equal(calls.length, 1);
   assert.match(calls[0][0], /bundle_dmg\.sh$/);
   assert.deepEqual(calls[0][1].slice(0, 2), ['--skip-jenkins', '--volname']);
-  assert.ok(calls[0][1].includes('paladin_0.1.0_aarch64.dmg'));
+  assert.ok(calls[0][1].some((arg) => arg.endsWith('paladin_0.1.0_aarch64.dmg')));
 });

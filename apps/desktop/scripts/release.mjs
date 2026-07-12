@@ -113,6 +113,61 @@ export function resolveTauriInvocation({
   };
 }
 
+export function macDmgFileName({
+  productName = 'paladin',
+  version = '0.1.0',
+  arch = process.arch,
+} = {}) {
+  const dmgArch = arch === 'arm64' ? 'aarch64' : arch;
+  return `${productName}_${version}_${dmgArch}.dmg`;
+}
+
+export async function recoverHeadlessMacDmg({
+  platform = process.platform,
+  desktopDir: appDesktopDir = desktopDir,
+  arch = process.arch,
+  run = runCommand,
+} = {}) {
+  if (platform !== 'darwin') {
+    return false;
+  }
+
+  const bundleDir = path.join(appDesktopDir, 'src-tauri/target/release/bundle');
+  const dmgDir = path.join(bundleDir, 'dmg');
+  const macosDir = path.join(bundleDir, 'macos');
+  const script = path.join(dmgDir, 'bundle_dmg.sh');
+  const appBundle = path.join(macosDir, 'paladin.app');
+  try {
+    await access(script);
+    await access(appBundle);
+  } catch {
+    return false;
+  }
+
+  const dmgName = macDmgFileName({ arch });
+  await rm(path.join(dmgDir, dmgName), { force: true });
+  for (const entry of await readdir(dmgDir)) {
+    if (entry.startsWith('rw.') && entry.endsWith(dmgName)) {
+      await rm(path.join(dmgDir, entry), { force: true });
+    }
+  }
+  for (const entry of await readdir(macosDir)) {
+    if (entry.startsWith('rw.') && entry.endsWith(dmgName)) {
+      await rm(path.join(macosDir, entry), { force: true });
+    }
+  }
+
+  await run(script, [
+    '--skip-jenkins',
+    '--volname', 'paladin',
+    '--icon', 'paladin.app', '180', '170',
+    '--app-drop-link', '480', '170',
+    path.join(dmgDir, dmgName),
+    macosDir,
+  ]);
+  return true;
+}
+
 export async function currentTargetTriple() {
   let stdout = '';
   await new Promise((resolve, reject) => {
@@ -201,9 +256,17 @@ export async function main(argv = process.argv.slice(2)) {
     buildTauri: async () => {
       if (!options.sidecarsOnly) {
         const invocation = resolveTauriInvocation();
-        await runCommand(invocation.command, invocation.args, {
-          cwd: desktopDir,
-        });
+        try {
+          await runCommand(invocation.command, invocation.args, {
+            cwd: desktopDir,
+          });
+        } catch (error) {
+          if (await recoverHeadlessMacDmg()) {
+            console.warn(`Recovered macOS DMG build after Tauri bundler failure: ${error.message}`);
+          } else {
+            throw error;
+          }
+        }
       }
     },
   });
