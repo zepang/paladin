@@ -6,7 +6,9 @@ import test from 'node:test';
 
 import {
   auditBundleInputs,
+  macDmgFileName,
   orchestrateRelease,
+  recoverHeadlessMacDmg,
   resolveTauriInvocation,
   runCommand,
   sidecarFileName,
@@ -101,4 +103,31 @@ test('reports the failed command when spawn itself errors', async () => {
     }),
     /node\.exe.*pnpm\.cjs.*tauri.*build.*spawn EINVAL/,
   );
+});
+
+test('maps Node arch to the expected macOS DMG filename', () => {
+  assert.equal(macDmgFileName({ productName: 'paladin', version: '0.1.0', arch: 'arm64' }), 'paladin_0.1.0_aarch64.dmg');
+  assert.equal(macDmgFileName({ productName: 'paladin', version: '0.1.0', arch: 'x64' }), 'paladin_0.1.0_x64.dmg');
+});
+
+test('falls back to create-dmg skip-jenkins when the macOS app bundle exists', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'paladin-dmg-'));
+  const desktop = path.join(root, 'apps', 'desktop');
+  await mkdir(path.join(desktop, 'src-tauri', 'target', 'release', 'bundle', 'dmg'), { recursive: true });
+  await mkdir(path.join(desktop, 'src-tauri', 'target', 'release', 'bundle', 'macos', 'paladin.app'));
+  await writeFile(path.join(desktop, 'src-tauri', 'target', 'release', 'bundle', 'dmg', 'bundle_dmg.sh'), '#!/usr/bin/env bash\n');
+
+  const calls = [];
+  const recovered = await recoverHeadlessMacDmg({
+    platform: 'darwin',
+    desktopDir: desktop,
+    arch: 'arm64',
+    run: async (command, args) => calls.push([command, args]),
+  });
+
+  assert.equal(recovered, true);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0][0], /bundle_dmg\.sh$/);
+  assert.deepEqual(calls[0][1].slice(0, 2), ['--skip-jenkins', '--volname']);
+  assert.ok(calls[0][1].includes('paladin_0.1.0_aarch64.dmg'));
 });
