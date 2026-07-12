@@ -2,20 +2,20 @@
   "schema_version": 1,
   "phase": "10-packaging",
   "plan": "10-06",
-  "updated_at": "2026-07-12T11:15:00+08:00",
+  "updated_at": "2026-07-12T11:35:00+08:00",
   "source_artifact": {
     "platform": "macos",
     "architecture": "aarch64",
-    "commit_sha": "e90106eda048a0b1cb1a5a232c93109f18726683",
+    "commit_sha": "a2c003ed7987a128c606a881bb82675cf7b02667",
     "installer_filename": "paladin_0.1.0_aarch64.dmg",
-    "installer_sha256": "efba7fc1b27dbb946a6d45f3bb1e5c780336128da3edf348f855151e27c9ef60",
+    "installer_sha256": "48341d096b70c1628f123f8b438b3b2989cb667cd89c9fb2c51fdb320787f726",
     "evidence_path": "evidence/macos-build.json"
   },
   "install": {
     "platform": "macos",
-    "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06/Paladin.app",
+    "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06-a2c003e/Paladin.app",
     "installed_from_dmg": true,
-    "installed_at": "2026-07-12T11:04:37+08:00",
+    "installed_at": "2026-07-12T11:35:00+08:00",
     "repo_path_used_as_app": false
   },
   "platforms": {
@@ -76,6 +76,37 @@
           "size_bytes": 213490,
           "redacted": true,
           "note": "Screenshot shows Agent startup failure after launching installed app without required environment variables; no secret values visible."
+        }
+      ],
+      "human_confirmed": true,
+      "release_ready_after_attempt": false
+    },
+    {
+      "id": "macos-all-available-002",
+      "date": "2026-07-12T11:30:00+08:00",
+      "tester": "kdocs",
+      "platform": "macos",
+      "os_version": "macOS 13.7.8 (22H730)",
+      "architecture": "arm64",
+      "commit_sha": "a2c003ed7987a128c606a881bb82675cf7b02667",
+      "installer_filename": "paladin_0.1.0_aarch64.dmg",
+      "installer_sha256": "48341d096b70c1628f123f8b438b3b2989cb667cd89c9fb2c51fdb320787f726",
+      "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06/Paladin.app",
+      "scenario": "all_available",
+      "dependency_scenario": "environment variables configured; old installed app still used pre-fix packaged Agent sidecar",
+      "agent_state": "exited during startup protection window",
+      "go_state": "stopped/not reached because Agent failed first",
+      "workspace_state": "blocked by Agent startup failure mask",
+      "result": "FAIL",
+      "failure_reason": "Packaged Agent used uvicorn dynamic import string and failed with ModuleNotFoundError: No module named src.server. Fixed in commit a2c003e; reinstall path updated for retest.",
+      "evidence": [
+        {
+          "path": "evidence/macos-uat-all-available-packaged-agent-import-failure.png",
+          "type": "screenshot",
+          "sha256": "1a08696202401df81175eef935f323dc6941dc4a4fd8984cc9ad276c8df21d1d",
+          "size_bytes": 214136,
+          "redacted": true,
+          "note": "Screenshot shows Agent startup failure after environment variables were configured; no secret values visible."
         }
       ],
       "human_confirmed": true,
