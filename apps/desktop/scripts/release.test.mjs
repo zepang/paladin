@@ -7,6 +7,8 @@ import test from 'node:test';
 import {
   auditBundleInputs,
   orchestrateRelease,
+  resolveTauriInvocation,
+  runCommand,
   sidecarFileName,
 } from './release.mjs';
 
@@ -60,5 +62,43 @@ test('maps logical sidecar names to target triples and Windows suffixes', () => 
   assert.equal(
     sidecarFileName('paladin-server-sidecar', 'x86_64-pc-windows-msvc'),
     'paladin-server-sidecar-x86_64-pc-windows-msvc.exe',
+  );
+});
+
+test('uses the Node executable and trusted pnpm JS CLI on Windows without a shell', () => {
+  assert.deepEqual(resolveTauriInvocation({
+    platform: 'win32',
+    execPath: 'C:\\Program Files\\nodejs\\node.exe',
+    npmExecPath: 'D:\\a\\_tool\\pnpm\\pnpm.cjs',
+  }), {
+    command: 'C:\\Program Files\\nodejs\\node.exe',
+    args: ['D:\\a\\_tool\\pnpm\\pnpm.cjs', 'tauri', 'build'],
+  });
+});
+
+test('fails closed when Windows pnpm JS CLI is missing or untrusted', () => {
+  for (const npmExecPath of [undefined, '', 'pnpm.cmd', 'D:\\tools\\npm-cli.js']) {
+    assert.throws(
+      () => resolveTauriInvocation({
+        platform: 'win32',
+        execPath: 'C:\\Program Files\\nodejs\\node.exe',
+        npmExecPath,
+      }),
+      /trusted absolute pnpm JS CLI/,
+    );
+  }
+});
+
+test('reports the failed command when spawn itself errors', async () => {
+  const fakeSpawn = () => {
+    const handlers = new Map();
+    queueMicrotask(() => handlers.get('error')?.(new Error('spawn EINVAL')));
+    return { once: (event, handler) => handlers.set(event, handler) };
+  };
+  await assert.rejects(
+    runCommand('C:\\Program Files\\nodejs\\node.exe', ['D:\\pnpm.cjs', 'tauri', 'build'], {
+      spawnImpl: fakeSpawn,
+    }),
+    /node\.exe.*pnpm\.cjs.*tauri.*build.*spawn EINVAL/,
   );
 });
