@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "phase": "10-packaging",
+  "plan": "10-09",
+  "status": "artifact-checkpoint",
+  "conclusion": "success",
+  "release_ready": false,
+  "human_confirmation_required": true,
+  "human_confirmed": true,
+  "verified_at": "2026-07-12T11:04:37+08:00",
+  "commit_sha": "e90106eda048a0b1cb1a5a232c93109f18726683",
+  "dmg_sha256": "efba7fc1b27dbb946a6d45f3bb1e5c780336128da3edf348f855151e27c9ef60",
+  "secret_scan": "PASS",
+  "build": {
+    "commit_sha": "e90106eda048a0b1cb1a5a232c93109f18726683",
+    "runner_os": "macOS",
+    "architecture": "aarch64",
+    "target": "aarch64-apple-darwin",
+    "commands": [
+      {
+        "command": "pnpm release -- --sidecars-only --target current --verify",
+        "status": "pass"
+      },
+      {
+        "command": "pnpm release -- --target current --verify",
+        "status": "pass"
+      }
+    ],
+    "tauri_dmg_default_result": {
+      "status": "failed",
+      "reason": "bundle_dmg.sh failed in the current headless environment before fallback"
+    },
+    "headless_skip_jenkins_fallback": {
+      "used": true,
+      "status": "pass",
+      "command": "bundle_dmg.sh --skip-jenkins"
+    }
+  },
+  "artifacts": {
+    "dmg": {
+      "path": "apps/desktop/src-tauri/target/release/bundle/dmg/paladin_0.1.0_aarch64.dmg",
+      "filename": "paladin_0.1.0_aarch64.dmg",
+      "size_bytes": 82111296,
+      "sha256": "efba7fc1b27dbb946a6d45f3bb1e5c780336128da3edf348f855151e27c9ef60"
+    },
+    "app_bundle": {
+      "path": "apps/desktop/src-tauri/target/release/bundle/macos/paladin.app"
+    },
+    "sidecars": [
+      {
+        "name": "paladin-agent-sidecar-aarch64-apple-darwin",
+        "path": "apps/desktop/src-tauri/binaries/paladin-agent-sidecar-aarch64-apple-darwin",
+        "size_bytes": 51486496,
+        "sha256": "e88118d2c1ad09f2c7dec18f010d4e4faa2a8201c7e6c097af5e71ad648efa6f"
+      },
+      {
+        "name": "paladin-server-sidecar-aarch64-apple-darwin",
+        "path": "apps/desktop/src-tauri/binaries/paladin-server-sidecar-aarch64-apple-darwin",
+        "size_bytes": 42961394,
+        "sha256": "428817e725b14f6ab1c67fa2e168bb25d897ebc0030432a89caf0bd72605e54f"
+      }
+    ]
+  },
+  "secret_scan_details": {
+    "default_required_targets": {
+      "status": "pass",
+      "targets_scanned": 3,
+      "files_scanned": 5,
+      "bytes_scanned": 180158369,
+      "findings": []
+    },
+    "expanded_artifact_targets": {
+      "status": "pass",
+      "targets_scanned": 5,
+      "files_scanned": 12,
+      "bytes_scanned": 393200759,
+      "findings": []
+    }
+  },
+  "installed_uat": {
+    "status": "pending",
+    "note": "Artifact identity confirmed by the user. Installed-app UAT remains pending and is intentionally deferred to the next packaging gate."
+  }
+}
