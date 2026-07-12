@@ -2,26 +2,26 @@
   "schema_version": 1,
   "phase": "10-packaging",
   "plan": "10-06",
-  "updated_at": "2026-07-12T12:55:00+08:00",
+  "updated_at": "2026-07-12T16:30:00+08:00",
   "source_artifact": {
     "platform": "macos",
     "architecture": "aarch64",
-    "commit_sha": "8228b0fa00fb0d500713c3d9cf5ac519828bb210",
+    "commit_sha": "2d5dcf768503b61f9f8bf331ed70d568d11699e7",
     "installer_filename": "paladin_0.1.0_aarch64.dmg",
-    "installer_sha256": "dccb6f92d5d5a8ab9a8bf6d8c5274f983232f1cae001abcb324bf81c208c9b17",
+    "installer_sha256": "9ddfb59f75c824ce1a358e3a11f808016a4283f51d247d47119089ad6fb7c281",
     "evidence_path": "evidence/macos-build.json"
   },
   "install": {
     "platform": "macos",
-    "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06-8228b0f/Paladin.app",
+    "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06-2d5dcf7/Paladin.app",
     "installed_from_dmg": true,
-    "installed_at": "2026-07-12T12:55:00+08:00",
+    "installed_at": "2026-07-12T16:30:00+08:00",
     "repo_path_used_as_app": false
   },
   "platforms": {
     "macos": {
       "buildability": "verified",
-      "uat_status": "pending",
+      "uat_status": "command-verified-pending-human-confirmation",
       "release_ready": false,
       "required_scenarios": [
         "all_available",
@@ -29,7 +29,8 @@
         "redis_missing",
         "both_missing"
       ],
-      "latest_complete": false
+      "latest_complete": false,
+      "command_verified_complete": true
     },
     "windows": {
       "buildability": "verified-native-ci",
@@ -200,6 +201,130 @@
           "size_bytes": 1224,
           "redacted": true,
           "note": "Command-driven installed-app verification for the user-observed stopped-Go case. No secret values included."
+        }
+      ],
+      "human_confirmed": false,
+      "release_ready_after_attempt": false
+    },
+    {
+      "id": "macos-all-available-004",
+      "date": "2026-07-12T16:30:00+08:00",
+      "tester": "codex-command-verification",
+      "platform": "macos",
+      "os_version": "macOS 13.7.8 (22H730)",
+      "architecture": "arm64",
+      "commit_sha": "2d5dcf768503b61f9f8bf331ed70d568d11699e7",
+      "installer_filename": "paladin_0.1.0_aarch64.dmg",
+      "installer_sha256": "9ddfb59f75c824ce1a358e3a11f808016a4283f51d247d47119089ad6fb7c281",
+      "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06-2d5dcf7/Paladin.app",
+      "scenario": "all_available",
+      "dependency_scenario": "PG and Redis available from local Docker services; server env loaded from apps/server/.env without printing values.",
+      "agent_state": "healthy at t=16s via /health",
+      "go_state": "Agent healthy; Go /healthz 200 and /readyz 200 with postgres/redis up",
+      "workspace_state": "agent ready; go ready; workspace not blocked",
+      "result": "PASS",
+      "failure_reason": null,
+      "evidence": [
+        {
+          "path": "evidence/macos-uat-all-available-command-verified-2d5dcf7.md",
+          "type": "command-log",
+          "sha256": "531d0e5c905552b6a45b53e0efd96c23f7c402efd0115ac2bccd80188621957f",
+          "size_bytes": 1811,
+          "redacted": true,
+          "note": "Command-driven installed-app verification for all_available on latest HEAD DMG. No secret values included."
+        }
+      ],
+      "human_confirmed": false,
+      "release_ready_after_attempt": false
+    },
+    {
+      "id": "macos-postgres-missing-001",
+      "date": "2026-07-12T16:30:00+08:00",
+      "tester": "codex-command-verification",
+      "platform": "macos",
+      "os_version": "macOS 13.7.8 (22H730)",
+      "architecture": "arm64",
+      "commit_sha": "2d5dcf768503b61f9f8bf331ed70d568d11699e7",
+      "installer_filename": "paladin_0.1.0_aarch64.dmg",
+      "installer_sha256": "9ddfb59f75c824ce1a358e3a11f808016a4283f51d247d47119089ad6fb7c281",
+      "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06-2d5dcf7/Paladin.app",
+      "scenario": "postgres_missing",
+      "dependency_scenario": "PALADIN_DATABASE_URL intentionally empty; Redis and JWT config inherited from apps/server/.env without printing values.",
+      "agent_state": "healthy at t=18s via /health",
+      "go_state": "Agent healthy; Go degraded: /healthz 200 and /readyz 503 with postgres missing",
+      "workspace_state": "agent ready; go degraded non-blocking; workspace not blocked",
+      "result": "PASS",
+      "failure_reason": null,
+      "evidence": [
+        {
+          "path": "evidence/macos-uat-postgres-missing-command-verified-2d5dcf7.md",
+          "type": "command-log",
+          "sha256": "ce194957025afe3efeaaf95dcd8b1e1b6b0c8ef41b58c34842541988b3f1e9bd",
+          "size_bytes": 2176,
+          "redacted": true,
+          "note": "Command-driven installed-app verification for postgres_missing on latest HEAD DMG. No secret values included."
+        }
+      ],
+      "human_confirmed": false,
+      "release_ready_after_attempt": false
+    },
+    {
+      "id": "macos-redis-missing-001",
+      "date": "2026-07-12T16:30:00+08:00",
+      "tester": "codex-command-verification",
+      "platform": "macos",
+      "os_version": "macOS 13.7.8 (22H730)",
+      "architecture": "arm64",
+      "commit_sha": "2d5dcf768503b61f9f8bf331ed70d568d11699e7",
+      "installer_filename": "paladin_0.1.0_aarch64.dmg",
+      "installer_sha256": "9ddfb59f75c824ce1a358e3a11f808016a4283f51d247d47119089ad6fb7c281",
+      "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06-2d5dcf7/Paladin.app",
+      "scenario": "redis_missing",
+      "dependency_scenario": "PALADIN_REDIS_URL intentionally empty; PostgreSQL and JWT config inherited from apps/server/.env without printing values.",
+      "agent_state": "healthy at t=18s via /health",
+      "go_state": "Agent healthy; Go degraded: /healthz 200 and /readyz 503 with redis missing",
+      "workspace_state": "agent ready; go degraded non-blocking; workspace not blocked",
+      "result": "PASS",
+      "failure_reason": null,
+      "evidence": [
+        {
+          "path": "evidence/macos-uat-redis-missing-command-verified-2d5dcf7.md",
+          "type": "command-log",
+          "sha256": "49283d8b37bc8b0a05e3fd4751952f58b202d58f38cff28a593e1433b3409599",
+          "size_bytes": 2170,
+          "redacted": true,
+          "note": "Command-driven installed-app verification for redis_missing on latest HEAD DMG. No secret values included."
+        }
+      ],
+      "human_confirmed": false,
+      "release_ready_after_attempt": false
+    },
+    {
+      "id": "macos-both-missing-002",
+      "date": "2026-07-12T16:30:00+08:00",
+      "tester": "codex-command-verification",
+      "platform": "macos",
+      "os_version": "macOS 13.7.8 (22H730)",
+      "architecture": "arm64",
+      "commit_sha": "2d5dcf768503b61f9f8bf331ed70d568d11699e7",
+      "installer_filename": "paladin_0.1.0_aarch64.dmg",
+      "installer_sha256": "9ddfb59f75c824ce1a358e3a11f808016a4283f51d247d47119089ad6fb7c281",
+      "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06-2d5dcf7/Paladin.app",
+      "scenario": "both_missing",
+      "dependency_scenario": "PALADIN_DATABASE_URL and PALADIN_REDIS_URL intentionally empty; JWT config inherited from apps/server/.env without printing values.",
+      "agent_state": "healthy at t=17s via /health",
+      "go_state": "Agent healthy; Go degraded: /healthz 200 and /readyz 503 with postgres/redis missing",
+      "workspace_state": "agent ready; go degraded non-blocking; workspace not blocked",
+      "result": "PASS",
+      "failure_reason": null,
+      "evidence": [
+        {
+          "path": "evidence/macos-uat-both-missing-command-verified-2d5dcf7.md",
+          "type": "command-log",
+          "sha256": "403ff70448123a0086a2f9048fab0860505e0d8951a72e11648995e37dd0ace5",
+          "size_bytes": 2129,
+          "redacted": true,
+          "note": "Command-driven installed-app verification for both_missing on latest HEAD DMG. No secret values included."
         }
       ],
       "human_confirmed": false,

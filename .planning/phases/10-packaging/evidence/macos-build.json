@@ -1,47 +1,42 @@
 {
   "schema_version": 1,
   "phase": "10-packaging",
-  "plan": "10-09",
+  "plan": "10-09/10-06",
   "status": "artifact-checkpoint",
   "conclusion": "success",
   "release_ready": false,
   "human_confirmation_required": true,
   "human_confirmed": false,
-  "verified_at": "2026-07-12T14:38:00+08:00",
-  "commit_sha": "1d6f2d4d866ef7fef23a8344fbf2e360eaa553a4+worktree-degraded-fix",
-  "dmg_sha256": "6f7e52f59fc834026121386246150a048a61ca7f50d044e86b8d275d7a0f244d",
+  "verified_at": "2026-07-12T16:30:00+08:00",
+  "commit_sha": "2d5dcf768503b61f9f8bf331ed70d568d11699e7",
+  "dmg_sha256": "9ddfb59f75c824ce1a358e3a11f808016a4283f51d247d47119089ad6fb7c281",
   "secret_scan": "PASS",
   "build": {
-    "commit_sha": "1d6f2d4d866ef7fef23a8344fbf2e360eaa553a4+worktree-degraded-fix",
+    "commit_sha": "2d5dcf768503b61f9f8bf331ed70d568d11699e7",
     "runner_os": "macOS",
     "architecture": "aarch64",
     "target": "aarch64-apple-darwin",
     "commands": [
       {
-        "command": "pnpm release -- --sidecars-only --target current --verify",
+        "command": "pnpm release -- --target current --verify",
         "status": "pass"
       },
       {
-        "command": "pnpm release -- --target current --verify",
+        "command": "node apps/desktop/scripts/secret-sentinel.mjs --require-all",
         "status": "pass"
       }
     ],
     "tauri_dmg_default_result": {
       "status": "pass",
       "reason": "bundle_dmg.sh completed successfully"
-    },
-    "headless_skip_jenkins_fallback": {
-      "used": false,
-      "status": "not-needed",
-      "command": "bundle_dmg.sh --skip-jenkins"
     }
   },
   "artifacts": {
     "dmg": {
       "path": "apps/desktop/src-tauri/target/release/bundle/dmg/paladin_0.1.0_aarch64.dmg",
       "filename": "paladin_0.1.0_aarch64.dmg",
-      "size_bytes": 82222219,
-      "sha256": "6f7e52f59fc834026121386246150a048a61ca7f50d044e86b8d275d7a0f244d"
+      "size_bytes": 82223218,
+      "sha256": "9ddfb59f75c824ce1a358e3a11f808016a4283f51d247d47119089ad6fb7c281"
     },
     "app_bundle": {
       "path": "apps/desktop/src-tauri/target/release/bundle/macos/paladin.app"
@@ -50,14 +45,14 @@
       {
         "name": "paladin-agent-sidecar-aarch64-apple-darwin",
         "path": "apps/desktop/src-tauri/binaries/paladin-agent-sidecar-aarch64-apple-darwin",
-        "size_bytes": 51501200,
-        "sha256": "2a8873d0bfe362a735ca14541e4ec5a821a3c3cbbf7635c2f4bd07691c3855d4"
+        "size_bytes": 51500528,
+        "sha256": "29bd8c9c18d45b79d64c462a3a6a44a2715847d883264e3a0345702e70fbdc50"
       },
       {
         "name": "paladin-server-sidecar-aarch64-apple-darwin",
         "path": "apps/desktop/src-tauri/binaries/paladin-server-sidecar-aarch64-apple-darwin",
         "size_bytes": 42962002,
-        "sha256": "a884b287a73b2571c9bdac0a243b5a4d8d378861b39c8212882bfc33b5a4d03d"
+        "sha256": "78926b41e2c04f8ab037c92ce9bf0b188b44a3c5bc9b9941f36a3635026a7f5d"
       }
     ]
   },
@@ -65,20 +60,36 @@
     "default_required_targets": {
       "status": "pass",
       "targets_scanned": 3,
-      "files_scanned": 11,
-      "bytes_scanned": 180817266,
-      "findings": []
-    },
-    "expanded_artifact_targets": {
-      "status": "pass",
-      "targets_scanned": 5,
-      "files_scanned": 18,
-      "bytes_scanned": 393988330,
+      "files_scanned": 16,
+      "bytes_scanned": 180826220,
       "findings": []
     }
   },
   "installed_uat": {
-    "status": "command-verified-both-missing",
-    "note": "Use /Users/kdocs/Applications/Paladin-UAT-10-06-degraded-1d6f2d4/Paladin.app for installed-app UAT. Command verification confirmed Agent /health OK and Go degraded (/healthz 200, /readyz 503) when DB/Redis/JWT are missing."
+    "status": "command-verified-four-scenario-pending-human-confirmation",
+    "app_path": "/Users/kdocs/Applications/Paladin-UAT-10-06-2d5dcf7/Paladin.app",
+    "scenarios": {
+      "all_available": {
+        "path": "evidence/macos-uat-all-available-command-verified-2d5dcf7.md",
+        "sha256": "531d0e5c905552b6a45b53e0efd96c23f7c402efd0115ac2bccd80188621957f",
+        "size": 1811
+      },
+      "postgres_missing": {
+        "path": "evidence/macos-uat-postgres-missing-command-verified-2d5dcf7.md",
+        "sha256": "ce194957025afe3efeaaf95dcd8b1e1b6b0c8ef41b58c34842541988b3f1e9bd",
+        "size": 2176
+      },
+      "redis_missing": {
+        "path": "evidence/macos-uat-redis-missing-command-verified-2d5dcf7.md",
+        "sha256": "49283d8b37bc8b0a05e3fd4751952f58b202d58f38cff28a593e1433b3409599",
+        "size": 2170
+      },
+      "both_missing": {
+        "path": "evidence/macos-uat-both-missing-command-verified-2d5dcf7.md",
+        "sha256": "403ff70448123a0086a2f9048fab0860505e0d8951a72e11648995e37dd0ace5",
+        "size": 2129
+      }
+    },
+    "note": "All four required macOS installed-app scenarios passed command probes on the latest HEAD DMG; release_ready remains false until human confirmation is recorded."
   }
 }
