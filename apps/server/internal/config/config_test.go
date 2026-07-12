@@ -103,14 +103,17 @@ func TestLoadPackagedDegraded_AllowsMissingDependenciesAndJWT(t *testing.T) {
 	}
 }
 
-func TestLoadPackagedDegraded_StillRejectsShortJWTSecret(t *testing.T) {
+func TestLoadPackagedDegraded_AllowsShortJWTSecretForHealthOnlyMode(t *testing.T) {
 	t.Setenv("PALADIN_DATABASE_URL", "")
 	t.Setenv("PALADIN_REDIS_URL", "")
 	t.Setenv("PALADIN_JWT_SECRET", "short")
 
-	_, err := LoadPackagedDegraded()
-	if err == nil {
-		t.Fatal("LoadPackagedDegraded should reject a provided short JWT secret")
+	cfg, err := LoadPackagedDegraded()
+	if err != nil {
+		t.Fatalf("LoadPackagedDegraded returned error: %v", err)
+	}
+	if cfg.JWTSecret != "short" {
+		t.Errorf("JWTSecret = %q, want preserved short value for diagnostics", cfg.JWTSecret)
 	}
 }
 

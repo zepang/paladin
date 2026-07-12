@@ -173,6 +173,37 @@
       ],
       "human_confirmed": false,
       "release_ready_after_attempt": false
+    },
+    {
+      "id": "macos-short-jwt-001",
+      "date": "2026-07-12T15:35:00+08:00",
+      "tester": "codex-command-verification",
+      "platform": "macos",
+      "os_version": "macOS 13.7.8 (22H730)",
+      "architecture": "arm64",
+      "commit_sha": "e8de5ce+worktree-short-jwt-degraded-fix",
+      "installer_filename": "paladin_0.1.0_aarch64.dmg",
+      "installer_sha256": "0b073af79df11f3e28d63dbb76785c3ccc227bfbabc238d94fae8fcc73a5635b",
+      "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06-jwt-degraded-e8de5ce/Paladin.app",
+      "scenario": "short_jwt_and_dependencies_missing",
+      "dependency_scenario": "PALADIN_JWT_SECRET intentionally short; PALADIN_DATABASE_URL and PALADIN_REDIS_URL intentionally empty",
+      "agent_state": "healthy at t=20s via /health",
+      "go_state": "degraded: managed sidecar process stayed running; /healthz 200 and /readyz 503",
+      "workspace_state": "not blocked by Go dependency/JWT degradation; Agent became available",
+      "result": "PASS",
+      "failure_reason": null,
+      "evidence": [
+        {
+          "path": "evidence/macos-uat-short-jwt-command-verified.md",
+          "type": "command-log",
+          "sha256": "ab9b0dc998addd6d88606989065d19fa0c4dd951e67f879a3ab7872ae0ee76e1",
+          "size_bytes": 1224,
+          "redacted": true,
+          "note": "Command-driven installed-app verification for the user-observed stopped-Go case. No secret values included."
+        }
+      ],
+      "human_confirmed": false,
+      "release_ready_after_attempt": false
     }
   ]
 }

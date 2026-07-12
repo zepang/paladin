@@ -36,7 +36,7 @@ type Config struct {
 
 type loadOptions struct {
 	allowMissingDependencies bool
-	allowMissingJWTSecret    bool
+	allowInvalidJWTSecret    bool
 }
 
 func Load() (*Config, error) {
@@ -46,7 +46,7 @@ func Load() (*Config, error) {
 func LoadPackagedDegraded() (*Config, error) {
 	return load(loadOptions{
 		allowMissingDependencies: true,
-		allowMissingJWTSecret:    true,
+		allowInvalidJWTSecret:    true,
 	})
 }
 
@@ -119,7 +119,7 @@ func load(options loadOptions) (*Config, error) {
 	if cfg.RedisURL == "" && !options.allowMissingDependencies {
 		return nil, fmt.Errorf("PALADIN_REDIS_URL must be set")
 	}
-	if len(cfg.JWTSecret) < minJWTSecretLen && !(options.allowMissingJWTSecret && cfg.JWTSecret == "") {
+	if len(cfg.JWTSecret) < minJWTSecretLen && !options.allowInvalidJWTSecret {
 		return nil, fmt.Errorf("PALADIN_JWT_SECRET must be >= %d bytes", minJWTSecretLen)
 	}
 	if cfg.BcryptCost < minBcryptCost {

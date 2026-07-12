@@ -114,7 +114,9 @@ func shouldStartPackagedDegraded(err error) bool {
 		return false
 	}
 	message := err.Error()
-	return message == "PALADIN_DATABASE_URL must be set" || message == "PALADIN_REDIS_URL must be set"
+	return message == "PALADIN_DATABASE_URL must be set" ||
+		message == "PALADIN_REDIS_URL must be set" ||
+		message == "PALADIN_JWT_SECRET must be >= 32 bytes"
 }
 
 func statusFromURL(value string) string {
