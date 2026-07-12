@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "status": "buildability-only",
+  "conclusion": "success",
+  "release_ready": false,
+  "installed_uat": "deferred",
+  "platform": "windows",
+  "architecture": "x86_64",
+  "target": "x86_64-pc-windows-msvc",
+  "runner_os": "Windows",
+  "run_url": "https://github.com/zepang/paladin/actions/runs/29176352229",
+  "job_url": "https://github.com/zepang/paladin/actions/runs/29176352229/job/86606128925",
+  "run_id": "29176352229",
+  "job_id": "86606128925",
+  "workflow": "Packaging Windows x64",
+  "workflow_run_number": 3,
+  "trigger": "workflow_dispatch",
+  "branch": "main",
+  "commit_sha": "c9fe63cfa24d86917f783399874416d8f2ae1fba",
+  "github_status_source": "public run page",
+  "github_status_observed": {
+    "status": "Success",
+    "manual_triggered_at_utc": "2026-07-12T02:09:00Z",
+    "total_duration": "12m32s",
+    "job_duration": "12m27s",
+    "artifact_count": 1,
+    "annotation": "Node.js 20 deprecation warning for GitHub Actions; build succeeded."
+  },
+  "artifact_id": "not-publicly-readable:paladin-windows-x86_64-msi-c9fe63cfa24d86917f783399874416d8f2ae1fba",
+  "artifact_id_source": "GitHub public HTML exposes artifact name/digest but unauthenticated Actions artifacts API returned 403 for numeric id",
+  "artifact_name": "paladin-windows-x86_64-msi-c9fe63cfa24d86917f783399874416d8f2ae1fba",
+  "artifact_size_display": "81.7 MB",
+  "artifact_zip": {
+    "local_path": ".planning/phases/10-packaging/evidence/paladin-windows-x86_64-msi-c9fe63cfa24d86917f783399874416d8f2ae1fba.zip",
+    "committed": false,
+    "size": 85702781,
+    "sha256": "834a45b91f31b817fde88afddeeceb4e2cf5ecc7de534cfcfc9e9b6c6c6f83f8",
+    "github_digest": "sha256:834a45b91f31b817fde88afddeeceb4e2cf5ecc7de534cfcfc9e9b6c6c6f83f8",
+    "verified_against_github_digest": true
+  },
+  "artifact_contents": [
+    {
+      "filename": "build-manifest.json",
+      "size": 833,
+      "sha256": "7122504b42e5f153dd1c45b5dfaa59512423bf5c578cf1507528cf62d0186645"
+    },
+    {
+      "filename": "paladin_0.1.0_x64_en-US.msi",
+      "size": 86032384,
+      "sha256": "4ff904d33a8d017c54c848a8e7ca446b65d45973930ed5cd32e50a4dcae3d858"
+    }
+  ],
+  "manifest_sha256": "7122504b42e5f153dd1c45b5dfaa59512423bf5c578cf1507528cf62d0186645",
+  "manifest": {
+    "schema_version": 1,
+    "commit_sha": "c9fe63cfa24d86917f783399874416d8f2ae1fba",
+    "runner_os": "Windows",
+    "architecture": "x86_64",
+    "target": "x86_64-pc-windows-msvc",
+    "artifacts": [
+      {
+        "role": "agent-sidecar",
+        "filename": "paladin-agent-sidecar-x86_64-pc-windows-msvc.exe",
+        "size": 55738006,
+        "sha256": "bb59ef6d1af51e8c1bfa4023b7709d46cbed30fe3d392a06cd377f73d4827d3e"
+      },
+      {
+        "role": "server-sidecar",
+        "filename": "paladin-server-sidecar-x86_64-pc-windows-msvc.exe",
+        "size": 44306944,
+        "sha256": "ef9b40603d83f0a88d93c37e8f4b12e1f8f870ae80830b46dc5292534243d652"
+      },
+      {
+        "role": "msi",
+        "filename": "paladin_0.1.0_x64_en-US.msi",
+        "size": 86032384,
+        "sha256": "4ff904d33a8d017c54c848a8e7ca446b65d45973930ed5cd32e50a4dcae3d858"
+      }
+    ]
+  },
+  "msi": {
+    "filename": "paladin_0.1.0_x64_en-US.msi",
+    "size": 86032384,
+    "sha256": "4ff904d33a8d017c54c848a8e7ca446b65d45973930ed5cd32e50a4dcae3d858"
+  },
+  "sidecars": [
+    {
+      "role": "agent-sidecar",
+      "filename": "paladin-agent-sidecar-x86_64-pc-windows-msvc.exe",
+      "size": 55738006,
+      "sha256": "bb59ef6d1af51e8c1bfa4023b7709d46cbed30fe3d392a06cd377f73d4827d3e"
+    },
+    {
+      "role": "server-sidecar",
+      "filename": "paladin-server-sidecar-x86_64-pc-windows-msvc.exe",
+      "size": 44306944,
+      "sha256": "ef9b40603d83f0a88d93c37e8f4b12e1f8f870ae80830b46dc5292534243d652"
+    }
+  ],
+  "checks": {
+    "run_success_verified": true,
+    "artifact_count_verified": true,
+    "artifact_zip_sha256_verified": true,
+    "zip_contains_exactly_one_msi": true,
+    "zip_contains_exactly_one_manifest": true,
+    "manifest_commit_matches_run_commit": true,
+    "manifest_runner_os_verified": true,
+    "manifest_target_verified": true,
+    "msi_sha256_recomputed": true,
+    "manifest_sha256_recomputed": true,
+    "secrets_included": false
+  }
+}

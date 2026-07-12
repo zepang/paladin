@@ -5,14 +5,14 @@ milestone_name: milestone
 current_phase: 10
 current_phase_name: Packaging
 status: Phase 10 in progress
-stopped_at: Completed 10-03-PLAN.md
-last_updated: "2026-07-11T10:25:51.624Z"
+stopped_at: Completed 10-05-PLAN.md
+last_updated: "2026-07-12T02:40:00.000Z"
 progress:
   total_phases: 17
   completed_phases: 14
   total_plans: 66
-  completed_plans: 51
-  percent: 77
+  completed_plans: 52
+  percent: 79
 ---
 
 # Project State: Paladin
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | 07.4 | Sidecar Runtime Mode | Complete |
 | 8 | Go Server | Complete |
 | 9 | Admin Systems | Complete |
-| 10 | Packaging | Pending |
+| 10 | Packaging | In Progress (5/9) |
 
 ## Roadmap Evolution
 
@@ -59,6 +59,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Recent Activity
 
+- 2026-07-12: Phase 10 Plan 05 completed — native Windows x64 MSI buildability verified on GitHub Actions run 29176352229 at commit c9fe63c; artifact zip contained exactly one MSI and one build-manifest.json with matching SHA-256 evidence; Windows installed UAT and release-ready remain deferred/false.
 - 2026-07-11: Phase 10 Plan 03 completed — env-clear explicit sidecar allowlists, forced packaged runtime marker, ownership-safe lifecycle, and Python/Go packaged dotenv prohibition; Rust 87/87, pytest 3/3, and Go focused tests passed.
 - 2026-07-11: Phase 10 Plan 02 completed — separate packaged config, Tauri resource/externalBin wiring, canonical installed lookup, target-triple and Windows suffix resolution; Rust process tests 82/82 and cargo check passed.
 - 2026-07-11: Phase 10 Plan 01 completed — single shell-free release entrypoint, PyInstaller Agent + native Go Server sidecars, target-triple staging, fail-closed `.env` input audit; Node contracts 4/4 and current `aarch64-apple-darwin` sidecars-only build/verify passed.
@@ -93,15 +94,15 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Next Actions
 
-1. Phase 10 Plan 02 — packaged config、Tauri bundle resources/externalBin 与 installed resource lookup
-2. Phase 10 Plan 04 — 10 MB × 5 完整行日志轮转
-3. 后续 Windows native buildability evidence 与 macOS installed-app UAT
+1. Phase 10 Plan 08 — release documentation and platform status consume Windows buildability evidence
+2. Phase 10 Plan 09 — cross-platform packaging readiness without overstating release-ready status
+3. Phase 10 Plan 06 — macOS installed-app UAT remains the blocking release-readiness path
 4. biome 29 preexisting errors 修复（跨 phase 技术债）
 
 ## Session
 
-**Last session:** 2026-07-11T10:25:51.617Z
-**Stopped at:** Completed 10-03-PLAN.md
+**Last session:** 2026-07-12T02:40:00.000Z
+**Stopped at:** Completed 10-05-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -135,6 +136,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | Phase 10 P04 | 4min | 2 tasks | 5 files |
 | Phase 10 P02 | 8 min | 2 tasks | 5 files |
 | Phase 10 P03 | 8 min | 2 tasks | 7 files |
+| Phase 10 P05 | multi-session | 3 tasks | Windows CI artifact evidence |
 
 ## Decisions
 
@@ -145,6 +147,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 - [Phase 10]: Sidecars start from env_clear and receive only non-empty explicit business/system variables.
 - [Phase 10]: The supervisor always overwrites PALADIN_RUNTIME_MODE from validated runtime config.
 - [Phase 10]: External restart means redetection only; stop and shutdown never terminate external processes.
+- [Phase 10]: Windows native MSI CI evidence proves buildability only; installed UAT remains deferred and release_ready=false.
 
 ## Quick Tasks Completed
 
