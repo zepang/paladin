@@ -21,7 +21,7 @@ const repoRoot = path.resolve(scriptDir, '../../..');
 
 function defaultTargets() {
   return [
-    path.join(repoRoot, 'apps/desktop/src-tauri/target/release/bundle'),
+    path.join(repoRoot, 'apps/desktop/src-tauri/binaries'),
     path.join(repoRoot, 'docs/packaging.md'),
     path.join(repoRoot, '.planning/phases/10-packaging/evidence'),
   ];
