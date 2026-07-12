@@ -1,55 +1,93 @@
 import { execFileSync, spawn } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const command = process.platform === 'win32' ? 'tauri.cmd' : 'tauri';
-const args = process.argv.slice(2);
-const devPorts = [9876, 9880];
-const shouldCleanupDevSidecars = args[0] === 'dev';
-const initialListeners = shouldCleanupDevSidecars ? snapshotListeners(devPorts) : new Map();
-let interrupted = false;
-let exiting = false;
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
-const child = spawn(command, args, {
-  stdio: 'inherit',
-  env: process.env,
-  shell: false,
-});
-
-child.on('error', (error) => {
-  console.error(error.message);
-  process.exit(1);
-});
-
-process.on('SIGINT', () => {
-  interrupted = true;
-  if (!child.killed) {
-    child.kill('SIGINT');
+export function resolveTauriCliInvocation({
+  platform = process.platform,
+  execPath = process.execPath,
+  scriptDir: invocationScriptDir = scriptDir,
+} = {}) {
+  if (platform !== 'win32') {
+    return { command: 'tauri', argsPrefix: [] };
   }
-});
 
-process.on('SIGTERM', () => {
-  interrupted = true;
-  if (!child.killed) {
-    child.kill('SIGTERM');
+  if (!path.win32.isAbsolute(execPath ?? '') || !/node(?:\.exe)?$/i.test(path.win32.basename(execPath ?? ''))) {
+    throw new Error('Windows Tauri CLI requires process.execPath to identify an absolute Node executable');
   }
-});
 
-child.on('close', (code, signal) => {
-  if (interrupted || signal === 'SIGINT' || signal === 'SIGTERM' || code === 130 || code === 143) {
-    void exitAfterCleanup(0);
-    return;
-  }
-  void exitAfterCleanup(code ?? 1);
-});
+  return {
+    command: execPath,
+    argsPrefix: [
+      path.win32.join(
+        path.win32.dirname(invocationScriptDir),
+        'node_modules',
+        '@tauri-apps',
+        'cli',
+        'tauri.js',
+      ),
+    ],
+  };
+}
 
-async function exitAfterCleanup(code) {
-  if (exiting) {
-    return;
+export function runTauriCli(args = process.argv.slice(2), {
+  env = process.env,
+  spawnImpl = spawn,
+  exit = process.exit,
+} = {}) {
+  const devPorts = [9876, 9880];
+  const shouldCleanupDevSidecars = args[0] === 'dev';
+  const initialListeners = shouldCleanupDevSidecars ? snapshotListeners(devPorts) : new Map();
+  let interrupted = false;
+  let exiting = false;
+
+  const invocation = resolveTauriCliInvocation();
+  const child = spawnImpl(invocation.command, [...invocation.argsPrefix, ...args], {
+    stdio: 'inherit',
+    env,
+    shell: false,
+  });
+
+  child.on('error', (error) => {
+    console.error(error.message);
+    exit(1);
+  });
+
+  process.on('SIGINT', () => {
+    interrupted = true;
+    if (!child.killed) {
+      child.kill('SIGINT');
+    }
+  });
+
+  process.on('SIGTERM', () => {
+    interrupted = true;
+    if (!child.killed) {
+      child.kill('SIGTERM');
+    }
+  });
+
+  child.on('close', (code, signal) => {
+    if (interrupted || signal === 'SIGINT' || signal === 'SIGTERM' || code === 130 || code === 143) {
+      void exitAfterCleanup(0);
+      return;
+    }
+    void exitAfterCleanup(code ?? 1);
+  });
+
+  async function exitAfterCleanup(code) {
+    if (exiting) {
+      return;
+    }
+    exiting = true;
+    if (shouldCleanupDevSidecars && interrupted) {
+      await cleanupNewListeners(devPorts, initialListeners);
+    }
+    exit(code);
   }
-  exiting = true;
-  if (shouldCleanupDevSidecars && interrupted) {
-    await cleanupNewListeners(devPorts, initialListeners);
-  }
-  process.exit(code);
+
+  return child;
 }
 
 function snapshotListeners(ports) {
@@ -165,4 +203,11 @@ function isRunning(pid) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const isDirectInvocation = process.argv[1]
+  && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectInvocation) {
+  runTauriCli();
 }

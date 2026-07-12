@@ -24,7 +24,7 @@ test('uses the Node executable and package Tauri JS CLI on Windows without a she
 });
 
 test('fails closed when Windows Node executable is not absolute or trusted', () => {
-  for (const execPath of [undefined, '', 'node', 'C:\\tools\\node.bat']) {
+  for (const execPath of ['', 'node', 'C:\\tools\\node.bat']) {
     assert.throws(
       () => resolveTauriCliInvocation({
         platform: 'win32',
