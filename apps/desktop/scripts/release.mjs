@@ -65,21 +65,52 @@ export async function orchestrateRelease(steps) {
 
 export async function runCommand(command, args, options = {}) {
   await new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const spawnImpl = options.spawnImpl ?? spawn;
+    const commandDescription = [command, ...args].map((part) => JSON.stringify(part)).join(' ');
+    const child = spawnImpl(command, args, {
       cwd: options.cwd,
       env: options.env ?? process.env,
       stdio: 'inherit',
       shell: false,
     });
-    child.once('error', reject);
+    child.once('error', (error) => {
+      reject(new Error(`Failed to start command ${commandDescription}: ${error.message}`, {
+        cause: error,
+      }));
+    });
     child.once('close', (code, signal) => {
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`${command} failed (${signal ?? `exit ${code ?? 'unknown'}`})`));
+        reject(new Error(`Command ${commandDescription} failed (${signal ?? `exit ${code ?? 'unknown'}`})`));
       }
     });
   });
+}
+
+export function resolveTauriInvocation({
+  platform = process.platform,
+  execPath = process.execPath,
+  npmExecPath = process.env.npm_execpath,
+} = {}) {
+  if (platform !== 'win32') {
+    return { command: 'pnpm', args: ['tauri', 'build'] };
+  }
+
+  const isAbsolute = path.win32.isAbsolute(npmExecPath ?? '');
+  const cliName = path.win32.basename(npmExecPath ?? '');
+  const isPnpmJavaScriptCli = /^pnpm\.(?:c|m)?js$/i.test(cliName);
+  if (!isAbsolute || !isPnpmJavaScriptCli) {
+    throw new Error('Windows release requires npm_execpath to identify a trusted absolute pnpm JS CLI path');
+  }
+  if (!path.win32.isAbsolute(execPath) || !/node(?:\.exe)?$/i.test(path.win32.basename(execPath))) {
+    throw new Error('Windows release requires process.execPath to identify an absolute Node executable');
+  }
+
+  return {
+    command: execPath,
+    args: [npmExecPath, 'tauri', 'build'],
+  };
 }
 
 export async function currentTargetTriple() {
@@ -169,7 +200,8 @@ export async function main(argv = process.argv.slice(2)) {
     },
     buildTauri: async () => {
       if (!options.sidecarsOnly) {
-        await runCommand(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['tauri', 'build'], {
+        const invocation = resolveTauriInvocation();
+        await runCommand(invocation.command, invocation.args, {
           cwd: desktopDir,
         });
       }
