@@ -30,14 +30,15 @@ assert_not_contains() {
 
 make_fake_app() {
   local app_path="$1"
+  local executable_name="${2:-Paladin}"
   mkdir -p "$app_path/Contents/MacOS"
-  cat > "$app_path/Contents/MacOS/Paladin" <<'APP'
+  cat > "$app_path/Contents/MacOS/$executable_name" <<'APP'
 #!/usr/bin/env bash
 echo "PALADIN_FAKE_APP_EXECUTED"
 echo "PALADIN_FAKE_APP_ARGC=$#"
 echo "PALADIN_FAKE_APP_OPENAI_API_KEY=${OPENAI_API_KEY:-}"
 APP
-  chmod +x "$app_path/Contents/MacOS/Paladin"
+  chmod +x "$app_path/Contents/MacOS/$executable_name"
 }
 
 APP="$TMP_DIR/Paladin.app"
@@ -47,6 +48,11 @@ output="$(OPENAI_API_KEY='sk-test-secret' DATABASE_URL='postgres://secret' REDIS
 assert_contains "$output" "PALADIN_FAKE_APP_EXECUTED"
 assert_contains "$output" "PALADIN_FAKE_APP_ARGC=0"
 assert_contains "$output" "PALADIN_FAKE_APP_OPENAI_API_KEY=sk-test-secret"
+
+LOWER_APP="$TMP_DIR/PaladinLower.app"
+make_fake_app "$LOWER_APP" "paladin"
+lower_output="$(OPENAI_API_KEY='sk-test-secret' DATABASE_URL='postgres://secret' REDIS_URL='redis://secret' "$WRAPPER" --app "$LOWER_APP" 2>&1)"
+assert_contains "$lower_output" "PALADIN_FAKE_APP_EXECUTED"
 
 missing_output="$(env -u OPENAI_API_KEY -u DATABASE_URL -u REDIS_URL "$WRAPPER" --app "$APP" 2>&1)"
 assert_contains "$missing_output" "Missing recommended environment variables:"
