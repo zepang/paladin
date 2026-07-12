@@ -131,6 +131,7 @@ pub(crate) fn environment_for_process(
     result
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LifecycleRequest {
     Stop,
@@ -138,6 +139,7 @@ pub(crate) enum LifecycleRequest {
     Shutdown,
 }
 
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LifecycleAction {
     RejectExternal,
@@ -146,6 +148,7 @@ pub(crate) enum LifecycleAction {
     NoTrackedChild,
 }
 
+#[cfg(test)]
 pub(crate) fn lifecycle_action(
     owner: ProcessOwner,
     has_tracked_child: bool,

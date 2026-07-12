@@ -107,7 +107,7 @@ pub fn run() {
             // 创建 log_dir (已存在则 no-op) — SPEC Edge R10 失败时 capture_lines 仍 emit
             let _ = std::fs::create_dir_all(&log_dir);
 
-            let loaded_config = config_path.and_then(|path| ProcessConfig::load_from_path(path));
+            let loaded_config = config_path.and_then(ProcessConfig::load_from_path);
             let loaded_config = loaded_config.and_then(|mut config| {
                 if packaged {
                     let executable_dir = std::env::current_exe()
