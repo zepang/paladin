@@ -4,15 +4,15 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 10
 current_phase_name: Packaging
-status: Phase 10 in progress
-stopped_at: Completed 10-06-PLAN.md
-last_updated: "2026-07-12T16:45:00+08:00"
+status: Phase 10 complete
+stopped_at: Completed 10-07-PLAN.md
+last_updated: "2026-07-12T17:10:00+08:00"
 progress:
   total_phases: 17
-  completed_phases: 14
+  completed_phases: 15
   total_plans: 66
-  completed_plans: 55
-  percent: 83
+  completed_plans: 56
+  percent: 85
 ---
 
 # Project State: Paladin
@@ -25,7 +25,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 10 — packaging
+**Current focus:** Phase 10 — packaging complete; ready for verify-work / milestone close-out
 
 ## Phase Status
 
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | 07.4 | Sidecar Runtime Mode | Complete |
 | 8 | Go Server | Complete |
 | 9 | Admin Systems | Complete |
-| 10 | Packaging | In Progress (8/9) |
+| 10 | Packaging | Complete (9/9) |
 
 ## Roadmap Evolution
 
@@ -59,6 +59,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Recent Activity
 
+- 2026-07-12: Phase 10 Plan 07 completed — final packaging verification artifact created; focused gates ran before full suites; Node release/manifest/sentinel 17/17, desktop Vitest 47/47, Rust cargo test 87/87, clippy clean after minimal closure fix, Agent pytest 70/70, Go tests all passed; PKG-01/02/03, D-01..D-25, R1..R7, and Prohibition 1..4 all covered; macOS release-ready true, Windows remains buildability-only/non-release-ready.
 - 2026-07-12: Phase 10 Plan 06 completed — latest HEAD macOS DMG `paladin_0.1.0_aarch64.dmg` verified at commit 2d5dcf7 with SHA-256 9ddfb59f75c824ce1a358e3a11f808016a4283f51d247d47119089ad6fb7c281; installed app copied to `/Users/kdocs/Applications/Paladin-UAT-10-06-2d5dcf7/Paladin.app`; all four macOS installed-app UAT scenarios passed and were human-confirmed; macOS platform release-ready true, Windows installed UAT remains deferred/release_ready=false.
 - 2026-07-12: Phase 10 Plan 09 completed — fail-closed aggregate secret/prohibited-copy scanner added; macOS aarch64 DMG artifact checkpoint verified at commit e90106e with SHA-256 efba7fc1b27dbb946a6d45f3bb1e5c780336128da3edf348f855151e27c9ef60; final bundle scan passed with 0 findings; release_ready remains false pending installed-app UAT.
 - 2026-07-12: Phase 10 Plan 08 completed — StartupMask packaged diagnostics now use installed-app-safe copy, Agent running does not render a blocking mask for Go-only degraded states, and ProcessLight explains Go degraded as non-blocking while preserving external owner safety; Vitest 47/47 passed.
@@ -97,13 +98,13 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Next Actions
 
-1. Phase 10 Plan 07 — final verification artifact after platform gates
+1. Run verify-work / milestone close-out for Phase 10
 2. biome 29 preexisting errors 修复（跨 phase 技术债）
 
 ## Session
 
-**Last session:** 2026-07-12T16:45:00+08:00
-**Stopped at:** Completed 10-06-PLAN.md
+**Last session:** 2026-07-12T17:10:00+08:00
+**Stopped at:** Completed 10-07-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -139,6 +140,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | Phase 10 P03 | 8 min | 2 tasks | 7 files |
 | Phase 10 P05 | multi-session | 3 tasks | Windows CI artifact evidence |
 | Phase 10 P06 | multi-session | 3 tasks | macOS installed-app four-scenario UAT |
+| Phase 10 P07 | multi-session | 2 tasks | Final focused/full closure and coverage audit |
 | Phase 10 P08 | 8 min | 2 tasks | 4 files |
 | Phase 10 P09 | multi-session | 3 tasks | 4 files |
 
@@ -154,6 +156,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 - [Phase 10]: Windows native MSI CI evidence proves buildability only; installed UAT remains deferred and release_ready=false.
 - [Phase 10]: Go degraded/readiness failure is non-blocking when Agent is running; StartupMask is Agent-only.
 - [Phase 10]: macOS installed-app UAT is complete and human-confirmed at commit 2d5dcf7; Windows installed UAT remains deferred and release_ready=false.
+- [Phase 10]: Final packaging verification is complete; Windows non-release-ready is an intentional documented platform status, not a Phase 10 blocker.
 
 ## Quick Tasks Completed
 
