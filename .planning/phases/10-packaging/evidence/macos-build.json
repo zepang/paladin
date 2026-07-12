@@ -7,12 +7,12 @@
   "release_ready": false,
   "human_confirmation_required": true,
   "human_confirmed": false,
-  "verified_at": "2026-07-12T11:35:00+08:00",
-  "commit_sha": "a2c003ed7987a128c606a881bb82675cf7b02667",
-  "dmg_sha256": "48341d096b70c1628f123f8b438b3b2989cb667cd89c9fb2c51fdb320787f726",
+  "verified_at": "2026-07-12T12:55:00+08:00",
+  "commit_sha": "8228b0fa00fb0d500713c3d9cf5ac519828bb210",
+  "dmg_sha256": "dccb6f92d5d5a8ab9a8bf6d8c5274f983232f1cae001abcb324bf81c208c9b17",
   "secret_scan": "PASS",
   "build": {
-    "commit_sha": "a2c003ed7987a128c606a881bb82675cf7b02667",
+    "commit_sha": "8228b0fa00fb0d500713c3d9cf5ac519828bb210",
     "runner_os": "macOS",
     "architecture": "aarch64",
     "target": "aarch64-apple-darwin",
@@ -28,7 +28,7 @@
     ],
     "tauri_dmg_default_result": {
       "status": "pass",
-      "reason": "bundle_dmg.sh completed successfully in this rebuild"
+      "reason": "bundle_dmg.sh completed successfully"
     },
     "headless_skip_jenkins_fallback": {
       "used": false,
@@ -40,8 +40,8 @@
     "dmg": {
       "path": "apps/desktop/src-tauri/target/release/bundle/dmg/paladin_0.1.0_aarch64.dmg",
       "filename": "paladin_0.1.0_aarch64.dmg",
-      "size_bytes": 82214899,
-      "sha256": "48341d096b70c1628f123f8b438b3b2989cb667cd89c9fb2c51fdb320787f726"
+      "size_bytes": 82215935,
+      "sha256": "dccb6f92d5d5a8ab9a8bf6d8c5274f983232f1cae001abcb324bf81c208c9b17"
     },
     "app_bundle": {
       "path": "apps/desktop/src-tauri/target/release/bundle/macos/paladin.app"
@@ -50,14 +50,14 @@
       {
         "name": "paladin-agent-sidecar-aarch64-apple-darwin",
         "path": "apps/desktop/src-tauri/binaries/paladin-agent-sidecar-aarch64-apple-darwin",
-        "size_bytes": 51495328,
-        "sha256": "1ed5ef4639d2fc4bc270acbda65b79ca0bc33aacc9153207522a138eeaaba326"
+        "size_bytes": 51500384,
+        "sha256": "3009711548bf2b7f01eda53a641b375100fdc860d3b0faba5ec8f3a3199d270d"
       },
       {
         "name": "paladin-server-sidecar-aarch64-apple-darwin",
         "path": "apps/desktop/src-tauri/binaries/paladin-server-sidecar-aarch64-apple-darwin",
         "size_bytes": 42961394,
-        "sha256": "c56707a41ee2cbe6075cd69f6e2046b2bee0d90fa96dfd044f9ee6321b6b25c1"
+        "sha256": "0ffe9a4557146af1d67ad17c7a49ea294740260f3b31fb1740285554974b9744"
       }
     ]
   },
@@ -72,13 +72,13 @@
     "expanded_artifact_targets": {
       "status": "pass",
       "targets_scanned": 5,
-      "files_scanned": 15,
-      "bytes_scanned": 393538568,
+      "files_scanned": 17,
+      "bytes_scanned": 393976861,
       "findings": []
     }
   },
   "installed_uat": {
-    "status": "in-progress",
-    "note": "A packaging bug was found during installed-app UAT and fixed in a2c003e. Retest must use /Users/kdocs/Applications/Paladin-UAT-10-06-a2c003e/Paladin.app."
+    "status": "ready-for-retest",
+    "note": "Use /Users/kdocs/Applications/Paladin-UAT-10-06-8228b0f/Paladin.app for the next installed-app UAT attempt. Release --verify includes frozen Agent /health smoke."
   }
 }
