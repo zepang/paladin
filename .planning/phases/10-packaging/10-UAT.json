@@ -21,15 +21,15 @@
   "platforms": {
     "macos": {
       "buildability": "verified",
-      "uat_status": "command-verified-pending-human-confirmation",
-      "release_ready": false,
+      "uat_status": "passed",
+      "release_ready": true,
       "required_scenarios": [
         "all_available",
         "postgres_missing",
         "redis_missing",
         "both_missing"
       ],
-      "latest_complete": false,
+      "latest_complete": true,
       "command_verified_complete": true
     },
     "windows": {
@@ -172,8 +172,8 @@
           "note": "Command-driven installed-app verification: wrapper warning names only, Agent /health OK, Go /healthz OK, Go /readyz degraded. No secret values included."
         }
       ],
-      "human_confirmed": false,
-      "release_ready_after_attempt": false
+      "human_confirmed": true,
+      "release_ready_after_attempt": true
     },
     {
       "id": "macos-short-jwt-001",
@@ -203,8 +203,8 @@
           "note": "Command-driven installed-app verification for the user-observed stopped-Go case. No secret values included."
         }
       ],
-      "human_confirmed": false,
-      "release_ready_after_attempt": false
+      "human_confirmed": true,
+      "release_ready_after_attempt": true
     },
     {
       "id": "macos-all-available-004",
@@ -234,8 +234,8 @@
           "note": "Command-driven installed-app verification for all_available on latest HEAD DMG. No secret values included."
         }
       ],
-      "human_confirmed": false,
-      "release_ready_after_attempt": false
+      "human_confirmed": true,
+      "release_ready_after_attempt": true
     },
     {
       "id": "macos-postgres-missing-001",
@@ -265,8 +265,8 @@
           "note": "Command-driven installed-app verification for postgres_missing on latest HEAD DMG. No secret values included."
         }
       ],
-      "human_confirmed": false,
-      "release_ready_after_attempt": false
+      "human_confirmed": true,
+      "release_ready_after_attempt": true
     },
     {
       "id": "macos-redis-missing-001",
@@ -296,8 +296,8 @@
           "note": "Command-driven installed-app verification for redis_missing on latest HEAD DMG. No secret values included."
         }
       ],
-      "human_confirmed": false,
-      "release_ready_after_attempt": false
+      "human_confirmed": true,
+      "release_ready_after_attempt": true
     },
     {
       "id": "macos-both-missing-002",
@@ -327,8 +327,8 @@
           "note": "Command-driven installed-app verification for both_missing on latest HEAD DMG. No secret values included."
         }
       ],
-      "human_confirmed": false,
-      "release_ready_after_attempt": false
+      "human_confirmed": true,
+      "release_ready_after_attempt": true
     }
   ]
 }

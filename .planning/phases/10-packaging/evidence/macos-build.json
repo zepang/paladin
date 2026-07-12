@@ -4,9 +4,9 @@
   "plan": "10-09/10-06",
   "status": "artifact-checkpoint",
   "conclusion": "success",
-  "release_ready": false,
+  "release_ready": true,
   "human_confirmation_required": true,
-  "human_confirmed": false,
+  "human_confirmed": true,
   "verified_at": "2026-07-12T16:30:00+08:00",
   "commit_sha": "2d5dcf768503b61f9f8bf331ed70d568d11699e7",
   "dmg_sha256": "9ddfb59f75c824ce1a358e3a11f808016a4283f51d247d47119089ad6fb7c281",
@@ -66,7 +66,7 @@
     }
   },
   "installed_uat": {
-    "status": "command-verified-four-scenario-pending-human-confirmation",
+    "status": "passed",
     "app_path": "/Users/kdocs/Applications/Paladin-UAT-10-06-2d5dcf7/Paladin.app",
     "scenarios": {
       "all_available": {
@@ -90,6 +90,6 @@
         "size": 2129
       }
     },
-    "note": "All four required macOS installed-app scenarios passed command probes on the latest HEAD DMG; release_ready remains false until human confirmation is recorded."
+    "note": "All four required macOS installed-app scenarios passed command probes on the latest HEAD DMG, and human confirmation is recorded."
   }
 }

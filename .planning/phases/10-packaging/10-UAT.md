@@ -1,7 +1,7 @@
 # Phase 10 macOS Installed-App UAT
 
-**Status:** Command verified complete; pending human confirmation
-**Release-ready:** No
+**Status:** Complete — four-scenario installed-app UAT command-verified and human-confirmed
+**Release-ready:** macOS yes; Windows no; final phase closure pending Plan 07
 **Updated:** 2026-07-12
 
 This file is the human-readable companion to `10-UAT.json`. The JSON file is append-only for scenario attempts; this Markdown file summarizes the latest state without replacing the structured record.
@@ -16,7 +16,7 @@ This file is the human-readable companion to `10-UAT.json`. The JSON file is app
 | Install path | `/Users/kdocs/Applications/Paladin-UAT-10-06-2d5dcf7/Paladin.app` |
 | Source evidence | `evidence/macos-build.json` |
 
-The app was copied from the verified DMG into a non-repository UAT install path. This is an artifact checkpoint and installed-app setup step; it is not yet the four-scenario UAT pass.
+The app was copied from the verified DMG into a non-repository UAT install path. The four required macOS installed-app scenarios are command-verified and human-confirmed.
 
 ## Supported launch path
 
@@ -32,10 +32,10 @@ Configuration values must be provided through the current process environment. F
 
 | Scenario | Expected result | Latest status |
 |---|---|---|
-| `all_available` | Agent ready; Go ready; workspace usable | Command verified PASS on `2d5dcf7`; human confirmation pending |
-| `postgres_missing` | Agent ready; Go degraded/non-blocking; workspace usable | Command verified PASS on `2d5dcf7`; human confirmation pending |
-| `redis_missing` | Agent ready; Go degraded/non-blocking; workspace usable | Command verified PASS on `2d5dcf7`; human confirmation pending |
-| `both_missing` | Agent ready; Go degraded/non-blocking; workspace usable | Command verified PASS on `2d5dcf7`; human confirmation pending |
+| `all_available` | Agent ready; Go ready; workspace usable | PASS — command verified and human-confirmed on `2d5dcf7` |
+| `postgres_missing` | Agent ready; Go degraded/non-blocking; workspace usable | PASS — command verified and human-confirmed on `2d5dcf7` |
+| `redis_missing` | Agent ready; Go degraded/non-blocking; workspace usable | PASS — command verified and human-confirmed on `2d5dcf7` |
+| `both_missing` | Agent ready; Go degraded/non-blocking; workspace usable | PASS — command verified and human-confirmed on `2d5dcf7` |
 
 ## Windows status
 
@@ -58,4 +58,4 @@ Windows x86_64 native MSI buildability has been verified by CI, but installed-ap
   - `evidence/macos-uat-redis-missing-command-verified-2d5dcf7.md`
   - `evidence/macos-uat-both-missing-command-verified-2d5dcf7.md`
 
-Release-ready remains **No** until the human checkpoint confirms the installed-app observations and evidence.
+The human checkpoint confirmed that the installed-app observations and evidence are consistent. macOS installed-app UAT is complete; Windows installed-app UAT remains deferred and non-release-ready.
