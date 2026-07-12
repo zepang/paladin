@@ -5,20 +5,20 @@ milestone_name: milestone
 current_phase: 10
 current_phase_name: Packaging
 status: Phase 10 in progress
-stopped_at: Completed 10-09-PLAN.md
-last_updated: "2026-07-12T03:04:37.000Z"
+stopped_at: Completed 10-06-PLAN.md
+last_updated: "2026-07-12T16:45:00+08:00"
 progress:
   total_phases: 17
   completed_phases: 14
   total_plans: 66
-  completed_plans: 54
-  percent: 82
+  completed_plans: 55
+  percent: 83
 ---
 
 # Project State: Paladin
 
 **Phase:** 10 — Packaging
-**Last Updated:** 2026-07-11
+**Last Updated:** 2026-07-12
 
 ## Project Reference
 
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | 07.4 | Sidecar Runtime Mode | Complete |
 | 8 | Go Server | Complete |
 | 9 | Admin Systems | Complete |
-| 10 | Packaging | In Progress (7/9) |
+| 10 | Packaging | In Progress (8/9) |
 
 ## Roadmap Evolution
 
@@ -59,6 +59,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Recent Activity
 
+- 2026-07-12: Phase 10 Plan 06 completed — latest HEAD macOS DMG `paladin_0.1.0_aarch64.dmg` verified at commit 2d5dcf7 with SHA-256 9ddfb59f75c824ce1a358e3a11f808016a4283f51d247d47119089ad6fb7c281; installed app copied to `/Users/kdocs/Applications/Paladin-UAT-10-06-2d5dcf7/Paladin.app`; all four macOS installed-app UAT scenarios passed and were human-confirmed; macOS platform release-ready true, Windows installed UAT remains deferred/release_ready=false.
 - 2026-07-12: Phase 10 Plan 09 completed — fail-closed aggregate secret/prohibited-copy scanner added; macOS aarch64 DMG artifact checkpoint verified at commit e90106e with SHA-256 efba7fc1b27dbb946a6d45f3bb1e5c780336128da3edf348f855151e27c9ef60; final bundle scan passed with 0 findings; release_ready remains false pending installed-app UAT.
 - 2026-07-12: Phase 10 Plan 08 completed — StartupMask packaged diagnostics now use installed-app-safe copy, Agent running does not render a blocking mask for Go-only degraded states, and ProcessLight explains Go degraded as non-blocking while preserving external owner safety; Vitest 47/47 passed.
 - 2026-07-12: Phase 10 Plan 05 completed — native Windows x64 MSI buildability verified on GitHub Actions run 29176352229 at commit c9fe63c; artifact zip contained exactly one MSI and one build-manifest.json with matching SHA-256 evidence; Windows installed UAT and release-ready remain deferred/false.
@@ -96,14 +97,13 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Next Actions
 
-1. Phase 10 Plan 06 — macOS installed-app UAT remains the blocking release-readiness path
-2. Phase 10 Plan 07 — final verification artifact after platform gates
-3. biome 29 preexisting errors 修复（跨 phase 技术债）
+1. Phase 10 Plan 07 — final verification artifact after platform gates
+2. biome 29 preexisting errors 修复（跨 phase 技术债）
 
 ## Session
 
-**Last session:** 2026-07-12T03:04:37.000Z
-**Stopped at:** Completed 10-09-PLAN.md
+**Last session:** 2026-07-12T16:45:00+08:00
+**Stopped at:** Completed 10-06-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -138,6 +138,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | Phase 10 P02 | 8 min | 2 tasks | 5 files |
 | Phase 10 P03 | 8 min | 2 tasks | 7 files |
 | Phase 10 P05 | multi-session | 3 tasks | Windows CI artifact evidence |
+| Phase 10 P06 | multi-session | 3 tasks | macOS installed-app four-scenario UAT |
 | Phase 10 P08 | 8 min | 2 tasks | 4 files |
 | Phase 10 P09 | multi-session | 3 tasks | 4 files |
 
@@ -152,7 +153,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 - [Phase 10]: External restart means redetection only; stop and shutdown never terminate external processes.
 - [Phase 10]: Windows native MSI CI evidence proves buildability only; installed UAT remains deferred and release_ready=false.
 - [Phase 10]: Go degraded/readiness failure is non-blocking when Agent is running; StartupMask is Agent-only.
-- [Phase 10]: macOS DMG artifact checkpoint is confirmed at commit e90106e, but installed-app UAT is still required before release_ready can become true.
+- [Phase 10]: macOS installed-app UAT is complete and human-confirmed at commit 2d5dcf7; Windows installed UAT remains deferred and release_ready=false.
 
 ## Quick Tasks Completed
 

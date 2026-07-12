@@ -24,7 +24,7 @@
 | 7.4 | Sidecar Runtime Mode | dev Hybrid attach/spawn 运行模式与 ownership 语义 | Phase 7.3 |
 | 8 | Go Server | 认证/数据库/WebSocket Hub | — |
 | 9 | Admin Systems | 审计日志 + 配额管理 | Phase 8 |
-| 10 | 7/9 | In Progress|  |
+| 10 | Packaging | In Progress (8/9) | Phase 9 |
 
 ## Phase Details
 
@@ -332,10 +332,23 @@ Wave structure:
 
 **Goal:** 可分发的桌面应用
 **Requirements:** PKG-01~03
+**Plans:** 8/9 plans complete
 
 - macOS .dmg 打包
 - Windows .msi 打包
 - README + 项目文档
+
+Plans:
+
+- [x] 10-01-PLAN.md — Release sidecar pipeline
+- [x] 10-02-PLAN.md — Packaged resource wiring
+- [x] 10-03-PLAN.md — Packaged environment boundary
+- [x] 10-04-PLAN.md — Bounded sidecar log rotation
+- [x] 10-05-PLAN.md — Windows MSI buildability evidence
+- [x] 10-06-PLAN.md — macOS installed-app UAT
+- [ ] 10-07-PLAN.md — Final verification and release honesty closure
+- [x] 10-08-PLAN.md — Packaged process UI diagnostics
+- [x] 10-09-PLAN.md — macOS artifact checkpoint and sentinel gate
 
 ## Parallel Execution Opportunities
 
