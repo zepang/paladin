@@ -41,6 +41,7 @@ export function ProcessLight({ name, label }: { name: ProcessName; label: string
   const text = TEXT[status.state];
   const ownerText = OWNER_TEXT[status.owner];
   const isExternal = status.owner === 'external';
+  const isGoDegraded = name === 'server' && (status.state === 'degraded' || status.health === 'degraded');
   const displayText =
     status.state === 'conflict'
       ? `${label} · 冲突`
@@ -69,7 +70,12 @@ export function ProcessLight({ name, label }: { name: ProcessName; label: string
           </div>
           {isExternal && (
             <div className="text-xs text-muted-foreground">
-              外部服务由你手动管理，Paladin 不会停止、重启或捕获它的日志。
+              外部服务由你手动管理，Paladin 不会停止或重启它。
+            </div>
+          )}
+          {isGoDegraded && (
+            <div className="text-xs text-muted-foreground">
+              Go 服务已启动，但依赖未完全就绪；Agent 仍可继续使用。
             </div>
           )}
           {status.last_error && (
@@ -93,8 +99,7 @@ export function ProcessLight({ name, label }: { name: ProcessName; label: string
             <Button
               size="sm"
               variant="ghost"
-              disabled={isExternal}
-              title={isExternal ? '外部服务日志请查看启动它的终端' : '查看日志'}
+              title={isExternal ? '查看 Paladin 已捕获的日志' : '查看日志'}
               onClick={openLogsPanel}
             >
               查看日志

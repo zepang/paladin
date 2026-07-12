@@ -119,8 +119,8 @@ function classifyFailure(error: string | null, health: ProcessHealth) {
   if (text.includes('运行时配置无效') || text.includes('processes.json')) {
     return {
       eyebrow: '配置错误',
-      title: '运行时配置无效',
-      description: '请检查 src-tauri/processes.json 的模式、命令和路径配置。',
+      title: '内置运行时配置无效',
+      description: 'Paladin 无法读取有效的内置启动配置。请查看诊断信息，并按文档中的排查步骤处理。',
     };
   }
   if (text.includes('端口') || text.includes('健康检查')) {
@@ -133,21 +133,21 @@ function classifyFailure(error: string | null, health: ProcessHealth) {
   if (text.includes('cwd')) {
     return {
       eyebrow: '路径错误',
-      title: 'Agent 工作目录不存在',
-      description: '请检查运行时配置中的 cwd 是否指向本机存在的目录。',
+      title: '应用运行目录无效',
+      description: '当前安装中的运行目录配置不可用。请查看诊断信息，并参考文档中的已知问题说明。',
     };
   }
   if (text.includes('spawn') || text.includes('No such file') || text.includes('找不到')) {
     return {
-      eyebrow: '可执行文件缺失',
-      title: 'Agent 可执行文件不可用',
-      description: '请确认 Agent 启动命令在当前运行环境中可执行。',
+      eyebrow: '安装不完整',
+      title: '必需服务文件不可用',
+      description: '当前安装包缺少 Agent 或 Server 所需文件。请重新安装，或使用已验证的发布包。',
     };
   }
   if (text.includes('进程退出') || text.includes('startup')) {
     return {
       eyebrow: '启动失败',
-      title: 'Agent 在启动窗口内退出',
+      title: 'Agent 在启动时退出',
       description: 'Agent 已在启动保护窗口内退出，请查看诊断信息后重试。',
     };
   }
@@ -160,10 +160,23 @@ function classifyFailure(error: string | null, health: ProcessHealth) {
   }
   return {
     eyebrow: '进程已停止',
-    title: 'Agent 已停止',
+    title: 'Agent 未成功启动',
     description:
-      '本地 Agent 没有成功启动。请先尝试重启；如果仍然失败，请根据错误信息检查可执行文件路径或运行环境。',
+      'Paladin 暂时无法连接本地 Agent，因此主工作区尚不可用。',
   };
+}
+
+function diagnosticError(error: string | null) {
+  if (!error) {
+    return null;
+  }
+  if (error.includes('运行时配置无效') || error.includes('processes.json')) {
+    return '内置启动配置未通过校验。';
+  }
+  if (error.includes('src-tauri') || /\b(?:uv|go|pnpm|cargo)\b/i.test(error)) {
+    return '启动诊断包含开发环境细节，已隐藏。请查看文档中的安装包排查步骤。';
+  }
+  return error;
 }
 
 export function StartupMask({
@@ -188,6 +201,7 @@ export function StartupMask({
   }
 
   if (agentState === 'unhealthy' || agentState === 'degraded') {
+    const safeError = diagnosticError(error);
     return (
       <StatusPanel
         icon={
@@ -209,7 +223,7 @@ export function StartupMask({
             ? '系统正在退避重试。你可以查看下方错误信息，等待自动恢复。'
             : '核心功能仍会尽量保持可用，但部分能力可能暂时受限。'
         }
-        error={error}
+        error={safeError}
         stderrTail={stderrTail}
       />
     );
@@ -217,6 +231,7 @@ export function StartupMask({
 
   if (agentState === 'conflict') {
     const failure = classifyFailure(error, health);
+    const safeError = diagnosticError(error);
     return (
       <StatusPanel
         icon={<ShieldAlert className="size-5" />}
@@ -224,7 +239,7 @@ export function StartupMask({
         eyebrow={failure.eyebrow}
         title={failure.title}
         description={failure.description}
-        error={error}
+        error={safeError}
         stderrTail={stderrTail}
         action={
           <Button variant="destructive" onClick={onRedetect ?? onRestart}>
@@ -238,6 +253,7 @@ export function StartupMask({
 
   if (agentState === 'stopped') {
     const failure = classifyFailure(error, health);
+    const safeError = diagnosticError(error);
     const actionDisabled = owner === 'external';
     return (
       <StatusPanel
@@ -246,7 +262,7 @@ export function StartupMask({
         eyebrow={failure.eyebrow}
         title={failure.title}
         description={failure.description}
-        error={error}
+        error={safeError}
         stderrTail={stderrTail}
         action={
           <Button variant="destructive" disabled={actionDisabled} onClick={onRestart}>
