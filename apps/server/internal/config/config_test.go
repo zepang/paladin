@@ -83,6 +83,37 @@ func TestLoad_EmptyRedisURL(t *testing.T) {
 	}
 }
 
+func TestLoadPackagedDegraded_AllowsMissingDependenciesAndJWT(t *testing.T) {
+	t.Setenv("PALADIN_DATABASE_URL", "")
+	t.Setenv("PALADIN_REDIS_URL", "")
+	t.Setenv("PALADIN_JWT_SECRET", "")
+
+	cfg, err := LoadPackagedDegraded()
+	if err != nil {
+		t.Fatalf("LoadPackagedDegraded returned error: %v", err)
+	}
+	if cfg.Port != 9880 {
+		t.Errorf("Port = %d, want 9880", cfg.Port)
+	}
+	if cfg.DatabaseURL != "" {
+		t.Errorf("DatabaseURL should remain empty in degraded config")
+	}
+	if cfg.RedisURL != "" {
+		t.Errorf("RedisURL should remain empty in degraded config")
+	}
+}
+
+func TestLoadPackagedDegraded_StillRejectsShortJWTSecret(t *testing.T) {
+	t.Setenv("PALADIN_DATABASE_URL", "")
+	t.Setenv("PALADIN_REDIS_URL", "")
+	t.Setenv("PALADIN_JWT_SECRET", "short")
+
+	_, err := LoadPackagedDegraded()
+	if err == nil {
+		t.Fatal("LoadPackagedDegraded should reject a provided short JWT secret")
+	}
+}
+
 func TestLoad_BcryptCostTooLow(t *testing.T) {
 	env := validEnv()
 	env["PALADIN_BCRYPT_COST"] = "4"

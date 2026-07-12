@@ -34,7 +34,23 @@ type Config struct {
 	QuotaWindow   time.Duration
 }
 
+type loadOptions struct {
+	allowMissingDependencies bool
+	allowMissingJWTSecret    bool
+}
+
 func Load() (*Config, error) {
+	return load(loadOptions{})
+}
+
+func LoadPackagedDegraded() (*Config, error) {
+	return load(loadOptions{
+		allowMissingDependencies: true,
+		allowMissingJWTSecret:    true,
+	})
+}
+
+func load(options loadOptions) (*Config, error) {
 	cfg := &Config{
 		Port:        defaultPort,
 		JWTTTL:      defaultJWTTTL,
@@ -97,13 +113,13 @@ func Load() (*Config, error) {
 		cfg.QuotaWindow = d
 	}
 
-	if cfg.DatabaseURL == "" {
+	if cfg.DatabaseURL == "" && !options.allowMissingDependencies {
 		return nil, fmt.Errorf("PALADIN_DATABASE_URL must be set")
 	}
-	if cfg.RedisURL == "" {
+	if cfg.RedisURL == "" && !options.allowMissingDependencies {
 		return nil, fmt.Errorf("PALADIN_REDIS_URL must be set")
 	}
-	if len(cfg.JWTSecret) < minJWTSecretLen {
+	if len(cfg.JWTSecret) < minJWTSecretLen && !(options.allowMissingJWTSecret && cfg.JWTSecret == "") {
 		return nil, fmt.Errorf("PALADIN_JWT_SECRET must be >= %d bytes", minJWTSecretLen)
 	}
 	if cfg.BcryptCost < minBcryptCost {

@@ -7,12 +7,12 @@
   "release_ready": false,
   "human_confirmation_required": true,
   "human_confirmed": false,
-  "verified_at": "2026-07-12T12:55:00+08:00",
-  "commit_sha": "8228b0fa00fb0d500713c3d9cf5ac519828bb210",
-  "dmg_sha256": "dccb6f92d5d5a8ab9a8bf6d8c5274f983232f1cae001abcb324bf81c208c9b17",
+  "verified_at": "2026-07-12T14:38:00+08:00",
+  "commit_sha": "1d6f2d4d866ef7fef23a8344fbf2e360eaa553a4+worktree-degraded-fix",
+  "dmg_sha256": "6f7e52f59fc834026121386246150a048a61ca7f50d044e86b8d275d7a0f244d",
   "secret_scan": "PASS",
   "build": {
-    "commit_sha": "8228b0fa00fb0d500713c3d9cf5ac519828bb210",
+    "commit_sha": "1d6f2d4d866ef7fef23a8344fbf2e360eaa553a4+worktree-degraded-fix",
     "runner_os": "macOS",
     "architecture": "aarch64",
     "target": "aarch64-apple-darwin",
@@ -40,8 +40,8 @@
     "dmg": {
       "path": "apps/desktop/src-tauri/target/release/bundle/dmg/paladin_0.1.0_aarch64.dmg",
       "filename": "paladin_0.1.0_aarch64.dmg",
-      "size_bytes": 82215935,
-      "sha256": "dccb6f92d5d5a8ab9a8bf6d8c5274f983232f1cae001abcb324bf81c208c9b17"
+      "size_bytes": 82222219,
+      "sha256": "6f7e52f59fc834026121386246150a048a61ca7f50d044e86b8d275d7a0f244d"
     },
     "app_bundle": {
       "path": "apps/desktop/src-tauri/target/release/bundle/macos/paladin.app"
@@ -50,14 +50,14 @@
       {
         "name": "paladin-agent-sidecar-aarch64-apple-darwin",
         "path": "apps/desktop/src-tauri/binaries/paladin-agent-sidecar-aarch64-apple-darwin",
-        "size_bytes": 51500384,
-        "sha256": "3009711548bf2b7f01eda53a641b375100fdc860d3b0faba5ec8f3a3199d270d"
+        "size_bytes": 51501200,
+        "sha256": "2a8873d0bfe362a735ca14541e4ec5a821a3c3cbbf7635c2f4bd07691c3855d4"
       },
       {
         "name": "paladin-server-sidecar-aarch64-apple-darwin",
         "path": "apps/desktop/src-tauri/binaries/paladin-server-sidecar-aarch64-apple-darwin",
-        "size_bytes": 42961394,
-        "sha256": "0ffe9a4557146af1d67ad17c7a49ea294740260f3b31fb1740285554974b9744"
+        "size_bytes": 42962002,
+        "sha256": "a884b287a73b2571c9bdac0a243b5a4d8d378861b39c8212882bfc33b5a4d03d"
       }
     ]
   },
@@ -65,20 +65,20 @@
     "default_required_targets": {
       "status": "pass",
       "targets_scanned": 3,
-      "files_scanned": 5,
-      "bytes_scanned": 180158369,
+      "files_scanned": 11,
+      "bytes_scanned": 180817266,
       "findings": []
     },
     "expanded_artifact_targets": {
       "status": "pass",
       "targets_scanned": 5,
-      "files_scanned": 17,
-      "bytes_scanned": 393976861,
+      "files_scanned": 18,
+      "bytes_scanned": 393988330,
       "findings": []
     }
   },
   "installed_uat": {
-    "status": "ready-for-retest",
-    "note": "Use /Users/kdocs/Applications/Paladin-UAT-10-06-8228b0f/Paladin.app for the next installed-app UAT attempt. Release --verify includes frozen Agent /health smoke."
+    "status": "command-verified-both-missing",
+    "note": "Use /Users/kdocs/Applications/Paladin-UAT-10-06-degraded-1d6f2d4/Paladin.app for installed-app UAT. Command verification confirmed Agent /health OK and Go degraded (/healthz 200, /readyz 503) when DB/Redis/JWT are missing."
   }
 }

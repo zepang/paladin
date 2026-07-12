@@ -142,6 +142,37 @@
       ],
       "human_confirmed": true,
       "release_ready_after_attempt": false
+    },
+    {
+      "id": "macos-both-missing-001",
+      "date": "2026-07-12T14:38:00+08:00",
+      "tester": "codex-command-verification",
+      "platform": "macos",
+      "os_version": "macOS 13.7.8 (22H730)",
+      "architecture": "arm64",
+      "commit_sha": "1d6f2d4d866ef7fef23a8344fbf2e360eaa553a4+worktree-degraded-fix",
+      "installer_filename": "paladin_0.1.0_aarch64.dmg",
+      "installer_sha256": "6f7e52f59fc834026121386246150a048a61ca7f50d044e86b8d275d7a0f244d",
+      "install_path": "/Users/kdocs/Applications/Paladin-UAT-10-06-degraded-1d6f2d4/Paladin.app",
+      "scenario": "both_missing",
+      "dependency_scenario": "PALADIN_DATABASE_URL, PALADIN_REDIS_URL, and PALADIN_JWT_SECRET intentionally empty; DEEPSEEK_API_KEY inherited without printing value",
+      "agent_state": "healthy at t=18s via /health",
+      "go_state": "degraded: /healthz 200 and /readyz 503 with postgres/redis missing",
+      "workspace_state": "not blocked by Go dependency degradation; Agent became available",
+      "result": "PASS",
+      "failure_reason": null,
+      "evidence": [
+        {
+          "path": "evidence/macos-uat-both-missing-command-verified.md",
+          "type": "command-log",
+          "sha256": "6d6b61dbbee55e14cc8ec40d47aacebb4e95b62350a43262bc9e9211b5d5d1b3",
+          "size_bytes": 2221,
+          "redacted": true,
+          "note": "Command-driven installed-app verification: wrapper warning names only, Agent /health OK, Go /healthz OK, Go /readyz degraded. No secret values included."
+        }
+      ],
+      "human_confirmed": false,
+      "release_ready_after_attempt": false
     }
   ]
 }
