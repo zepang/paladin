@@ -12,7 +12,7 @@ export const DEFAULT_SENTINELS = {
 };
 
 export const PROHIBITED_PACKAGED_GUIDANCE = [
-  { token: 'developer-command', pattern: /\b(?:uv|go run|pnpm|cargo)\b/i },
+  { token: 'developer-command', pattern: /请(?:运行|执行|使用)[^。\n]*(?:\buv\b|\bgo run\b|\bpnpm\b|\bcargo\b)/i },
   { token: 'source-config-path', pattern: /src-tauri\/processes\.json|src-tauri\\processes\.json/i },
 ];
 
