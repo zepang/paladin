@@ -6,12 +6,14 @@
 import { DiffReview } from '@/components/panel/DiffReview';
 import { FilePreview } from '@/components/panel/FilePreview';
 import { LogsPanel } from '@/components/panel/LogsPanel';
+import { AiProviderPanel } from '@/components/provider/AiProviderPanel';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { TerminalTabBar } from '@/components/terminal/TerminalTabBar';
 import { Button } from '@/components/ui/button';
-import { useTerminalStore } from '@/stores/terminal';
+import { type RightPanelId, useTerminalStore } from '@/stores/terminal';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import {
+  BrainCircuit,
   FileCode,
   GitBranch,
   Maximize2,
@@ -44,6 +46,7 @@ export function RightPanel() {
 
   const spawnedRefs = useRef<Set<string>>(new Set());
   useEffect(() => {
+    if (activePanel !== 'terminal') return;
     if (!activeTabId || spawnedRefs.current.has(activeTabId)) return;
     spawnedRefs.current.add(activeTabId);
 
@@ -58,7 +61,7 @@ export function RightPanel() {
           setTerminalRunning(false);
         });
     }
-  }, [activeTabId, setTerminalRunning]);
+  }, [activePanel, activeTabId, setTerminalRunning]);
 
   // 终端聚焦
   const isJustOpened = useRef(false);
@@ -122,11 +125,12 @@ export function RightPanel() {
   // 面板隐藏时不渲染
   if (!isOpen) return null;
 
-  const tabs = [
-    { id: 'terminal' as const, icon: TerminalIcon, label: '终端' },
-    { id: 'file-preview' as const, icon: FileCode, label: '文件' },
-    { id: 'diff' as const, icon: GitBranch, label: 'Diff' },
-    { id: 'logs' as const, icon: ScrollText, label: '日志' },
+  const tabs: Array<{ id: RightPanelId; icon: typeof TerminalIcon; label: string }> = [
+    { id: 'terminal', icon: TerminalIcon, label: '终端' },
+    { id: 'file-preview', icon: FileCode, label: '文件' },
+    { id: 'diff', icon: GitBranch, label: 'Diff' },
+    { id: 'logs', icon: ScrollText, label: '日志' },
+    { id: 'ai-provider', icon: BrainCircuit, label: 'AI Provider' },
   ];
 
   return (
@@ -218,6 +222,9 @@ export function RightPanel() {
 
           {/* 日志视图 */}
           {activePanel === 'logs' && <LogsPanel />}
+
+          {/* AI Provider 设置视图 */}
+          {activePanel === 'ai-provider' && <AiProviderPanel />}
         </div>
       </aside>
     </>

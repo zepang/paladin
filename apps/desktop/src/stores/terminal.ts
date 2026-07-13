@@ -6,11 +6,13 @@ export interface TerminalTab {
   cwd: string;
 }
 
+export type RightPanelId = 'terminal' | 'file-preview' | 'diff' | 'logs' | 'ai-provider';
+
 interface TerminalState {
   isOpen: boolean;
   isFullscreen: boolean;
   panelWidth: number;
-  activePanel: 'terminal' | 'file-preview' | 'diff' | 'logs';
+  activePanel: RightPanelId;
   tabs: TerminalTab[];
   activeTabId: string | null;
   isTerminalRunning: boolean;
@@ -20,7 +22,7 @@ interface TerminalState {
   setPanelWidth: (w: number) => void;
   setFullscreen: (fs: boolean) => void;
   toggleFullscreen: () => void;
-  setActivePanel: (panel: 'terminal' | 'file-preview' | 'diff' | 'logs') => void;
+  setActivePanel: (panel: RightPanelId) => void;
   addTab: (tab: TerminalTab) => void;
   removeTab: (id: string) => void;
   setActiveTab: (id: string | null) => void;

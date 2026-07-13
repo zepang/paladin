@@ -68,8 +68,9 @@ describe('useAiProviderStore Phase 11 readiness contracts', () => {
         api_key: 'sk-never-render-this',
       }),
     });
-    expect(useAiProviderStore.getState().providers[0].readiness).toBe('untested');
-    expect(useAiProviderStore.getState().providers[0].api_key_fingerprint).toBe('pk_7F3A');
+    const savedProvider = useAiProviderStore.getState().providers[0];
+    expect(savedProvider?.readiness).toBe('untested');
+    expect(savedProvider?.api_key_fingerprint).toBe('pk_7F3A');
   });
 
   it('keeps masked readback metadata but never stores raw key text in UI state', async () => {

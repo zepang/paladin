@@ -163,7 +163,11 @@ export const useAiProviderStore = create<AiProviderStore>((set, get) => ({
       const response = (await saveAiProvider(toCommandInput(input))) as unknown;
       if (isProviderConfig(response)) {
         set({ ...deriveConfig(response), isSaving: false });
-        return response.providers.find((provider) => provider.id === input.id) ?? response.providers[0];
+        const savedProvider = response.providers.find((provider) => provider.id === input.id) ?? response.providers[0];
+        if (!savedProvider) {
+          throw new Error('save_ai_provider returned no provider');
+        }
+        return savedProvider;
       }
       const saved = response as MaskedProviderEntry;
       const existing = get().providers.filter((provider) => provider.id !== saved.id);
