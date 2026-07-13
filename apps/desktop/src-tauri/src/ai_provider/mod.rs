@@ -6,13 +6,13 @@ mod types;
 
 use crate::process::ProcessSupervisor;
 pub use bootstrap::{BootstrapImport, BootstrapSource};
+use serde::{Deserialize, Serialize};
 pub use storage::AiProviderConfigManager;
+use tauri::State;
 pub use types::{
     AiProviderReadiness, AiProviderRuntimeSnapshot, ConfigProvenance, MaskedProviderConfig,
     MaskedProviderEntry, ProviderInput, ProviderSecretState, ProviderType, SaveProviderInput,
 };
-use serde::{Deserialize, Serialize};
-use tauri::State;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct TestAiProviderResult {
@@ -37,6 +37,18 @@ struct AgentProviderValidationEnvelope {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+struct AgentProviderRuntimeEnvelope {
+    ai_provider: AgentProviderRuntimeState,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct AgentProviderRuntimeState {
+    provider_id: Option<String>,
+    readiness: AiProviderReadiness,
+    message: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 struct AgentProviderValidation {
     readiness: AiProviderReadiness,
     configured: bool,
@@ -58,7 +70,7 @@ pub async fn save_ai_provider(
 ) -> Result<MaskedProviderEntry, String> {
     let saved = save_ai_provider_with_manager(manager.inner(), input).await?;
     let agent_url = supervisor.runtime_config().agent_url;
-    refresh_agent_ai_provider_with_manager(manager.inner(), &agent_url).await?;
+    let _ = refresh_agent_ai_provider_with_manager(manager.inner(), &agent_url).await;
     Ok(saved)
 }
 
@@ -70,7 +82,7 @@ pub async fn delete_ai_provider(
 ) -> Result<MaskedProviderConfig, String> {
     let config = delete_ai_provider_with_manager(manager.inner(), provider_id).await?;
     let agent_url = supervisor.runtime_config().agent_url;
-    refresh_agent_ai_provider_with_manager(manager.inner(), &agent_url).await?;
+    let _ = refresh_agent_ai_provider_with_manager(manager.inner(), &agent_url).await;
     Ok(config)
 }
 
@@ -86,11 +98,12 @@ pub async fn set_active_ai_provider(
 
 #[tauri::command]
 pub async fn test_ai_provider(
+    manager: State<'_, AiProviderConfigManager>,
     supervisor: State<'_, ProcessSupervisor>,
     input: SaveProviderInput,
 ) -> Result<TestAiProviderResult, String> {
     let agent_url = supervisor.runtime_config().agent_url;
-    test_ai_provider_with_agent(&agent_url, input).await
+    test_ai_provider_with_manager(manager.inner(), &agent_url, input).await
 }
 
 #[tauri::command]
@@ -149,7 +162,9 @@ pub(crate) async fn set_active_ai_provider_with_manager(
         .await
         .map_err(|error| error.to_string())?;
     if let Some(agent_url) = agent_url {
-        refresh_agent_ai_provider_with_manager(manager, &agent_url).await?;
+        if let Ok(refreshed) = refresh_agent_ai_provider_with_manager(manager, &agent_url).await {
+            return Ok(refreshed);
+        }
     }
     Ok(config)
 }
@@ -162,7 +177,7 @@ pub(crate) async fn refresh_agent_ai_provider_with_manager(
         .runtime_snapshot()
         .await
         .map_err(|error| error.to_string())?;
-    post_agent_json(
+    let response = post_agent_json(
         agent_url,
         "/ai-provider/runtime",
         &AgentProviderSnapshotPayload {
@@ -175,6 +190,14 @@ pub(crate) async fn refresh_agent_ai_provider_with_manager(
         },
     )
     .await?;
+    let envelope: AgentProviderRuntimeEnvelope =
+        serde_json::from_str(&response).map_err(|error| error.to_string())?;
+    if let Some(provider_id) = envelope.ai_provider.provider_id.as_deref() {
+        return manager
+            .update_provider_readiness(provider_id, envelope.ai_provider.readiness)
+            .await
+            .map_err(|error| error.to_string());
+    }
     manager
         .load_masked_config()
         .await
@@ -186,6 +209,25 @@ pub(crate) async fn test_ai_provider_with_agent(
     input: SaveProviderInput,
 ) -> Result<TestAiProviderResult, String> {
     let input = normalize_command_input(input)?;
+    test_ai_provider_normalized(agent_url, input).await
+}
+
+pub(crate) async fn test_ai_provider_with_manager(
+    manager: &AiProviderConfigManager,
+    agent_url: &str,
+    input: SaveProviderInput,
+) -> Result<TestAiProviderResult, String> {
+    let input = manager
+        .input_with_stored_secret(input)
+        .await
+        .map_err(|error| error.to_string())?;
+    test_ai_provider_normalized(agent_url, input).await
+}
+
+async fn test_ai_provider_normalized(
+    agent_url: &str,
+    input: SaveProviderInput,
+) -> Result<TestAiProviderResult, String> {
     let response = post_agent_json(
         agent_url,
         "/ai-provider/validate",
@@ -228,7 +270,9 @@ async fn post_agent_json<T: Serialize>(
     let status = response.status();
     let text = response.text().await.map_err(|error| error.to_string())?;
     if !status.is_success() {
-        return Err(format!("Agent AI provider request failed with {status}: {text}"));
+        return Err(format!(
+            "Agent AI provider request failed with {status}: {text}"
+        ));
     }
     Ok(text)
 }

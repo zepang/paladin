@@ -91,7 +91,8 @@ impl AiProviderConfigManager {
         let _guard = self.write_lock.lock().await;
         let mut config = self.read_metadata()?;
         let mut secrets = self.read_secrets()?;
-        let provider = normalize_input(input)?;
+        let existing_secret = secrets.api_keys.contains_key(input.id.trim());
+        let provider = normalize_input(input, existing_secret)?;
 
         if let Some(api_key) = provider.api_key.as_ref() {
             secrets
@@ -209,6 +210,42 @@ impl AiProviderConfigManager {
         })
     }
 
+    pub async fn input_with_stored_secret(&self, input: ProviderInput) -> Result<ProviderInput> {
+        let _guard = self.write_lock.lock().await;
+        let secrets = self.read_secrets()?;
+        let existing_secret = secrets.api_keys.contains_key(input.id.trim());
+        let mut provider = normalize_input(input, existing_secret)?;
+        if provider.api_key.is_none() {
+            provider.api_key = secrets.api_keys.get(&provider.id).cloned();
+        }
+        Ok(provider)
+    }
+
+    pub async fn update_provider_readiness(
+        &self,
+        provider_id: &str,
+        readiness: AiProviderReadiness,
+    ) -> Result<MaskedProviderConfig> {
+        let _guard = self.write_lock.lock().await;
+        let mut config = self.read_metadata()?;
+        let mut updated = false;
+        for provider in &mut config.providers {
+            if provider.id == provider_id {
+                provider.readiness = readiness;
+                updated = true;
+                break;
+            }
+        }
+        if !updated {
+            return Err(AiProviderConfigError::Invalid(format!(
+                "unknown provider id {provider_id}"
+            )));
+        }
+        self.write_metadata(&config)?;
+        let secrets = self.read_secrets()?;
+        Ok(mask_config(config, secrets))
+    }
+
     pub(crate) async fn seed_provider_from_bootstrap(
         &self,
         input: ProviderInput,
@@ -219,7 +256,7 @@ impl AiProviderConfigManager {
         if config.user_saved || !config.providers.is_empty() {
             return Ok(());
         }
-        let provider = normalize_input(input)?;
+        let provider = normalize_input(input, false)?;
         let mut secrets = self.read_secrets()?;
         if let Some(api_key) = provider.api_key.as_ref() {
             secrets
@@ -344,7 +381,7 @@ where
     Ok(())
 }
 
-fn normalize_input(input: ProviderInput) -> Result<ProviderInput> {
+fn normalize_input(input: ProviderInput, existing_secret: bool) -> Result<ProviderInput> {
     let id = input.id.trim().to_string();
     let display_name = input.display_name.trim().to_string();
     let base_url = input.base_url.trim().to_string();
@@ -374,7 +411,7 @@ fn normalize_input(input: ProviderInput) -> Result<ProviderInput> {
             "model id is required".to_string(),
         ));
     }
-    if input.provider_type.requires_api_key() && api_key.is_none() {
+    if input.provider_type.requires_api_key() && api_key.is_none() && !existing_secret {
         return Err(AiProviderConfigError::Invalid(
             "api key is required for cloud providers".to_string(),
         ));
@@ -435,7 +472,17 @@ fn mask_config(mut config: StoredProviderConfig, secrets: StoredSecrets) -> Mask
     sanitize_active_provider(&mut config);
     sort_providers(&mut config.providers);
     let readiness = if config.active_provider_id.is_some() {
-        AiProviderReadiness::Untested
+        config
+            .active_provider_id
+            .as_deref()
+            .and_then(|active_id| {
+                config
+                    .providers
+                    .iter()
+                    .find(|provider| provider.id == active_id)
+                    .map(|provider| provider.readiness)
+            })
+            .unwrap_or(AiProviderReadiness::Untested)
     } else {
         AiProviderReadiness::Unconfigured
     };

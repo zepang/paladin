@@ -9,8 +9,9 @@ use tempfile::tempdir;
 use super::{
     delete_ai_provider_with_manager, get_ai_provider_config_with_manager,
     refresh_agent_ai_provider_with_manager, save_ai_provider_with_manager,
-    set_active_ai_provider_with_manager, test_ai_provider_with_agent, AiProviderConfigManager,
-    AiProviderReadiness, ProviderInput, ProviderType,
+    set_active_ai_provider_with_manager, test_ai_provider_with_agent,
+    test_ai_provider_with_manager, AiProviderConfigManager, AiProviderReadiness, ProviderInput,
+    ProviderType,
 };
 
 fn deepseek_input(id: &str, key: &str, active: bool) -> ProviderInput {
@@ -34,12 +35,11 @@ async fn save_and_read_commands_return_masked_config_without_raw_key() {
         .unwrap();
     let raw_key = "sk-command-secret-value";
 
-    let saved = save_ai_provider_with_manager(&manager, deepseek_input("deepseek-main", raw_key, true))
-        .await
-        .unwrap();
-    let config = get_ai_provider_config_with_manager(&manager)
-        .await
-        .unwrap();
+    let saved =
+        save_ai_provider_with_manager(&manager, deepseek_input("deepseek-main", raw_key, true))
+            .await
+            .unwrap();
+    let config = get_ai_provider_config_with_manager(&manager).await.unwrap();
     let rendered = serde_json::to_string(&config).unwrap();
 
     assert_eq!(saved.id, "deepseek-main");
@@ -113,6 +113,34 @@ async fn set_active_and_refresh_posts_runtime_snapshot_without_returning_raw_key
 }
 
 #[tokio::test]
+async fn refresh_updates_masked_readiness_from_agent_response() {
+    let dir = tempdir().expect("temp app data dir");
+    let manager = AiProviderConfigManager::new_for_app_data(dir.path())
+        .await
+        .unwrap();
+    let (agent_url, _received) = spawn_provider_server(
+        "/ai-provider/runtime",
+        200,
+        r#"{"ai_provider":{"provider_id":"deepseek-main","readiness":"invalid","message":"bad key"}}"#,
+        1,
+    );
+
+    save_ai_provider_with_manager(&manager, deepseek_input("deepseek-main", "sk-bad", true))
+        .await
+        .unwrap();
+
+    let refreshed = refresh_agent_ai_provider_with_manager(&manager, &agent_url)
+        .await
+        .unwrap();
+
+    assert_eq!(refreshed.readiness, AiProviderReadiness::Invalid);
+    assert_eq!(
+        refreshed.providers[0].readiness,
+        AiProviderReadiness::Invalid
+    );
+}
+
+#[tokio::test]
 async fn test_provider_validates_supplied_input_without_saving_or_switching() {
     let dir = tempdir().expect("temp app data dir");
     let manager = AiProviderConfigManager::new_for_app_data(dir.path())
@@ -139,6 +167,36 @@ async fn test_provider_validates_supplied_input_without_saving_or_switching() {
     assert!(config.providers.is_empty());
     assert_eq!(body["provider_id"], "candidate");
     assert_eq!(body["api_key"], "sk-candidate");
+}
+
+#[tokio::test]
+async fn test_existing_provider_uses_stored_secret_when_input_omits_key() {
+    let dir = tempdir().expect("temp app data dir");
+    let manager = AiProviderConfigManager::new_for_app_data(dir.path())
+        .await
+        .unwrap();
+    let raw_key = "sk-existing-secret";
+    let (agent_url, received) = spawn_provider_server(
+        "/ai-provider/validate",
+        200,
+        r#"{"validation":{"readiness":"available","configured":true,"message":null}}"#,
+        1,
+    );
+
+    save_ai_provider_with_manager(&manager, deepseek_input("deepseek-main", raw_key, true))
+        .await
+        .unwrap();
+    let mut input = deepseek_input("deepseek-main", "", true);
+    input.api_key = None;
+
+    let result = test_ai_provider_with_manager(&manager, &agent_url, input)
+        .await
+        .unwrap();
+    let body = received.recv().expect("validate POST body received");
+
+    assert_eq!(result.readiness, AiProviderReadiness::Available);
+    assert_eq!(body["provider_id"], "deepseek-main");
+    assert_eq!(body["api_key"], raw_key);
 }
 
 fn spawn_provider_server(

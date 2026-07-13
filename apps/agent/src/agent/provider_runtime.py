@@ -89,7 +89,30 @@ def _resolve(value: str | None) -> str | None:
 
 
 def _provider_allows_missing_key(provider_type: str | None) -> bool:
-    return provider_type in {"lm-studio", "lm_studio", "local"}
+    return _canonical_provider_type(provider_type) in {"lm-studio", "local"}
+
+
+def _canonical_provider_type(provider_type: str | None) -> str | None:
+    provider_type = _clean(provider_type)
+    if provider_type is None:
+        return None
+    normalized = provider_type.replace("_", "-").lower()
+    if normalized in {"openai", "openai-compatible", "compatible"}:
+        return "openai"
+    if normalized in {"lm-studio", "lmstudio", "local"}:
+        return "lm-studio"
+    if normalized == "deepseek":
+        return "deepseek"
+    return None
+
+
+def _readiness_from_payload(value: Any) -> ProviderReadiness:
+    if isinstance(value, ProviderReadiness):
+        return value
+    try:
+        return ProviderReadiness(value or ProviderReadiness.UNTESTED)
+    except ValueError:
+        return ProviderReadiness.INVALID
 
 
 def validate_provider_snapshot(snapshot: ProviderSnapshot) -> ProviderValidationResult:
@@ -110,6 +133,12 @@ def validate_provider_snapshot(snapshot: ProviderSnapshot) -> ProviderValidation
             readiness=ProviderReadiness.INVALID,
             configured=True,
             message="Provider base_url is required.",
+        )
+    if _canonical_provider_type(snapshot.provider_type) is None:
+        return ProviderValidationResult(
+            readiness=ProviderReadiness.INVALID,
+            configured=True,
+            message=f"Unsupported provider type: {snapshot.provider_type}",
         )
     if not _clean(snapshot.api_key) and not _provider_allows_missing_key(snapshot.provider_type):
         return ProviderValidationResult(
@@ -150,7 +179,7 @@ class ProviderRuntime:
                 base_url=_clean(payload.get("base_url")),
                 model_id=_clean(payload.get("model_id")),
                 api_key=_clean(payload.get("api_key")),
-                readiness=ProviderReadiness(payload.get("readiness", ProviderReadiness.UNTESTED)),
+                readiness=_readiness_from_payload(payload.get("readiness", ProviderReadiness.UNTESTED)),
                 validation_status=_clean(payload.get("validation_status")),
                 message=_clean(payload.get("message")),
             )
@@ -206,7 +235,7 @@ def create_model_for_provider_snapshot(snapshot: ProviderSnapshot) -> OpenAIChat
     if validation.readiness != ProviderReadiness.AVAILABLE:
         raise ValueError(validation.message or "Provider snapshot is not usable.")
 
-    provider_type = snapshot.provider_type
+    provider_type = _canonical_provider_type(snapshot.provider_type)
     if provider_type == "deepseek":
         from openai import AsyncOpenAI
 

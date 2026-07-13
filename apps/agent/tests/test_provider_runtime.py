@@ -143,3 +143,68 @@ def test_deepseek_configured_base_url_is_passed_to_openai_compatible_client(monk
     assert model.model_id == "deepseek-chat"
     assert captured["openai_kwargs"]["base_url"] == "https://gateway.example.cn/deepseek/v1"
     assert captured["openai_kwargs"]["api_key"] == "sk-custom"
+
+
+def test_openai_compatible_provider_type_creates_openai_model(monkeypatch):
+    from src.agent.provider_runtime import ProviderReadiness, ProviderSnapshot
+    from src.agent.provider_runtime import create_model_for_provider_snapshot
+
+    captured = {}
+
+    class FakeOpenAIProvider:
+        def __init__(self, **kwargs):
+            captured["provider_kwargs"] = kwargs
+
+    class FakeOpenAIChatModel:
+        def __init__(self, model_id, provider):
+            self.model_id = model_id
+            self.provider = provider
+
+    monkeypatch.setattr("src.agent.provider_runtime.OpenAIProvider", FakeOpenAIProvider)
+    monkeypatch.setattr("src.agent.provider_runtime.OpenAIChatModel", FakeOpenAIChatModel)
+
+    snapshot = ProviderSnapshot(
+        version=8,
+        provider_id="openai-main",
+        provider_type="openai-compatible",
+        base_url="https://api.openai.com/v1",
+        model_id="gpt-4o-mini",
+        api_key="sk-openai",
+        readiness=ProviderReadiness.AVAILABLE,
+    )
+
+    model = create_model_for_provider_snapshot(snapshot)
+
+    assert model.model_id == "gpt-4o-mini"
+    assert captured["provider_kwargs"]["base_url"] == "https://api.openai.com/v1"
+    assert captured["provider_kwargs"]["api_key"] == "sk-openai"
+
+
+def test_runtime_update_with_unknown_readiness_returns_invalid_snapshot():
+    from fastapi import FastAPI
+
+    from src.agent.provider_runtime import ProviderRuntime
+    from src.server.provider_routes import create_provider_router
+
+    app = FastAPI()
+    runtime = ProviderRuntime()
+    app.include_router(create_provider_router(runtime))
+    client = TestClient(app)
+
+    response = client.post(
+        "/ai-provider/runtime",
+        json={
+            "provider_id": "bad-provider",
+            "provider_type": "not-real",
+            "base_url": "https://example.invalid/v1",
+            "model_id": "model",
+            "api_key": "sk-test",
+            "readiness": "alien",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()["ai_provider"]
+    assert data["readiness"] == "invalid"
+    assert data["configured"] is True
+    assert "Unsupported provider type" in data["message"]

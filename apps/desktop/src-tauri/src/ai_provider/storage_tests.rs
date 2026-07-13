@@ -56,6 +56,29 @@ async fn saving_same_provider_twice_updates_in_place_and_keeps_active_selection(
 }
 
 #[tokio::test]
+async fn updating_existing_cloud_provider_without_key_preserves_secret() {
+    let dir = tempdir().expect("temp app data dir");
+    let manager = AiProviderConfigManager::new_for_app_data(dir.path())
+        .await
+        .unwrap();
+
+    manager
+        .save_provider(deepseek_input("deepseek-main", "sk-original-secret"))
+        .await
+        .unwrap();
+    let mut update = deepseek_input("deepseek-main", "");
+    update.api_key = None;
+    update.display_name = "DeepSeek 编辑后".to_string();
+
+    let saved = manager.save_provider(update).await.unwrap();
+    let snapshot = manager.runtime_snapshot().await.unwrap();
+
+    assert_eq!(saved.display_name, "DeepSeek 编辑后");
+    assert!(saved.has_api_key);
+    assert_eq!(snapshot.api_key.as_deref(), Some("sk-original-secret"));
+}
+
+#[tokio::test]
 async fn overlapping_saves_do_not_corrupt_json_duplicate_ids_or_dangle_active_provider() {
     let dir = tempdir().expect("temp app data dir");
     let manager = Arc::new(
