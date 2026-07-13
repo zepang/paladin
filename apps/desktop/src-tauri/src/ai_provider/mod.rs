@@ -15,4 +15,7 @@ pub use types::{
 mod bootstrap_tests;
 
 #[cfg(test)]
+mod commands_tests;
+
+#[cfg(test)]
 mod storage_tests;
