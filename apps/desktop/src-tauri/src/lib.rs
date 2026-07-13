@@ -9,6 +9,10 @@ mod ai_provider;
 mod file_commands;
 mod process;
 mod terminal;
+use crate::ai_provider::{
+    delete_ai_provider, get_ai_provider_config, refresh_agent_ai_provider, save_ai_provider,
+    set_active_ai_provider, test_ai_provider, AiProviderConfigManager,
+};
 use crate::process::commands::{
     get_process_status, get_runtime_config, redetect_agent, redetect_server, restart_agent,
     restart_server, stop_agent, stop_server,
@@ -89,10 +93,26 @@ pub fn run() {
             redetect_server,
             get_process_status,
             get_runtime_config,
+            get_ai_provider_config,
+            save_ai_provider,
+            delete_ai_provider,
+            set_active_ai_provider,
+            test_ai_provider,
+            refresh_agent_ai_provider,
         ])
         .setup(|app| {
             // 管理 TerminalManager 实例
             app.manage(TerminalManager::new(app.handle().clone()));
+
+            let ai_provider_dir = app
+                .path()
+                .app_data_dir()
+                .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("app-data"));
+            let ai_provider_manager = tauri::async_runtime::block_on(
+                AiProviderConfigManager::new_for_app_data(ai_provider_dir),
+            )?;
+            let _ = tauri::async_runtime::block_on(ai_provider_manager.bootstrap_from_environment());
+            app.manage(ai_provider_manager);
 
             // Dev 保留仓库 processes.json；release 只从已安装资源读取 packaged config。
             let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
