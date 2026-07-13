@@ -79,7 +79,16 @@ const initialConfig = {
 };
 
 function sortProviders(providers: MaskedProviderEntry[]): MaskedProviderEntry[] {
-  return [...providers].sort((a, b) => a.priority - b.priority || a.display_name.localeCompare(b.display_name) || a.id.localeCompare(b.id));
+  return [...providers].sort(
+    (a, b) =>
+      (a.priority ?? 0) - (b.priority ?? 0) ||
+      (a.display_name ?? '').localeCompare(b.display_name ?? '') ||
+      (a.id ?? '').localeCompare(b.id ?? ''),
+  );
+}
+
+function isProviderConfig(value: unknown): value is MaskedProviderConfig {
+  return Boolean(value && typeof value === 'object' && 'providers' in value);
 }
 
 function deriveConfig(config: MaskedProviderConfig) {
@@ -151,7 +160,12 @@ export const useAiProviderStore = create<AiProviderStore>((set, get) => ({
   saveProvider: async (input) => {
     set({ isSaving: true, error: null });
     try {
-      const saved = await saveAiProvider(toCommandInput(input));
+      const response = (await saveAiProvider(toCommandInput(input))) as unknown;
+      if (isProviderConfig(response)) {
+        set({ ...deriveConfig(response), isSaving: false });
+        return response.providers.find((provider) => provider.id === input.id) ?? response.providers[0];
+      }
+      const saved = response as MaskedProviderEntry;
       const existing = get().providers.filter((provider) => provider.id !== saved.id);
       const providers = sortProviders([...existing, saved]);
       const activeProviderId = saved.active ? saved.id : get().activeProviderId;
