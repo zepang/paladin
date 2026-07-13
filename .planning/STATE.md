@@ -2,30 +2,30 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 10
-current_phase_name: Packaging
-status: Phase 10 complete
-stopped_at: Phase 11 UI-SPEC approved
-last_updated: "2026-07-13T13:01:24.893Z"
+current_phase: 11
+current_phase_name: Desktop AI Provider Configuration
+status: Phase 11 complete
+stopped_at: Phase 11 complete
+last_updated: "2026-07-13T16:30:53.332Z"
 progress:
   total_phases: 19
-  completed_phases: 15
-  total_plans: 66
-  completed_plans: 56
-  percent: 79
+  completed_phases: 16
+  total_plans: 79
+  completed_plans: 68
+  percent: 84
 ---
 
 # Project State: Paladin
 
-**Phase:** 10 — Packaging
-**Last Updated:** 2026-07-12
+**Phase:** 11 — Desktop AI Provider Configuration
+**Last Updated:** 2026-07-13
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 10 — packaging complete; ready for verify-work / milestone close-out
+**Current focus:** Phase 11 complete; milestone is ready for close-out.
 
 ## Phase Status
 
@@ -48,7 +48,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | 8 | Go Server | Complete |
 | 9 | Admin Systems | Complete |
 | 10 | Packaging | Complete (9/9) |
-| 11 | Desktop AI Provider Configuration | Not planned |
+| 11 | Desktop AI Provider Configuration | Complete (8/8) |
 
 ## Roadmap Evolution
 
@@ -61,6 +61,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Recent Activity
 
+- 2026-07-13: Phase 11 completed — Desktop AI provider configuration is now app-data backed and runtime-configurable; Agent no-key startup, provider-not-configured CTA, Tauri command bridge, stored-secret masking, OpenAI-compatible/DeepSeek/LM Studio provider paths, runtime hot switch, status light, docs, code review, and final verification all passed. Final gates: Agent pytest 78/78, Rust lib tests 112/112, focused desktop Vitest 20/20, wrapper smoke passed, verification 12/12.
 - 2026-07-12: Phase 10 Plan 07 completed — final packaging verification artifact created; focused gates ran before full suites; Node release/manifest/sentinel 17/17, desktop Vitest 47/47, Rust cargo test 87/87, clippy clean after minimal closure fix, Agent pytest 70/70, Go tests all passed; PKG-01/02/03, D-01..D-25, R1..R7, and Prohibition 1..4 all covered; macOS release-ready true, Windows remains buildability-only/non-release-ready.
 - 2026-07-12: Phase 10 Plan 06 completed — latest HEAD macOS DMG `paladin_0.1.0_aarch64.dmg` verified at commit 2d5dcf7 with SHA-256 9ddfb59f75c824ce1a358e3a11f808016a4283f51d247d47119089ad6fb7c281; installed app copied to `/Users/kdocs/Applications/Paladin-UAT-10-06-2d5dcf7/Paladin.app`; all four macOS installed-app UAT scenarios passed and were human-confirmed; macOS platform release-ready true, Windows installed UAT remains deferred/release_ready=false.
 - 2026-07-12: Phase 10 Plan 09 completed — fail-closed aggregate secret/prohibited-copy scanner added; macOS aarch64 DMG artifact checkpoint verified at commit e90106e with SHA-256 efba7fc1b27dbb946a6d45f3bb1e5c780336128da3edf348f855151e27c9ef60; final bundle scan passed with 0 findings; release_ready remains false pending installed-app UAT.
@@ -100,14 +101,14 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Next Actions
 
-1. Run verify-work / milestone close-out for Phase 10
+1. Run milestone close-out for Phase 11 / v1.0
 2. biome 29 preexisting errors 修复（跨 phase 技术债）
 
 ## Session
 
-**Last session:** 2026-07-13T13:01:24.881Z
-**Stopped at:** Phase 11 UI-SPEC approved
-**Resume file:** .planning/phases/11-desktop-ai-provider-configuration/11-UI-SPEC.md
+**Last session:** 2026-07-13T16:30:53.332Z
+**Stopped at:** Phase 11 complete
+**Resume file:** .planning/phases/11-desktop-ai-provider-configuration/11-VERIFICATION.md
 
 ## Accumulated Context
 

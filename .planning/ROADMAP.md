@@ -1,7 +1,7 @@
 # Roadmap: Paladin
 
 **Created:** 2026-06-14
-**Granularity:** Fine (10 phases)
+**Granularity:** Fine (11 phases)
 **Core Value:** AI 编程助手桌面端
 
 ## Phase Overview
@@ -25,6 +25,7 @@
 | 8 | Go Server | 认证/数据库/WebSocket Hub | — |
 | 9 | Admin Systems | 审计日志 + 配额管理 | Phase 8 |
 | 10 | Packaging | Complete (9/9) | Phase 9 |
+| 11 | Desktop AI Provider Configuration | Complete (8/8) | Phase 10 |
 
 ## Phase Details
 
@@ -349,6 +350,67 @@ Plans:
 - [x] 10-07-PLAN.md — Final verification and release honesty closure
 - [x] 10-08-PLAN.md — Packaged process UI diagnostics
 - [x] 10-09-PLAN.md — macOS artifact checkpoint and sentinel gate
+
+### Phase 11: Desktop AI Provider Configuration
+
+**Goal:** 将 AI provider 配置从启动前必须依赖环境变量，升级为桌面应用内可配置、可切换、可持久化的产品能力；缺配置时应用和 sidecar 仍可启动，并在用户首次对话时给出可操作配置入口。
+**Requirements:** TBD
+**Depends on:** Phase 10
+**Plans:** 8/8 plans complete
+
+Plans:
+**Wave 1**
+
+- [x] 11-01-PLAN.md — Wave 0 RED validation scaffold for provider runtime, persistence, UI, and readiness contracts
+- [x] 11-02-PLAN.md — Agent lazy provider runtime, no-key startup, provider API, and request-time snapshot semantics
+- [x] 11-03-PLAN.md — Rust/Tauri app-data provider authority, atomic saves, masked readback, and env bootstrap
+- [x] 11-04-PLAN.md — PALADIN_AI env forwarding, macOS wrapper no-key semantics, and provider secret redaction
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 11-05-PLAN.md — Tauri provider command bridge, Agent runtime refresh, and typed frontend wrappers
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 11-06-PLAN.md — Frontend provider store and RightPanel AI Provider settings surface
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 11-07-PLAN.md — ChatArea configure-provider CTA, StatusBar AI readiness, and App error mapping
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 11-08-PLAN.md — Docs, smoke matrix, secret scan, source audit, and final verification evidence
+
+**Cross-cutting constraints:**
+
+- R1 edge concurrency: concurrent health/chat probes during unconfigured startup cannot crash Agent.
+
+Expected behavior:
+
+- Agent 服务启动不依赖 AI provider 已配置；缺配置时 `/health` 仍返回 OK，但模型状态标记为未配置或不可用。
+- 用户发起对话时，如果当前 provider/model 未配置或 key 无效，聊天区显示可操作提示，而不是让 Agent 进程退出。
+- 提示中提供入口打开桌面端配置页面。
+- 配置页面支持新增/编辑 DeepSeek、OpenAI-compatible、本地 LM Studio 等 provider，包含 base URL、API key、默认模型 ID、可选显示名称和优先级。
+- 启动环境变量提供配置时，作为初始/default 配置导入或覆盖运行时默认值。
+- 桌面应用中可以切换当前使用的 provider 和模型，不需要重启 app。
+- Secret 值不出现在日志、诊断面板、UAT evidence 或前端普通文本中。
+
+Architecture notes:
+
+- 环境变量只作为首次启动、CI、UAT 的 bootstrap 来源，不作为唯一配置来源。
+- 运行时配置优先落到本机 app data 目录，不写回打包内置的 `apps/agent/config/config.json`。
+- Agent 可暴露配置读取/更新 API，Desktop 负责 UI 与持久化交互；也可由 Desktop 持久化配置后传递给 Agent，边界在设计阶段锁定。
+- DeepSeek 分支必须尊重配置中的 `api_base`，不继续硬编码 `https://api.deepseek.com/v1`。
+- 统一命名语义，例如 `PALADIN_AI_PROVIDER`、`PALADIN_AI_BASE_URL`、`PALADIN_AI_API_KEY`、`PALADIN_AI_MODEL`。
+
+Acceptance draft:
+
+- [ ] 不设置任何 AI key 时，Paladin app、Agent sidecar、Go sidecar 均可启动；用户发送消息时看到“请配置 AI provider”的产品提示。
+- [ ] 通过桌面配置页填入 DeepSeek key/base/model 后，不重启即可成功对话。
+- [ ] 环境变量预设 DeepSeek 配置时，首次启动可直接对话，并且配置页能展示当前 provider/model，key 脱敏。
+- [ ] 切换到 OpenAI-compatible provider 后，Agent 使用新 base URL/model 发起请求。
+- [ ] 缺 DB/Redis 与缺 AI provider 的降级语义互不混淆：DB/Redis 影响 Go readiness；AI provider 影响对话可用性。
 
 ## Parallel Execution Opportunities
 
