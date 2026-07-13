@@ -176,6 +176,118 @@ fn test_secret_patterns_constant_lists_all_five_categories() {
 }
 
 #[test]
+fn test_secret_patterns_constant_lists_ai_provider_categories() {
+    for required in [
+        "PALADIN_AI_API_KEY",
+        "OPENAI_API_KEY",
+        "provider_api_key",
+        "api_key",
+        "provider_key",
+    ] {
+        assert!(
+            SECRET_PATTERNS.contains(&required),
+            "SECRET_PATTERNS must list {:?}",
+            required
+        );
+    }
+}
+
+#[test]
+fn test_redact_paladin_ai_api_key_env_form() {
+    let output = redact_log_line("PALADIN_AI_API_KEY=paladin-sk-super-secret");
+    assert!(
+        !output.contains("paladin-sk-super-secret"),
+        "PALADIN_AI_API_KEY value must not appear: got {:?}",
+        output
+    );
+    assert!(output.contains("PALADIN_AI_API_KEY"));
+    assert!(output.contains("[REDACTED]"));
+}
+
+#[test]
+fn test_redact_openai_api_key_env_form() {
+    let output = redact_log_line("OPENAI_API_KEY=sk-openai-secret");
+    assert!(
+        !output.contains("sk-openai-secret"),
+        "OPENAI_API_KEY value must not appear: got {:?}",
+        output
+    );
+    assert!(output.contains("OPENAI_API_KEY"));
+    assert!(output.contains("[REDACTED]"));
+}
+
+#[test]
+fn test_redact_provider_secret_aliases_env_form() {
+    for (input, raw) in [
+        ("PROVIDER_API_KEY=provider-secret-1", "provider-secret-1"),
+        ("AI_PROVIDER_API_KEY=provider-secret-2", "provider-secret-2"),
+        ("PALADIN_PROVIDER_KEY=provider-secret-3", "provider-secret-3"),
+    ] {
+        let output = redact_log_line(input);
+        assert!(
+            !output.contains(raw),
+            "provider alias secret must be redacted for {:?}: got {:?}",
+            input,
+            output
+        );
+        assert!(output.contains("[REDACTED]"));
+    }
+}
+
+#[test]
+fn test_redact_provider_secret_json_and_diagnostic_fields() {
+    for (input, raw) in [
+        (r#"{"api_key":"json-secret-1"}"#, "json-secret-1"),
+        (r#"{"provider_api_key":"json-secret-2"}"#, "json-secret-2"),
+        (r#"{"providerKey":"json-secret-3"}"#, "json-secret-3"),
+        (r#"diagnostic apiKey: diag-secret-4"#, "diag-secret-4"),
+        (r#"diagnostic provider_key=diag-secret-5"#, "diag-secret-5"),
+    ] {
+        let output = redact_log_line(input);
+        assert!(
+            !output.contains(raw),
+            "diagnostic secret field must be redacted for {:?}: got {:?}",
+            input,
+            output
+        );
+        assert!(output.contains("[REDACTED]"));
+    }
+}
+
+#[test]
+fn test_redact_provider_secret_special_characters_and_no_suffix_leak() {
+    let raw = "sk-live_a$b*c+d/with?chars";
+    let output = redact_log_line(&format!("PALADIN_AI_API_KEY={raw}"));
+    assert!(
+        !output.contains(raw),
+        "full special-character value must be redacted: got {:?}",
+        output
+    );
+    assert!(
+        !output.contains("with?chars"),
+        "secret suffix must not leak: got {:?}",
+        output
+    );
+    assert!(output.contains("[REDACTED]"));
+}
+
+#[test]
+fn test_redact_bearer_token_special_characters_without_suffix_leak() {
+    let output = redact_log_line("Authorization: Bearer sk-token.with/slashes+plus");
+    assert!(
+        !output.contains("sk-token.with/slashes+plus"),
+        "bearer token must be redacted: got {:?}",
+        output
+    );
+    assert!(
+        !output.contains("slashes+plus"),
+        "bearer token suffix must not leak: got {:?}",
+        output
+    );
+    assert!(output.contains("[REDACTED]"));
+}
+
+#[test]
 fn test_redact_empty_line() {
     assert_eq!(redact_log_line(""), "");
 }

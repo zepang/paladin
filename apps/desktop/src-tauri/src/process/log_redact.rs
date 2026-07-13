@@ -1,9 +1,10 @@
 //! 日志敏感信息脱敏过滤器 — 纯函数模块 (Phase 8 D-15 继承)。
 //!
 //! 在 supervisor (plan 07.3-06) 把子进程 stdout/stderr 落盘或推送前端之前,
-//! 调用 `redact_log_line(&line)` 把以下 5 类 secret 模式做 case-insensitive 掩码:
+//! 调用 `redact_log_line(&line)` 把以下 secret 模式做 case-insensitive 掩码:
 //!
-//! 1. `DEEPSEEK_API_KEY=xxx` / `DEEPSEEK_API_KEY: xxx` (Agent LLM provider key)
+//! 1. AI provider keys: `PALADIN_AI_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`,
+//!    provider aliases, and diagnostic fields like `api_key` / `providerKey`
 //! 2. `JWT_SECRET=xxx` (Go Server token signing secret)
 //! 3. `PALADIN_JWT_SECRET=xxx` (Go Server 专案 secret)
 //! 4. `Authorization: Bearer xxx` (HTTP Bearer token)
@@ -20,17 +21,31 @@
 use regex::Regex;
 use std::sync::LazyLock;
 
-/// 五类需要脱敏的 secret key 名,供 supervisor 静态展示与外部审计引用。
+/// 需要脱敏的 secret key 名,供 supervisor 静态展示与外部审计引用。
 pub const SECRET_PATTERNS: &[&str] = &[
+    "PALADIN_AI_API_KEY",
+    "OPENAI_API_KEY",
     "DEEPSEEK_API_KEY",
+    "PROVIDER_API_KEY",
+    "AI_PROVIDER_API_KEY",
+    "PALADIN_PROVIDER_KEY",
+    "provider_api_key",
+    "api_key",
+    "provider_key",
+    "apiKey",
+    "providerKey",
     "JWT_SECRET",
     "PALADIN_JWT_SECRET",
     "Authorization",
     "password",
 ];
 
-static DEEPSEEK_PATTERN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)(DEEPSEEK_API_KEY\s*[=:]\s*)\S+").unwrap());
+static AI_PROVIDER_KEY_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r#"(?i)(\b(?:PALADIN_AI_API_KEY|OPENAI_API_KEY|DEEPSEEK_API_KEY|PROVIDER_API_KEY|AI_PROVIDER_API_KEY|PALADIN_PROVIDER_KEY|provider_api_key|api_key|provider_key|apiKey|providerKey)\b\s*["']?\s*[=:]\s*["']?)[^\s"',}]+(["']?)"#,
+    )
+    .unwrap()
+});
 
 static JWT_SECRET_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)(JWT_SECRET\s*[=:]\s*)\S+").unwrap());
@@ -44,14 +59,14 @@ static AUTHORIZATION_PATTERN: LazyLock<Regex> =
 static PASSWORD_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"(?i)(password\s*["']?\s*[=:]\s*["']?)\S+"#).unwrap());
 
-/// 把单行日志中匹配 5 类 secret 模式的值替换为 `[REDACTED]`。
+/// 把单行日志中匹配 secret 模式的值替换为 `[REDACTED]`。
 ///
-/// 逐模式串行 `replace_all`,顺序: DEEPSEEK → JWT_SECRET → PALADIN_JWT_SECRET →
+/// 逐模式串行 `replace_all`,顺序: AI provider keys → JWT_SECRET → PALADIN_JWT_SECRET →
 /// Authorization → password。无 secret 时原样返回 (`replace_all` 在无匹配时不分配新 String,
 /// 但函数签名返回 `String`,调用方拿到的总是新分配)。
 pub fn redact_log_line(line: &str) -> String {
-    let mut s = DEEPSEEK_PATTERN
-        .replace_all(line, "${1}[REDACTED]")
+    let mut s = AI_PROVIDER_KEY_PATTERN
+        .replace_all(line, "${1}[REDACTED]${2}")
         .into_owned();
     s = JWT_SECRET_PATTERN
         .replace_all(&s, "${1}[REDACTED]")
