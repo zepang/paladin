@@ -34,7 +34,7 @@ pnpm format
 
 ## Packaging / 安装
 
-安装、首次运行、逐平台验证状态和排障说明见 [Packaging 文档](docs/packaging.md)。Windows native MSI 构建成功仅表示 buildability；在完成 installed-app UAT 前不视为 release-ready。
+安装、首次运行、逐平台验证状态和排障说明见 [Packaging 文档](docs/packaging.md)。CI 生成的 Windows MSI、macOS DMG、Linux AppImage/deb 只表示对应平台 buildability；在完成签名/公证要求、installed-app UAT 和发布批准前，不视为 release-ready。
 
 ### 生产包启动（macOS）
 
