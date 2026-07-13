@@ -1,144 +1,134 @@
-# Phase 11 Verification: Desktop AI Provider Configuration
+---
+phase: 11
+phase_slug: desktop-ai-provider-configuration
+verified: 2026-07-13T16:29:05Z
+status: passed
+score: 12/12 must-haves verified
+behavior_unverified: 0
+overrides_applied: 0
+re_verification:
+  previous_status: gaps_found
+  previous_score: 10/12
+  gaps_closed:
+    - "桌面保存 provider 后无需重启即可成功对话。"
+    - "切换 active provider/model 后，下一次 Agent 请求使用新的 provider/model，且无需重启 sidecar。"
+  gaps_remaining: []
+  regressions: []
+---
 
-**Status:** in progress for final gates; source audit and smoke evidence complete for Plan 11-08 Task 2.  
-**Secret evidence rule:** raw API keys and the raw sentinel value are not recorded here. Masked examples such as `pk_11A8` are allowed.
+# Phase 11: Desktop AI Provider Configuration 验证报告
 
-## Source Audit
+**Phase Goal:** 将 AI provider 配置从启动前必须依赖环境变量，升级为桌面应用内可配置、可切换、可持久化的产品能力；缺配置时应用和 sidecar 仍可启动，并在用户首次对话时给出可操作配置入口。  
+**Verified:** 2026-07-13T16:29:05Z  
+**Status:** passed  
+**Re-verification:** 是。复验 commit `6c63078` 后，上次两个 readiness/hot-switch blocker 均已关闭。
 
-| Item | Evidence | Result |
-| --- | --- | --- |
-| GOAL | Runtime AI provider setup moved from required startup env to Desktop-managed provider config. Agent `/health` reports `ai_provider`; ChatArea renders provider CTA; RightPanel owns provider settings. | covered |
-| R1 no-key startup | `apps/agent/src/server/main.py`, `apps/agent/src/agent/provider_runtime.py`, `scripts/test-launch-paladin-macos.sh` keep process launch non-blocking without AI credentials. | covered |
-| R2 actionable chat fallback | `apps/desktop/src/components/ChatArea.tsx` renders `尚未配置 AI provider` and `配置 AI provider` for `provider-not-configured`. | covered |
-| R3 provider configuration surface | `apps/desktop/src/components/provider/AiProviderPanel.tsx` supports DeepSeek, OpenAI-compatible, and LM Studio fields. | covered |
-| R4 persistent runtime authority and hot switch | `apps/desktop/src-tauri/src/ai_provider/storage.rs`, command refresh flow, and Agent runtime snapshot update preserve Desktop authority and next-request switching. | covered |
-| R5 env bootstrap compatibility | `apps/desktop/src-tauri/src/ai_provider/bootstrap.rs` seeds `PALADIN_AI_*` and legacy `DEEPSEEK_API_KEY` only for clean local config. | covered |
-| R6 secret safety | Rust redaction, masked DTOs, empty edit input, and this artifact's sentinel scan prevent raw key evidence. | covered |
-| R7 state separation | Agent liveness, AI readiness, and Go readiness are represented separately in health, UI, status bar, and docs. | covered |
+## Goal Achievement
 
-## Research Constraints and Decisions
+### Observable Truths
 
-| Decision | Evidence | Result |
-| --- | --- | --- |
-| D-01 Desktop app data is persisted authority | `AiProviderConfigManager` persists under app data and Agent accepts runtime snapshots. | covered |
-| D-02 Rust/Tauri is the only persisted writer | Agent runtime is in-memory; Rust commands write app-data config. | covered |
-| D-03 No hot switch by sidecar restart | `refresh_agent_ai_provider` POSTs runtime snapshot; no restart command is used. | covered |
-| D-04 Lazy Agent model resolver | Agent startup uses provider snapshot readiness and placeholder only for no-network startup. | covered |
-| D-05 Request handling returns provider-not-configured | `/copilotkit` returns structured `provider-not-configured` instead of crashing. | covered |
-| D-06 Snapshot-at-request-start | Provider runtime tests cover request-start snapshot behavior. | covered |
-| D-07 Two configure-provider entry points | Chat CTA and status bar AI light open the provider settings panel. | covered |
-| D-08 CTA is a direct action | UI copy uses `配置 AI provider` as the button. | covered |
-| D-09 Provider management in RightPanel | `RightPanel` includes `ai-provider` tab. | covered |
-| D-10 Save/test separation | `AiProviderPanel` and store keep `保存配置` and `测试连接` independent. | covered |
-| D-11 Local protected app-data abstraction only | Docs explicitly defer keychain/cloud account/team policy work. | covered |
-| D-12 API keys are write-only in UI | Readbacks expose `has_api_key` and `api_key_fingerprint`; edit fields are empty. | covered |
-| D-13 Expanded redaction | `log_redact.rs` covers `PALADIN_AI_API_KEY`, legacy keys, aliases, bearer tokens, and diagnostics fields. | covered |
-| D-14 Folded todo scope | `desktop-ai-provider-configuration.md` remains pending workflow input; goals are represented by SPEC/plans. | covered |
-| D-15 Sidebar/layout todos excluded | This phase did not implement conversation-list, layout refactor, or resizable sidebar todos. | covered |
+| # | Truth | Status | Evidence |
+|---|---|---|---|
+| 1 | 无 key 时 Agent 可启动，`/health` 200 且 AI readiness 独立为 unconfigured | VERIFIED | `main.py` 用 `require_configured_model=False` 创建 Agent；focused Agent tests 通过。 |
+| 2 | 无 provider 聊天返回结构化 provider-not-configured，不崩 Agent | VERIFIED | `/copilotkit` 在 snapshot 不 usable 时返回 `{type: provider-not-configured, cta.target: ai-provider}`；测试覆盖。 |
+| 3 | 桌面 app data 是 provider 持久化权威，不写 bundled Agent config | VERIFIED | `AiProviderConfigManager::new_for_app_data` 注册于 Tauri setup；metadata/secrets 写入 app data。 |
+| 4 | 支持 DeepSeek、OpenAI-compatible、LM Studio provider 类型与字段 | VERIFIED | Rust `ProviderType`、前端 `PROVIDER_OPTIONS` 和面板字段覆盖三类 provider/base/model/key/priority/active。 |
+| 5 | 保存、重复保存、并发保存、删除 active provider 行为确定 | VERIFIED | Rust storage tests 覆盖 upsert、atomic write、duplicate id、dangling active fallback。 |
+| 6 | `PALADIN_AI_*` 与 legacy `DEEPSEEK_API_KEY` 仅作为 clean config bootstrap | VERIFIED | `bootstrap.rs` 与 bootstrap tests 覆盖 PALADIN_AI、legacy DeepSeek、空值忽略、本地保存优先。 |
+| 7 | Tauri 命令桥存在并 wired 到前端 typed wrappers/store | VERIFIED | `lib.rs` 注册 `get/save/delete/set_active/test/refresh_agent_ai_provider`；`tauri-commands.ts` 和 Zustand store 调用这些命令。 |
+| 8 | Secret 不在普通 readback/UI/log/docs evidence 中回显 | VERIFIED | masked DTO 只暴露 `has_api_key`/`api_key_fingerprint`（形如 `pk_11A8`）；log redaction 覆盖 PALADIN_AI/OPENAI/DEEPSEEK/aliases；secret sentinel 扫描通过。 |
+| 9 | Chat CTA、RightPanel 设置、StatusBar AI readiness 独立存在 | VERIFIED | `ChatArea.tsx`、`RightPanel.tsx`、`AiProviderPanel.tsx`、`AiProviderLight.tsx` wired；frontend focused tests 通过。 |
+| 10 | Docs/smoke 不再把 AI key 描述为启动硬前提 | VERIFIED | README/docs/.env.example 更新；`scripts/test-launch-paladin-macos.sh` 通过；硬前提残留 grep 为 0。 |
+| 11 | 桌面保存 provider 后无需重启即可成功对话 | VERIFIED | `ProviderRuntime.update()` 将字段完整且结构验证通过的 `untested` snapshot 提升为 `available`；独立 TestClient spot-check 显示 `/copilotkit` 进入 AGUI dispatch。 |
+| 12 | 切换 active provider/model 后下一次请求使用新 provider/model | VERIFIED | Tauri refresh POST 的完整 active provider snapshot 可被 Agent 提升为 usable；新增回归测试覆盖 POST `/ai-provider/runtime` 后下一次 `/copilotkit` 无需重启进入 dispatch。 |
 
-## Deferred Exclusions
+**Score:** 12/12 truths verified.
 
-| Exclusion | Reason |
-| --- | --- |
-| System Keychain/Credential Manager/Secret Service | Deferred secure hardening; Phase 11 guarantees local app-data abstraction plus redaction/masking only. |
-| Organization/team policy, OAuth, marketplace, billing | Out of scope for local desktop runtime provider configuration. |
-| Full chat/sidebar layout refactor | Explicitly excluded by D-15. |
-| Windows installed-app UAT | Not claimed by this phase; packaging docs keep platform release readiness honest. |
+### Required Artifacts
 
-## Edge Coverage Matrix
+| Artifact | Status | Details |
+|---|---|---|
+| `apps/agent/src/agent/provider_runtime.py` | VERIFIED | `ProviderRuntime`, `ProviderSnapshot`, alias normalization、unknown readiness invalid fallback、complete untested -> available promotion 均存在。 |
+| `apps/agent/src/server/main.py` / `provider_routes.py` | VERIFIED | Runtime route、health、provider-not-configured、request-time dispatch wired。 |
+| `apps/desktop/src-tauri/src/ai_provider/*` | VERIFIED | app-data storage/commands/bootstrap、masked readback、refresh bridge、stored-secret test path 存在且测试通过。 |
+| `apps/desktop/src/stores/aiProvider.ts` / provider UI / ChatArea / StatusBar | VERIFIED | 设置面板、CTA、状态灯、store、typed wrappers 均 wired。 |
+| `README.md`, `docs/packaging.md`, `apps/agent/.env.example`, wrapper scripts | VERIFIED | no-key startup、optional bootstrap、readiness separation、secret guidance 已更新。 |
 
-| # | Edge | Evidence | Result |
-| --- | --- | --- | --- |
-| 1 | R1 idempotency | repeated no-key launch and Agent health tests | covered |
-| 2 | R1 concurrency | provider runtime health/chat tests | covered |
-| 3 | R2 empty | ChatArea CTA for unconfigured provider | covered |
-| 4 | R2 encoding dismissed | static localized CTA copy | covered |
-| 5 | R2 idempotency | stable CTA state; no duplicate modal requirement | covered |
-| 6 | R2 concurrency | concurrent missing-provider requests remain structured Agent responses | covered |
-| 7 | R3 adjacency | duplicate provider display/priority behavior in storage tests | covered |
-| 8 | R3 empty | empty provider list is valid unconfigured state | covered |
-| 9 | R3 encoding | provider IDs/base URLs/model IDs preserve values after trim validation | covered |
-| 10 | R3 ordering | active provider wins over priority fallback | covered |
-| 11 | R3 idempotency | save updates provider in place | covered |
-| 12 | R3 concurrency | serialized writes prevent partial JSON/corruption | covered |
-| 13 | R4 adjacency | deleting active provider returns unconfigured state | covered |
-| 14 | R4 empty | persisted empty provider list reloads cleanly | covered |
-| 15 | R4 ordering | explicit active selection wins | covered |
-| 16 | R4 idempotency | restart/readback keeps stable config | covered |
-| 17 | R4 concurrency | request-start snapshot and refresh-next-request semantics | covered |
-| 18 | R5 empty | blank env vars ignored | covered |
-| 19 | R5 encoding | exact ASCII env keys, value trim validation | covered |
-| 20 | R5 idempotency | repeated bootstrap does not duplicate providers | covered |
-| 21 | R5 concurrency | saved local config wins over env bootstrap | covered |
-| 22 | R6 empty | missing key displays absent/unconfigured, not raw empty value | covered |
-| 23 | R6 encoding | special-character keys redacted and masked | covered |
-| 24 | R6 idempotency | diagnostics/readbacks never reconstruct raw key | covered |
-| 25 | R6 concurrency | central redaction path covers concurrent log/diagnostic emission | covered |
-| 26 | R7 idempotency | repeated probes report stable separate states | covered |
-| 27 | R7 concurrency | simultaneous Go readiness and AI provider failures remain independently classified | covered |
+### Key Link Verification
 
-## Prohibition Coverage
+| From | To | Status | Details |
+|---|---|---|---|
+| Desktop UI/store | Tauri provider commands | WIRED | Store 调用 `get/save/delete/setActive/test/refresh` wrappers。 |
+| Tauri commands | app-data manager | WIRED | Commands 调用 `AiProviderConfigManager` save/load/runtime_snapshot/update readiness。 |
+| Tauri refresh | Agent `/ai-provider/runtime` | WIRED | POST 完整 active snapshot 后 Agent 返回 `available`，下一次 chat 可 dispatch。 |
+| Agent runtime | `/health` and `/copilotkit` | WIRED | Health/readiness 与 provider-not-configured/dispatch 分支 wired。 |
+| Chat CTA/status | RightPanel `ai-provider` | WIRED | CTA 和 status action 调用 `openSettingsPanel()`，设置 active panel。 |
 
-| Prohibition | Evidence | Result |
-| --- | --- | --- |
-| Prohibition 1: MUST NOT block app startup or sidecar liveness solely because AI provider is absent. | wrapper no-key smoke; Agent no-key tests | covered |
-| Prohibition 2: MUST NOT display/log/persist/include raw API keys in evidence. | redaction tests, masked DTOs, sentinel scan, `pk_11A8` masked-only evidence | covered |
-| Prohibition 3: MUST NOT silently switch paid/cloud provider after explicit selection. | bootstrap precedence and active-provider persistence tests | covered |
-| Prohibition 4: MUST NOT present missing AI provider as Go DB/Redis readiness failure or Agent crash. | state separation tests and docs | covered |
-| Prohibition 5: MUST NOT use fear/blame/alarmist missing-provider wording. | UI copy: `尚未配置 AI provider`, `配置 AI provider` | covered |
+### Data-Flow Trace
 
-## Smoke Matrix
+| Artifact | Data Variable | Source | Produces Real Data | Status |
+|---|---|---|---|---|
+| `AiProviderPanel` | providers/activeProvider/readiness | Zustand store -> Tauri commands -> app-data config | Yes | FLOWING |
+| `ChatArea` | providerReadiness/providerError | Zustand store; Copilot error mapping | Yes | FLOWING |
+| `AiProviderLight` | activeProvider/readiness | Zustand store | Yes | FLOWING |
+| Agent `/copilotkit` | provider_runtime snapshot | Tauri POST `/ai-provider/runtime` or env fallback | Yes | FLOWING |
 
-| Scenario | Expected state | Evidence |
-| --- | --- | --- |
-| No AI provider/key | App and Agent launch; chat shows `provider-not-configured`; status is `AI · 未配置`. | `scripts/test-launch-paladin-macos.sh`; Agent tests; ChatArea tests |
-| `PALADIN_AI_*` bootstrap | Clean local app data seeds configured provider metadata; saved local config wins later. | Rust bootstrap tests; docs |
-| Legacy `DEEPSEEK_API_KEY` bootstrap | Clean local app data seeds DeepSeek provider for compatibility. | Rust bootstrap tests; wrapper forwarding smoke |
-| Saved provider reload | App-data provider metadata persists; raw key readback remains masked as `pk_11A8`-style metadata. | Rust storage tests; frontend panel tests |
-| Hot switch next request | Refresh updates Agent runtime snapshot; subsequent request uses new provider without sidecar restart. | Rust command tests; Agent provider runtime tests |
-| Invalid AI key/provider | AI readiness is `invalid`/provider unavailable; Agent process remains distinct from Go readiness. | Agent validation route; AiProviderLight tests |
-| Missing DB | Go readiness degraded/non-blocking; AI provider state unchanged. | packaging docs; status separation |
-| Missing Redis | Go readiness degraded/non-blocking; AI provider state unchanged. | packaging docs; status separation |
-| All configured | Agent liveness OK, AI readiness available, Go readiness ready. | focused Agent/Rust/frontend gates and full suites passed |
+### Behavioral Spot-Checks
 
-## Secret Evidence Scan
+| Behavior | Command | Result | Status |
+|---|---|---|---|
+| Focused Agent provider runtime | `uv run pytest tests/test_provider_runtime.py tests/test_server.py -x` | 20 passed | PASS |
+| Full Agent suite | `uv run pytest` | 78 passed | PASS |
+| Rust lib suite | `cargo test --lib` | 112 passed | PASS |
+| Focused frontend provider/UI/approval probe | `pnpm --filter @paladin/desktop test --run src/stores/__tests__/aiProvider.test.ts src/components/provider/__tests__/AiProviderPanel.test.tsx src/components/__tests__/ChatAreaProviderCta.test.tsx src/components/StatusBar/__tests__/AiProviderLight.test.tsx src/components/approval/__tests__/copilotkitInterruptProbe.test.tsx` | 5 files, 20 tests passed | PASS |
+| macOS wrapper no-key/secret smoke | `scripts/test-launch-paladin-macos.sh` | wrapper tests passed | PASS |
+| Saved valid provider enables next chat | Independent TestClient POST `/ai-provider/runtime` with complete `readiness: untested`, then POST `/copilotkit` with fake AGUI dispatch | runtime `available`; chat 202 `adapter-ok`; captured provider `openai-main` | PASS |
 
-| Check | Result |
-| --- | --- |
-| Raw sentinel value in README/docs/verification | absent by `scripts/test-launch-paladin-macos.sh` scan |
-| Raw test API keys in this artifact | absent; only variable names and masked `pk_11A8` example appear |
-| Masked metadata visible | present via `pk_11A8` and `api_key_fingerprint` evidence |
-| CLI secret arguments | rejected by wrapper tests without echoing values |
+### Probe Execution
 
-## Commands and Results
+No `scripts/*/tests/probe-*.sh` probes were declared or discovered for this phase. Wrapper smoke was run directly because Plan 11-08 names it as the smoke artifact.
 
-| Command | Result |
-| --- | --- |
-| `! rg -n "DEEPSEEK_API_KEY.*required|缺少必要配置：DEEPSEEK_API_KEY|hard startup prerequisite" README.md docs/packaging.md apps/agent/.env.example apps/agent/config/config.json` | PASS |
-| `rg -n "PALADIN_AI_PROVIDER|配置 AI provider|AI readiness|未配置" README.md docs/packaging.md apps/agent/.env.example` | PASS |
-| `scripts/test-launch-paladin-macos.sh` | PASS: wrapper tests passed |
-| `! rg -n "<raw-sentinel>" README.md docs/packaging.md .planning/phases/11-desktop-ai-provider-configuration/11-VERIFICATION.md` | PASS: no raw sentinel in docs or verification evidence |
-| `(cd apps/agent && uv run pytest tests/test_provider_runtime.py tests/test_server.py -x)` | PASS: 16 passed in 4.82s |
-| `(cd apps/desktop/src-tauri && cargo test ai_provider --lib && cargo test log_redact --lib)` | PASS: ai_provider 13 passed; log_redact 22 passed |
-| `pnpm --filter @paladin/desktop test --run AiProvider ChatAreaProviderCta AiProviderLight` | PASS: 4 files, 19 tests |
-| `(cd apps/agent && uv run pytest)` | PASS: 74 passed in 10.17s |
-| `(cd apps/desktop/src-tauri && cargo test)` | PASS: lib 109 passed; main/doc tests 0 passed |
-| `pnpm --filter @paladin/desktop test --run AguiApprovalInterrupt` | PASS: 1 file, 10 tests |
-| `pnpm --filter @paladin/desktop test --run` | PASS after test fixture fix: 11 files, 66 tests |
+### Requirements Coverage
 
-## Deviations from Plan
+| Requirement | Status | Evidence |
+|---|---|---|
+| R1 No-key startup | SATISFIED | Agent health and wrapper smoke pass without AI credentials. |
+| R2 Actionable chat fallback | SATISFIED | Missing provider returns provider-not-configured and ChatArea CTA opens AI Provider panel. |
+| R3 Provider configuration surface | SATISFIED | Provider panel supports three provider types and required fields; tests cover save/test/masked metadata. |
+| R4 Persistent runtime authority and hot switching | SATISFIED | App-data authority exists; runtime refresh makes complete active provider usable for next request without sidecar restart. |
+| R5 Environment bootstrap compatibility | SATISFIED | Bootstrap tests and docs cover PALADIN_AI and legacy DeepSeek paths. |
+| R6 Secret safety | SATISFIED | Masked DTOs, redaction tests, wrapper secret CLI rejection, docs/evidence scan pass. |
+| R7 State separation | SATISFIED | Health/UI/status docs and tests distinguish Agent liveness, AI readiness, and Go readiness. |
 
-### Auto-fixed Issues
+### Anti-Patterns Found
 
-**1. [Rule 1 - Bug] Updated AG-UI approval test fixture for Phase 11 provider readiness**
-- **Found during:** Task 3 full frontend suite.
-- **Issue:** `AguiApprovalInterrupt.test.tsx` rendered `ChatArea` without setting AI provider readiness. After Phase 11, the default store state is `unconfigured`, so ChatArea correctly rendered the provider CTA instead of mounting CopilotChat and the AG-UI approval interrupt.
-- **Fix:** The test now explicitly sets `useAiProviderStore` to an available masked provider before exercising approval-interrupt mounting.
-- **Files modified:** `apps/desktop/src/components/approval/__tests__/AguiApprovalInterrupt.test.tsx`
-- **Verification:** `pnpm --filter @paladin/desktop test --run AguiApprovalInterrupt`; `pnpm --filter @paladin/desktop test --run`
+| File | Line | Pattern | Severity | Impact |
+|---|---:|---|---|---|
+| `apps/agent/src/agent/paladin_agent.py` | 178 | placeholder model | INFO | Intentional no-network startup guard; not a stub because `/copilotkit` applies real provider snapshot only when usable. |
+| `apps/desktop/src/components/provider/AiProviderPanel.tsx` | 339 | input placeholder | INFO | UI placeholder text, not incomplete implementation. |
+| `apps/agent/.env.example` | 20 | placeholder bootstrap value | INFO | Intentional non-secret example. |
+
+### Prohibition Checks
+
+| Prohibition | Status | Evidence |
+|---|---|---|
+| 不因缺 AI provider 阻塞 app/sidecar liveness | VERIFIED | no-key Agent health and wrapper smoke pass. |
+| 不在普通 UI/log/docs/evidence 中泄露 raw API key | VERIFIED | masked DTO/readback、redaction tests、sentinel scan pass；测试源码中的假 key 仅用于负向断言。 |
+| 用户显式选择后不被 env 悄悄切到其他付费/cloud provider | VERIFIED | saved local config wins over env bootstrap test passes. |
+| 缺 AI provider 不表现为 Go DB/Redis failure 或 Agent crash | VERIFIED | docs/status/UI separate；tests cover AI status alongside Go degraded label. |
+| 缺 provider 文案中性、可操作 | VERIFIED | `尚未配置 AI provider` / `配置 AI provider`。 |
+
+## Gaps Summary
+
+No blocking gaps remain. 上次失败的 readiness 状态机闭环已经修复：完整 provider snapshot 即使来自本地 `untested` 保存状态，进入 Agent runtime 后会被结构验证并提升为 `available`；下一次 `/copilotkit` 使用该 request-start snapshot 进入 AGUI dispatch。
 
 ## Residual Risk
 
-- Live provider success requires a user-owned key or local LM Studio endpoint and remains manual UAT.
-- Installed-app Windows validation is not claimed here.
-- Keychain-grade secret storage is intentionally deferred; this phase verifies masking/redaction and local app-data separation only.
+- 真正的 live provider 成功仍依赖用户 key 或 LM Studio endpoint，建议作为人工 UAT 做一次端到端验证。
+- Windows installed app UAT 未被 Phase 11 声明覆盖。
+- 系统 keychain 级 secret storage 明确延期；本 phase 只验证本地 app-data 分离、masking 和 redaction。
+
+---
+
+_Verified: 2026-07-13T16:29:05Z_  
+_Verifier: Codex GSD verifier_
