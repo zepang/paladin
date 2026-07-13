@@ -50,3 +50,35 @@ jobs:
 
       - name: Build native arm64 DMG through the release entrypoint
         run: pnpm release -- --target aarch64-apple-darwin --verify
+
+      - name: Create non-secret artifact manifest
+        run: |
+          shopt -s nullglob
+          dmgs=(apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg)
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            echo "Expected exactly one DMG, found ${#dmgs[@]}" >&2
+            exit 1
+          fi
+          DMG="${dmgs[0]}"
+          AGENT="apps/desktop/src-tauri/binaries/paladin-agent-sidecar-aarch64-apple-darwin"
+          SERVER="apps/desktop/src-tauri/binaries/paladin-server-sidecar-aarch64-apple-darwin"
+          mkdir -p macos-artifact
+          cp "$DMG" "macos-artifact/$(basename "$DMG")"
+          node apps/desktop/scripts/build-manifest.mjs \
+            --commit "${{ github.sha }}" \
+            --runner-os "${{ runner.os }}" \
+            --target "$TARGET_TRIPLE" \
+            --agent "$AGENT" \
+            --server "$SERVER" \
+            --installer "$DMG" \
+            --output "macos-artifact/build-manifest.json"
+
+      - name: Upload DMG and manifest only
+        uses: actions/upload-artifact@v4
+        with:
+          name: paladin-macos-aarch64-dmg-${{ github.sha }}
+          path: |
+            macos-artifact/*.dmg
+            macos-artifact/build-manifest.json
+          if-no-files-found: error
+          retention-days: 14
