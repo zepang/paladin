@@ -6,6 +6,7 @@ use tauri::{
 };
 
 mod file_commands;
+mod ai_provider;
 mod process;
 mod terminal;
 use crate::process::commands::{
