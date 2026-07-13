@@ -4,11 +4,12 @@
 
 | 平台 | 安装包构建 | 已安装应用 UAT | Release-ready |
 | --- | --- | --- | --- |
-| macOS arm64 | 构建链已接通 | deferred：必须完成计划中的真实安装 UAT | 否；UAT 前不视为 release-ready |
-| Windows x86_64 | native Windows CI 构建链已接通 | deferred | 否；已构建，未完成已安装应用验证，不视为 release-ready |
+| Windows x86_64 | native Windows CI buildability：一个 MSI + `build-manifest.json` | deferred | 否；已构建，未完成已安装应用验证，不视为 release-ready |
+| macOS arm64 | native macOS CI buildability：一个 DMG + `build-manifest.json` | deferred：Phase 10.1 CI 不等于真实安装 UAT | 否；未签名/未公证，UAT 前不视为 release-ready |
+| Linux x86_64 | native Linux CI buildability：一个 AppImage、一个 deb + `build-manifest.json` | deferred：Phase 10.1 CI 不包含 installed-app UAT 或发行版兼容性矩阵 | 否；未做安装态验证、仓库发布或发布批准 |
 | Windows ARM64 | 本 phase 非阻塞目标 | 本 phase 非阻塞目标 | 否 |
 
-CI 中成功生成 MSI 只证明 buildability。它不等于安装验证，也不等于发布批准。
+CI 中成功生成 Windows MSI、macOS DMG、Linux AppImage/deb 只证明对应平台的 buildability。它不等于签名、公证、安装验证、发行版兼容性确认、软件仓库发布，也不等于发布批准。
 
 ## macOS 首次运行与 UAT
 
@@ -54,4 +55,38 @@ scripts/launch-paladin-macos.sh --app "/自定义位置/Paladin.app"
 
 `.github/workflows/packaging-windows.yml` 在 `windows-latest` 上运行真实 `x86_64-pc-windows-msvc` PyInstaller、Go、Tauri/WiX 链。它支持手动触发，并仅在 packaging 相关 PR 路径变化时自动运行。
 
-上传 artifact 只包含一个 MSI 和 `build-manifest.json`。manifest 固定记录 commit SHA、runner OS、x86_64 target，以及两个 sidecar 与 MSI 的文件名、大小和 SHA-256；不会读取环境变量，也不会上传整个 build tree。
+上传 artifact 只包含一个 MSI 和 `build-manifest.json`。manifest 固定记录 commit SHA、runner OS、architecture、target、role、filename、size 和 SHA-256；artifact entries 覆盖两个 sidecar 与 MSI。manifest 不读取环境变量值，不复制 secret、API key、数据库 DSN、Redis 密码、JWT secret、token 或日志，也不会上传整个 build tree。
+
+上传边界只允许：
+
+- `windows-artifact/*.msi`
+- `windows-artifact/build-manifest.json`
+
+不得上传完整 `src-tauri/target/**`、`src-tauri/binaries/**`、独立 sidecar、依赖目录、缓存、日志或 `.env*` 文件。
+
+## macOS buildability 审计
+
+`.github/workflows/packaging-macos.yml` 在 `macos-14` 上运行真实 `aarch64-apple-darwin` PyInstaller、Go 和 Tauri 打包链。workflow 通过 `pnpm release -- --target aarch64-apple-darwin --verify` 进入共享 release 路径，不在 workflow 中绕过该入口重做 sidecar 或 Tauri 打包逻辑。
+
+上传 artifact 只包含一个 DMG 和 `build-manifest.json`。workflow 在上传前要求 `apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg` 精确匹配一个文件；manifest 记录 commit SHA、runner OS、architecture、target、role、filename、size 和 SHA-256，artifact entries 覆盖 `paladin-agent-sidecar-aarch64-apple-darwin`、`paladin-server-sidecar-aarch64-apple-darwin` 和 DMG。
+
+上传边界只允许：
+
+- `macos-artifact/*.dmg`
+- `macos-artifact/build-manifest.json`
+
+macOS CI 成功只说明 DMG buildability。Phase 10.1 不声明这些 artifact 已签名、已 notarized、公证 staple 已验证、Gatekeeper 分发就绪、installed-app UAT 完成或 release-ready。
+
+## Linux buildability 审计
+
+`.github/workflows/packaging-linux.yml` 在 `ubuntu-22.04` 上运行真实 `x86_64-unknown-linux-gnu` PyInstaller、Go 和 Tauri 打包链。workflow 内联安装 Linux Tauri packaging 依赖后，通过 `pnpm release -- --target x86_64-unknown-linux-gnu --verify` 进入共享 release 路径。
+
+上传 artifact 只包含一个 AppImage、一个 deb 和 `build-manifest.json`。workflow 在上传前分别要求 `apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage` 和 `apps/desktop/src-tauri/target/release/bundle/deb/*.deb` 各精确匹配一个文件；缺少任一安装包类型都会失败。manifest 记录 commit SHA、runner OS、architecture、target、role、filename、size 和 SHA-256，artifact entries 覆盖 `paladin-agent-sidecar-x86_64-unknown-linux-gnu`、`paladin-server-sidecar-x86_64-unknown-linux-gnu`、AppImage 和 deb。
+
+上传边界只允许：
+
+- `linux-artifact/*.AppImage`
+- `linux-artifact/*.deb`
+- `linux-artifact/build-manifest.json`
+
+Linux CI 成功只说明 AppImage/deb buildability。Phase 10.1 不声明这些 artifact 已完成 installed-app UAT、发行版兼容性矩阵、桌面环境 QA、软件仓库发布、自动 GitHub Release 发布或 release-ready 批准。
