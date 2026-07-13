@@ -24,6 +24,9 @@ def import_server_fresh():
     for name in list(sys.modules):
         if name == "src.server.main":
             sys.modules.pop(name)
+    package = sys.modules.get("src.server")
+    if package is not None and hasattr(package, "main"):
+        delattr(package, "main")
     return importlib.import_module("src.server.main")
 
 
@@ -31,8 +34,8 @@ def test_no_key_startup_health_returns_200_with_ai_readiness_unconfigured():
     with patch.dict(os.environ, {}, clear=True):
         main = import_server_fresh()
 
-    client = TestClient(main.app)
-    response = client.get("/health")
+        client = TestClient(main.app)
+        response = client.get("/health")
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
@@ -44,18 +47,18 @@ def test_provider_not_configured_chat_returns_structured_state_and_keeps_server_
     with patch.dict(os.environ, {}, clear=True):
         main = import_server_fresh()
 
-    client = TestClient(main.app)
-    response = client.post(
-        "/copilotkit",
-        json={"messages": [{"role": "user", "content": "hello"}]},
-    )
+        client = TestClient(main.app)
+        response = client.post(
+            "/copilotkit",
+            json={"messages": [{"role": "user", "content": "hello"}]},
+        )
 
-    assert response.status_code == 200
-    data = response.json()
-    assert data["type"] == "provider-not-configured"
-    assert data["readiness"] == "unconfigured"
-    assert data["cta"]["label"] == "配置 AI provider"
-    assert client.get("/health").status_code == 200
+        assert response.status_code == 200
+        data = response.json()
+        assert data["type"] == "provider-not-configured"
+        assert data["readiness"] == "unconfigured"
+        assert data["cta"]["label"] == "配置 AI provider"
+        assert client.get("/health").status_code == 200
 
 
 def test_snapshot_at_request_start_keeps_in_flight_provider_until_next_request(monkeypatch):

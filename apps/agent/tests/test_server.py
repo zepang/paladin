@@ -3,10 +3,20 @@ AG-UI Server 测试套件
 测试 /health 和 /copilotkit 端点
 """
 import os
+import importlib
+import sys
 from unittest.mock import patch
 
 from fastapi import Request
 from starlette.responses import Response
+
+
+def import_server_fresh():
+    sys.modules.pop("src.server.main", None)
+    package = sys.modules.get("src.server")
+    if package is not None and hasattr(package, "main"):
+        delattr(package, "main")
+    return importlib.import_module("src.server.main")
 
 
 # ---- Tests: /health 端点 ----
@@ -33,7 +43,7 @@ class TestHealthEndpoint:
         """/health 只读取模型配置 ID，不重新创建模型客户端"""
         with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
             from fastapi.testclient import TestClient
-            from src.server import main
+            main = import_server_fresh()
 
             def fail_if_called(_agent):
                 raise AssertionError("/health must not recreate fallback model clients")

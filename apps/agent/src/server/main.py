@@ -3,6 +3,7 @@ Paladin Agent — FastAPI HTTP Server
 提供 /copilotkit (AG-UI SSE) 和 /health 端点
 """
 import json
+import os
 from pathlib import Path
 
 import structlog
@@ -13,7 +14,7 @@ from starlette.responses import JSONResponse, Response
 from pydantic_ai.ui.ag_ui import AGUIAdapter
 
 from ..agent.paladin_agent import apply_provider_snapshot, create_paladin_agent
-from ..agent.provider_runtime import ProviderRuntime
+from ..agent.provider_runtime import ProviderRuntime, snapshot_from_model_config
 from .provider_routes import create_provider_router
 
 # ---- 日志 ----
@@ -214,7 +215,31 @@ async def threads(agentId: str = "default"):
 
 
 def _request_provider_snapshot():
-    return provider_runtime.snapshot()
+    snapshot = provider_runtime.snapshot()
+    if snapshot.configured:
+        return snapshot
+    if not _has_ai_provider_env():
+        return snapshot
+
+    for index, config in enumerate(getattr(agent, "_model_configs", []), start=1):
+        candidate = snapshot_from_model_config(config, version=snapshot.version + index)
+        if candidate.usable:
+            return provider_runtime.replace_snapshot(candidate)
+
+    return snapshot
+
+
+def _has_ai_provider_env() -> bool:
+    return any(
+        os.environ.get(key)
+        for key in (
+            "PALADIN_AI_API_KEY",
+            "PALADIN_AI_PROVIDER",
+            "OPENAI_API_KEY",
+            "DEEPSEEK_API_KEY",
+            "LM_STUDIO_API_KEY",
+        )
+    )
 
 
 def provider_not_configured_response(snapshot) -> JSONResponse:
