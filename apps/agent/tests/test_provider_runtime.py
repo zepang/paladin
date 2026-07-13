@@ -208,3 +208,61 @@ def test_runtime_update_with_unknown_readiness_returns_invalid_snapshot():
     assert data["readiness"] == "invalid"
     assert data["configured"] is True
     assert "Unsupported provider type" in data["message"]
+
+
+def test_runtime_update_promotes_complete_untested_snapshot_to_available():
+    from src.agent.provider_runtime import ProviderRuntime
+
+    runtime = ProviderRuntime()
+
+    snapshot = runtime.update(
+        {
+            "provider_id": "openai-main",
+            "provider_type": "openai-compatible",
+            "base_url": "https://api.openai.com/v1",
+            "model_id": "gpt-4o-mini",
+            "api_key": "sk-openai",
+            "readiness": "untested",
+        }
+    )
+
+    assert snapshot.readiness.value == "available"
+    assert snapshot.usable is True
+
+
+def test_runtime_update_enables_next_copilotkit_request_without_restart(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    with patch.dict(os.environ, {}, clear=True):
+        main = import_server_fresh()
+        captured = {}
+
+        async def fake_dispatch_request(*, request, agent, deps):
+            captured["snapshot"] = agent.provider_snapshot
+            return Response("adapter-ok", status_code=202)
+
+        monkeypatch.setattr(
+            main.AGUIAdapter,
+            "dispatch_request",
+            fake_dispatch_request,
+        )
+
+        client = TestClient(main.app)
+        runtime_response = client.post(
+            "/ai-provider/runtime",
+            json={
+                "provider_id": "openai-main",
+                "provider_type": "openai-compatible",
+                "base_url": "https://api.openai.com/v1",
+                "model_id": "gpt-4o-mini",
+                "api_key": "sk-openai",
+                "readiness": "untested",
+            },
+        )
+        chat_response = client.post("/copilotkit", json={"messages": []})
+
+    assert runtime_response.status_code == 200
+    assert runtime_response.json()["ai_provider"]["readiness"] == "available"
+    assert chat_response.status_code == 202
+    assert chat_response.text == "adapter-ok"
+    assert captured["snapshot"].provider_id == "openai-main"

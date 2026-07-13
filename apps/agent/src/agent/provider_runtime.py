@@ -106,13 +106,13 @@ def _canonical_provider_type(provider_type: str | None) -> str | None:
     return None
 
 
-def _readiness_from_payload(value: Any) -> ProviderReadiness:
+def _readiness_from_payload(value: Any) -> tuple[ProviderReadiness, bool]:
     if isinstance(value, ProviderReadiness):
-        return value
+        return value, True
     try:
-        return ProviderReadiness(value or ProviderReadiness.UNTESTED)
+        return ProviderReadiness(value or ProviderReadiness.UNTESTED), True
     except ValueError:
-        return ProviderReadiness.INVALID
+        return ProviderReadiness.INVALID, False
 
 
 def validate_provider_snapshot(snapshot: ProviderSnapshot) -> ProviderValidationResult:
@@ -172,6 +172,9 @@ class ProviderRuntime:
     def update(self, payload: dict[str, Any]) -> ProviderSnapshot:
         with self._lock:
             next_version = self._snapshot.version + 1
+            readiness, readiness_is_valid = _readiness_from_payload(
+                payload.get("readiness", ProviderReadiness.UNTESTED)
+            )
             candidate = ProviderSnapshot(
                 version=next_version,
                 provider_id=_clean(payload.get("provider_id")),
@@ -179,12 +182,12 @@ class ProviderRuntime:
                 base_url=_clean(payload.get("base_url")),
                 model_id=_clean(payload.get("model_id")),
                 api_key=_clean(payload.get("api_key")),
-                readiness=_readiness_from_payload(payload.get("readiness", ProviderReadiness.UNTESTED)),
+                readiness=readiness,
                 validation_status=_clean(payload.get("validation_status")),
                 message=_clean(payload.get("message")),
             )
             validation = validate_provider_snapshot(candidate)
-            if validation.readiness == ProviderReadiness.INVALID:
+            if not readiness_is_valid or validation.readiness == ProviderReadiness.INVALID:
                 candidate = ProviderSnapshot(
                     version=candidate.version,
                     provider_id=candidate.provider_id,
@@ -194,7 +197,19 @@ class ProviderRuntime:
                     api_key=candidate.api_key,
                     readiness=ProviderReadiness.INVALID,
                     validation_status=candidate.validation_status,
-                    message=validation.message,
+                    message=validation.message or "Provider readiness is invalid.",
+                )
+            elif validation.readiness == ProviderReadiness.AVAILABLE:
+                candidate = ProviderSnapshot(
+                    version=candidate.version,
+                    provider_id=candidate.provider_id,
+                    provider_type=candidate.provider_type,
+                    base_url=candidate.base_url,
+                    model_id=candidate.model_id,
+                    api_key=candidate.api_key,
+                    readiness=ProviderReadiness.AVAILABLE,
+                    validation_status=candidate.validation_status,
+                    message=None,
                 )
             self._snapshot = candidate
             return candidate
