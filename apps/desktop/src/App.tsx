@@ -11,6 +11,8 @@ import { StatusBar } from '@/components/StatusBar';
 import { Titlebar } from '@/components/Titlebar';
 import { RightPanel } from '@/components/layout/RightPanel';
 import { Toaster } from '@/components/ui/sonner';
+import type { AiProviderReadiness } from '@/stores/aiProvider';
+import { useAiProviderStore } from '@/stores/aiProvider';
 import { useProcessStatus } from '@/stores/process';
 import { useTerminalStore } from '@/stores/terminal';
 import { WIDTH_CONFIG, getBreakpoint, useUIStore } from '@/stores/ui';
@@ -20,6 +22,59 @@ import { CopilotKitProvider } from '@copilotkit/react-core/v2';
 import { invoke } from '@tauri-apps/api/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
+const AI_READINESS_LABEL: Record<AiProviderReadiness, string> = {
+  unconfigured: 'AI · 未配置',
+  untested: 'AI · 未测试',
+  available: 'AI · 可用',
+  invalid: 'AI · 无效',
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object');
+}
+
+function hasProviderNotConfiguredMarker(value: unknown): boolean {
+  if (typeof value === 'string') {
+    return value.includes('provider-not-configured');
+  }
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  const marker = value.type ?? value.code ?? value.reason;
+  if (marker === 'provider-not-configured') {
+    return true;
+  }
+
+  return Object.values(value).some(hasProviderNotConfiguredMarker);
+}
+
+function extractAiReadiness(value: unknown): AiProviderReadiness {
+  if (!isRecord(value)) {
+    return 'unconfigured';
+  }
+  if (
+    value.readiness === 'unconfigured' ||
+    value.readiness === 'untested' ||
+    value.readiness === 'available' ||
+    value.readiness === 'invalid'
+  ) {
+    return value.readiness;
+  }
+
+  for (const nested of Object.values(value)) {
+    const readiness = extractAiReadiness(nested);
+    if (readiness !== 'unconfigured') {
+      return readiness;
+    }
+  }
+  return 'unconfigured';
+}
+
+function errorMessage(error: Error): string | undefined {
+  return error.message.trim() || undefined;
+}
 
 function App() {
   // 侧边栏折叠状态
@@ -55,6 +110,19 @@ function App() {
         });
       });
   }, []);
+
+  useEffect(() => {
+    if (!runtimeConfig) return;
+
+    const syncProviderReadiness =
+      agentState === 'running'
+        ? useAiProviderStore.getState().refreshAgentRuntime
+        : useAiProviderStore.getState().refresh;
+
+    syncProviderReadiness().catch((error) => {
+      console.warn('[ai-provider] readiness 同步失败', error);
+    });
+  }, [runtimeConfig, agentState]);
 
   // 终端 store
   const togglePanel = useTerminalStore((s) => s.togglePanel);
@@ -163,6 +231,25 @@ function App() {
   // CopilotKit 错误处理回调
   const handleCopilotError = useCallback(
     (event: { code: string; error: Error; context?: Record<string, unknown> }) => {
+      if (
+        hasProviderNotConfiguredMarker(event.code) ||
+        hasProviderNotConfiguredMarker(event.error.message) ||
+        hasProviderNotConfiguredMarker(event.context)
+      ) {
+        const readiness = extractAiReadiness(event.context);
+        useAiProviderStore.setState({
+          readiness,
+          statusLabel: AI_READINESS_LABEL[readiness],
+          lastProviderError: {
+            type: readiness === 'invalid' ? 'provider-invalid' : 'provider-not-configured',
+            message: errorMessage(event.error),
+          },
+          error: null,
+        });
+        console.warn('[CopilotKit provider-not-configured]', event.error.message);
+        return;
+      }
+
       const errorMessages: Record<string, string> = {
         runtime_info_fetch_failed: '无法连接到 Agent 服务',
         agent_connect_failed: 'Agent 连接失败，请检查服务状态',

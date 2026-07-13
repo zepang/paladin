@@ -31,7 +31,8 @@ describe('ChatArea provider-not-configured CTA', () => {
           title: 'Provider setup',
           threadId: 'copilot-thread-1',
           createdAt: Date.now(),
-          updatedAt: Date.now(),
+          lastMessage: '',
+          messageCount: 0,
         },
       ],
     });
