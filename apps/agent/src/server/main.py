@@ -3,19 +3,18 @@ Paladin Agent — FastAPI HTTP Server
 提供 /copilotkit (AG-UI SSE) 和 /health 端点
 """
 import json
-import os
 from pathlib import Path
 
 import structlog
-from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse, Response
 
 from pydantic_ai.ui.ag_ui import AGUIAdapter
 
-from ..agent.paladin_agent import create_paladin_agent
-from .cli import dotenv_enabled
+from ..agent.paladin_agent import apply_provider_snapshot, create_paladin_agent
+from ..agent.provider_runtime import ProviderRuntime
+from .provider_routes import create_provider_router
 
 # ---- 日志 ----
 logger = structlog.get_logger(__name__)
@@ -50,10 +49,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 加载 .env
 project_root = _find_project_root()
-if dotenv_enabled():
-    load_dotenv(project_root / ".env")
 
 # 创建 Agent（模块加载时初始化）
 _config_path = project_root / "config" / "config.json"
@@ -62,7 +58,10 @@ _prompt_path = project_root / "prompts" / "system.md"
 agent = create_paladin_agent(
     models_config_path=str(_config_path),
     system_prompt_path=str(_prompt_path),
+    require_configured_model=False,
 )
+provider_runtime = ProviderRuntime(getattr(agent, "provider_snapshot", None))
+app.include_router(create_provider_router(provider_runtime))
 logger.info("Paladin Agent 已初始化")
 
 # ---- 端点 ----
@@ -109,6 +108,13 @@ async def copilotkit_endpoint(request: Request) -> Response:
     except Exception:
         return JSONResponse({"detail": "Invalid JSON body"}, status_code=422)
 
+    if isinstance(body, dict) and not any(key in body for key in ("messages", "resume")):
+        return JSONResponse({"detail": "Invalid AG-UI body"}, status_code=422)
+
+    snapshot = _request_provider_snapshot()
+    if not snapshot.usable:
+        return provider_not_configured_response(snapshot)
+
     async def receive_once():
         return {
             "type": "http.request",
@@ -117,6 +123,7 @@ async def copilotkit_endpoint(request: Request) -> Response:
         }
 
     replay_request = Request(request.scope, receive_once)
+    apply_provider_snapshot(agent, snapshot)
     return await AGUIAdapter.dispatch_request(
         request=replay_request,
         agent=agent,
@@ -134,12 +141,14 @@ async def health():
     Returns:
         JSON: {"status": "ok", "agent": "paladin-agent", "models": [...]}
     """
+    snapshot = _request_provider_snapshot()
     model_configs = getattr(agent, "_model_configs", [])
     model_ids = [config.id for config in model_configs]
 
     return JSONResponse({
         "status": "ok",
         "agent": "paladin-agent",
+        "ai_provider": snapshot.to_public_dict(),
         "models": model_ids,
     })
 
@@ -201,4 +210,21 @@ async def threads(agentId: str = "default"):
     """
     return JSONResponse({
         "threads": []
+    })
+
+
+def _request_provider_snapshot():
+    return provider_runtime.snapshot()
+
+
+def provider_not_configured_response(snapshot) -> JSONResponse:
+    return JSONResponse({
+        "type": "provider-not-configured",
+        "readiness": snapshot.readiness.value,
+        "configured": snapshot.configured,
+        "cta": {
+            "label": "配置 AI provider",
+            "target": "ai-provider",
+        },
+        "ai_provider": snapshot.to_public_dict(),
     })
