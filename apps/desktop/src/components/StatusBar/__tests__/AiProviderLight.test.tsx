@@ -8,13 +8,33 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 import { AiProviderLight } from '@/components/StatusBar/AiProviderLight';
+import { StatusBar } from '@/components/StatusBar';
 import { useAiProviderStore } from '@/stores/aiProvider';
+import { useProcessStore } from '@/stores/process';
 import { useTerminalStore } from '@/stores/terminal';
 
 describe('AiProviderLight Phase 11 status separation', () => {
   beforeEach(() => {
     mockInvoke.mockClear();
     useTerminalStore.setState({ isOpen: false, activePanel: 'terminal' });
+    useProcessStore.setState({
+      agent: {
+        state: 'running',
+        owner: 'supervisor',
+        health: 'healthy',
+        last_error: null,
+        stderr_tail: null,
+        last_restart_at: null,
+      },
+      server: {
+        state: 'running',
+        owner: 'supervisor',
+        health: 'healthy',
+        last_error: null,
+        stderr_tail: null,
+        last_restart_at: null,
+      },
+    });
     useAiProviderStore.getState().resetForTest();
   });
 
@@ -72,5 +92,21 @@ describe('AiProviderLight Phase 11 status separation', () => {
     expect(useTerminalStore.getState().activePanel).toBe('ai-provider');
     expect(mockInvoke).not.toHaveBeenCalledWith('restart_agent');
     expect(mockInvoke).not.toHaveBeenCalledWith('redetect_server');
+  });
+
+  it('shows missing AI provider separately from degraded Go readiness', () => {
+    useAiProviderStore.setState({ readiness: 'unconfigured', activeProvider: null });
+    useProcessStore.getState().setStatus('server', {
+      state: 'degraded',
+      owner: 'supervisor',
+      health: 'degraded',
+      last_error: '启动 5s 内 /readyz 未就绪',
+    });
+
+    render(<StatusBar />);
+
+    expect(screen.getByRole('button', { name: /AI · 未配置/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Go · 托管 · 降级/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Go · 未配置/ })).not.toBeInTheDocument();
   });
 });
