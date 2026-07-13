@@ -306,22 +306,22 @@ const openProviderSettings = () => {
 | A2 | A request-scoped agent wrapper or model cache can be implemented without breaking `pydantic_deep.create_deep_agent()` tooling semantics. | Architecture Patterns | Planner may need a spike if pydantic-deep does not allow swapping model cleanly. |
 | A3 | Extending `useTerminalStore` is lower risk than a right-panel store rename. | Alternatives / Pitfalls | Planner may choose a small refactor if terminal naming becomes too confusing. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact Agent refresh API shape**
    - What we know: Desktop must call Agent runtime refresh/update without restart. [VERIFIED: 11-CONTEXT.md]
-   - What's unclear: Whether to use `PUT /ai-provider/runtime`, `POST /ai-provider/refresh`, or Tauri-mediated internal command naming. [ASSUMED]
-   - Recommendation: Planner should lock DTO names early and keep API raw-key write-only. [ASSUMED]
+   - RESOLVED: Plan 02 and Plan 05 lock the shape as Agent-side provider runtime operations for read readiness/snapshot metadata, update active runtime snapshot, validate a supplied snapshot, and refresh readiness; Desktop exposes Tauri commands `get_ai_provider_config`, `save_ai_provider`, `delete_ai_provider`, `set_active_ai_provider`, `test_ai_provider`, and `refresh_agent_ai_provider` as the UI-facing bridge.
+   - RESOLVED: Raw keys cross only from Rust/Desktop authority into Agent in-memory runtime snapshots for update/validate/refresh and are never returned by Agent or Tauri readback. [VERIFIED: 11-02-PLAN.md] [VERIFIED: 11-05-PLAN.md]
 
 2. **Pydantic-deep model replacement mechanics**
    - What we know: current `create_deep_agent(model=primary_model, ...)` receives the model at construction. [VERIFIED: codebase grep]
-   - What's unclear: Whether best implementation is a cached agent per provider snapshot or a rebuilt request-scoped agent. [ASSUMED]
-   - Recommendation: Add a Wave 0 spike/test for snapshot-at-request-start using fake `OpenAIChatModel`. [ASSUMED]
+   - RESOLVED: Plan 01 adds RED tests/spike coverage for no-key startup, provider-not-configured, configured DeepSeek base URL, and snapshot-at-request-start semantics before implementation.
+   - RESOLVED: Plan 02 implements a `ProviderRuntime`/`ProviderSnapshot` boundary and builds the concrete `OpenAIChatModel` from the request-start snapshot; executor may choose a request-scoped agent or safe cache internally only if the tests prove the snapshot version cannot mutate mid-request. [VERIFIED: 11-01-PLAN.md] [VERIFIED: 11-02-PLAN.md]
 
 3. **Protected local storage representation**
    - What we know: system keychain is deferred and app-data abstraction is MVP. [VERIFIED: 11-CONTEXT.md]
-   - What's unclear: Whether "protected" means file permissions only, split metadata/secret files, or simple local JSON with redaction guarantees. [ASSUMED]
-   - Recommendation: Use metadata + secret file abstraction with restrictive permissions where platform-supported; document as non-keychain. [ASSUMED]
+   - RESOLVED: Plan 03 locks Rust/Tauri as the only persisted writer and requires an app-data `AiProviderConfigManager` with normal metadata readback plus a local protected secret abstraction. Readback exposes only `has_api_key` and a fixed short masked fingerprint per D-12.
+   - RESOLVED: System Keychain/Credential Manager/Secret Service remains out of scope for Phase 11; Plan 08 documents the non-keychain local protected storage boundary and final secret/evidence scan. [VERIFIED: 11-03-PLAN.md] [VERIFIED: 11-08-PLAN.md]
 
 ## Environment Availability
 
