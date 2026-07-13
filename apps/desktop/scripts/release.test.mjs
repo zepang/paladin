@@ -136,6 +136,7 @@ test('falls back to create-dmg skip-jenkins when the macOS app bundle exists', a
 
 test('smokes packaged Agent sidecar through health endpoint and terminates it', async () => {
   const child = new EventEmitter();
+  child.stdout = new EventEmitter();
   child.stderr = new EventEmitter();
   let killed = false;
   child.kill = () => {
@@ -163,16 +164,19 @@ test('smokes packaged Agent sidecar through health endpoint and terminates it', 
     spawnImpl,
     get,
     timeoutMs: 1000,
+    env: {},
   });
 
   assert.equal(killed, true);
   assert.deepEqual(spawnCalls[0][1], ['serve', '--port', '19976']);
   assert.equal(spawnCalls[0][2].env.PALADIN_RUNTIME_MODE, 'packaged');
   assert.equal(spawnCalls[0][2].env.LOGFIRE_PYDANTIC_RECORD, 'off');
+  assert.equal(spawnCalls[0][2].env.DEEPSEEK_API_KEY, 'paladin-buildability-smoke-placeholder');
 });
 
 test('fails packaged Agent sidecar smoke when process exits before health', async () => {
   const child = new EventEmitter();
+  child.stdout = new EventEmitter();
   child.stderr = new EventEmitter();
   child.kill = () => {};
   const spawnImpl = () => {
@@ -195,4 +199,35 @@ test('fails packaged Agent sidecar smoke when process exits before health', asyn
     }),
     /ModuleNotFoundError: hidden import missing/,
   );
+});
+
+test('preserves real Agent smoke API key and redacts placeholder from failures', async () => {
+  const child = new EventEmitter();
+  child.stdout = new EventEmitter();
+  child.stderr = new EventEmitter();
+  child.kill = () => {};
+  const spawnCalls = [];
+  const spawnImpl = (command, args, options) => {
+    spawnCalls.push([command, args, options]);
+    queueMicrotask(() => {
+      child.stdout.emit('data', Buffer.from('starting with paladin-buildability-smoke-placeholder'));
+      child.emit('close', 1, null);
+    });
+    return child;
+  };
+  const get = () => {
+    throw new Error('not listening yet');
+  };
+
+  await assert.rejects(
+    smokeAgentSidecar({
+      executable: '/tmp/paladin-agent-sidecar',
+      spawnImpl,
+      get,
+      timeoutMs: 1000,
+      env: { DEEPSEEK_API_KEY: 'real-ci-secret' },
+    }),
+    /starting with \[BUILDABILITY_SMOKE_API_KEY\]/,
+  );
+  assert.equal(spawnCalls[0][2].env.DEEPSEEK_API_KEY, 'real-ci-secret');
 });
