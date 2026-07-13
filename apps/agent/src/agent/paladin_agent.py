@@ -23,6 +23,11 @@ from pydantic_deep import LocalBackend
 from pydantic_deep import create_default_deps
 
 from src.agent.computer_use import _create_computer_use_tools
+from src.agent.provider_runtime import (
+    ProviderReadiness,
+    ProviderSnapshot,
+    create_model_for_provider_snapshot,
+)
 
 # ---- 日志 ----
 logger = logging.getLogger(__name__)
@@ -137,6 +142,7 @@ def _create_model(config: ModelConfig) -> OpenAIChatModel:
     # 解析环境变量引用（$VAR 或 ${VAR}），从 .env 读取实际值
     resolved_key = os.path.expandvars(config.api_key)
     resolved_model = os.path.expandvars(config.model_id)
+    resolved_base = os.path.expandvars(config.api_base)
     
     if not resolved_key or resolved_key == config.api_key:
         # 展开后与原值相同，说明环境变量未设置
@@ -147,27 +153,41 @@ def _create_model(config: ModelConfig) -> OpenAIChatModel:
     
     # 根据 provider 选择正确的 Provider
     if config.provider == "deepseek":
-        # 使用 Pydantic AI 官方推荐的 DeepSeekProvider
-        # DeepSeekProvider 默认 base_url 是 https://api.deepseek.com，需要添加 /v1
+        # DeepSeek 走 OpenAI-compatible client，必须使用运行时配置的 base URL。
         from openai import AsyncOpenAI
         custom_client = AsyncOpenAI(
             api_key=resolved_key,
-            base_url="https://api.deepseek.com/v1",
+            base_url=resolved_base,
         )
         provider = DeepSeekProvider(api_key=resolved_key, openai_client=custom_client)
     elif config.provider == "openai":
         # 使用 OpenAIProvider（兼容 LM Studio 等 OpenAI 兼容 API）
-        resolved_base = os.path.expandvars(config.api_base)
         provider = OpenAIProvider(base_url=resolved_base, api_key=resolved_key)
     else:
         raise ValueError(f"不支持的 provider: {config.provider}")
     
     logger.info(
-        "创建模型连接: model=%s, provider=%s, api_key_env=%s",
-        resolved_model, config.provider, config.api_key,
+        "创建模型连接: model=%s, provider=%s, api_key_configured=%s",
+        resolved_model, config.provider, bool(resolved_key),
     )
     
     return OpenAIChatModel(resolved_model, provider=provider)
+
+
+def _create_unconfigured_model() -> OpenAIChatModel:
+    """Create a placeholder model so tooling can initialize before provider setup."""
+    provider = OpenAIProvider(
+        base_url="http://127.0.0.1:9/v1",
+        api_key="paladin-provider-not-configured",
+    )
+    return OpenAIChatModel("paladin-provider-not-configured", provider=provider)
+
+
+def apply_provider_snapshot(agent: Agent, snapshot: ProviderSnapshot) -> None:
+    """Attach request-start provider state and model to an Agent instance."""
+    agent.provider_snapshot = snapshot  # type: ignore[attr-defined]
+    if snapshot.usable:
+        agent._model = create_model_for_provider_snapshot(snapshot)  # type: ignore[attr-defined]
 
 
 # ---- MCP 按需加载 ----
@@ -276,6 +296,7 @@ def create_paladin_agent(
     system_prompt_path: str = "prompts/system.md",
     workspace_dir: Optional[str] = None,
     skills_dir: Optional[str] = None,
+    require_configured_model: bool = True,
 ) -> Agent:
     """
     创建完整的 Paladin Agent 实例
@@ -324,9 +345,24 @@ def create_paladin_agent(
     if not model_configs:
         raise ValueError("模型配置列表为空，至少需要一个模型")
 
-    # 用最高优先级模型创建 Pydantic AI Model 实例
+    # 用最高优先级模型创建 Pydantic AI Model 实例；server 启动路径允许先用占位模型。
     primary_config = model_configs[0]
-    primary_model = _create_model(primary_config)
+    try:
+        primary_model = _create_model(primary_config)
+        initial_snapshot = ProviderSnapshot(
+            version=0,
+            provider_id=primary_config.id,
+            provider_type=primary_config.provider,
+            base_url=os.path.expandvars(primary_config.api_base),
+            model_id=os.path.expandvars(primary_config.model_id),
+            api_key=os.path.expandvars(primary_config.api_key),
+            readiness=ProviderReadiness.AVAILABLE,
+        )
+    except ValueError:
+        if require_configured_model:
+            raise
+        primary_model = _create_unconfigured_model()
+        initial_snapshot = ProviderSnapshot(version=0)
     logger.info(
         "Agent 使用主模型: %s (%s/%s)",
         primary_config.id, primary_config.provider, primary_config.model_id,
@@ -411,6 +447,7 @@ def create_paladin_agent(
 
     # 将模型配置列表附加到 agent 上，供 server 层 fallback 使用
     agent._model_configs = model_configs  # type: ignore[attr-defined]
+    agent.provider_snapshot = initial_snapshot  # type: ignore[attr-defined]
 
     return agent
 
