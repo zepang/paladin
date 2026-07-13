@@ -3,8 +3,10 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WRAPPER="$ROOT_DIR/scripts/launch-paladin-macos.sh"
+VERIFICATION_FILE="$ROOT_DIR/.planning/phases/11-desktop-ai-provider-configuration/11-VERIFICATION.md"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
+RAW_SENTINEL="paladin-raw-secret-sentinel-11-08"
 
 assert_contains() {
   local haystack="$1"
@@ -114,5 +116,20 @@ if "$WRAPPER" --app >/tmp/paladin-missing-app-arg.out 2>&1; then
   exit 1
 fi
 assert_contains "$(cat /tmp/paladin-missing-app-arg.out)" "--app requires a path"
+
+if [[ ! -f "$VERIFICATION_FILE" ]]; then
+  echo "Expected verification artifact to exist: $VERIFICATION_FILE" >&2
+  exit 1
+fi
+
+if rg -n "$RAW_SENTINEL" README.md docs/packaging.md "$VERIFICATION_FILE" >/tmp/paladin-secret-sentinel.out 2>&1; then
+  echo "Raw secret sentinel leaked into docs or verification evidence" >&2
+  cat /tmp/paladin-secret-sentinel.out >&2
+  exit 1
+fi
+
+assert_contains "$(cat "$VERIFICATION_FILE")" "pk_"
+assert_contains "$(cat "$VERIFICATION_FILE")" "provider-not-configured"
+assert_contains "$(cat "$VERIFICATION_FILE")" "PALADIN_AI"
 
 echo "launch-paladin-macos wrapper tests passed"
