@@ -5,9 +5,7 @@ use std::sync::Arc;
 
 use tempfile::tempdir;
 
-use super::{
-    AiProviderConfigManager, AiProviderReadiness, ProviderInput, ProviderType,
-};
+use super::{AiProviderConfigManager, AiProviderReadiness, ProviderInput, ProviderType};
 
 fn deepseek_input(id: &str, key: &str) -> ProviderInput {
     ProviderInput {
@@ -25,7 +23,9 @@ fn deepseek_input(id: &str, key: &str) -> ProviderInput {
 #[tokio::test]
 async fn saving_same_provider_twice_updates_in_place_and_keeps_active_selection() {
     let dir = tempdir().expect("temp app data dir");
-    let manager = AiProviderConfigManager::new_for_app_data(dir.path()).await.unwrap();
+    let manager = AiProviderConfigManager::new_for_app_data(dir.path())
+        .await
+        .unwrap();
 
     let first = manager
         .save_provider(deepseek_input("deepseek-main", "sk-first-secret"))
@@ -42,7 +42,10 @@ async fn saving_same_provider_twice_updates_in_place_and_keeps_active_selection(
     assert_eq!(config.providers.len(), 1);
     assert_eq!(config.active_provider_id.as_deref(), Some("deepseek-main"));
     assert_eq!(config.providers[0].display_name, "DeepSeek 中文名");
-    assert_eq!(config.providers[0].base_url, "https://api.deepseek.example/v1");
+    assert_eq!(
+        config.providers[0].base_url,
+        "https://api.deepseek.example/v1"
+    );
     assert_eq!(config.providers[0].model_id, "deepseek-chat");
     assert_eq!(config.providers[0].provider_type, ProviderType::DeepSeek);
     assert_eq!(config.providers[0].priority, 5);
@@ -71,9 +74,14 @@ async fn overlapping_saves_do_not_corrupt_json_duplicate_ids_or_dangle_active_pr
     second_result.unwrap();
 
     let raw = fs::read_to_string(dir.path().join("ai-providers.json")).unwrap();
-    serde_json::from_str::<serde_json::Value>(&raw).expect("persisted provider config is valid JSON");
+    serde_json::from_str::<serde_json::Value>(&raw)
+        .expect("persisted provider config is valid JSON");
     let config = manager.load_masked_config().await.unwrap();
-    let same_id_count = config.providers.iter().filter(|provider| provider.id == "same-id").count();
+    let same_id_count = config
+        .providers
+        .iter()
+        .filter(|provider| provider.id == "same-id")
+        .count();
 
     assert_eq!(same_id_count, 1);
     assert_eq!(config.active_provider_id.as_deref(), Some("same-id"));
@@ -86,7 +94,9 @@ async fn overlapping_saves_do_not_corrupt_json_duplicate_ids_or_dangle_active_pr
 #[tokio::test]
 async fn masked_readback_excludes_raw_key_and_key_length_from_non_secret_metadata() {
     let dir = tempdir().expect("temp app data dir");
-    let manager = AiProviderConfigManager::new_for_app_data(dir.path()).await.unwrap();
+    let manager = AiProviderConfigManager::new_for_app_data(dir.path())
+        .await
+        .unwrap();
     let raw_key = "sk-special-密钥-value-123456789";
 
     manager
@@ -115,7 +125,9 @@ async fn masked_readback_excludes_raw_key_and_key_length_from_non_secret_metadat
 #[tokio::test]
 async fn deleting_active_provider_falls_back_to_unconfigured_without_dangling_active_id() {
     let dir = tempdir().expect("temp app data dir");
-    let manager = AiProviderConfigManager::new_for_app_data(dir.path()).await.unwrap();
+    let manager = AiProviderConfigManager::new_for_app_data(dir.path())
+        .await
+        .unwrap();
     manager
         .save_provider(deepseek_input("active-provider", "sk-active"))
         .await

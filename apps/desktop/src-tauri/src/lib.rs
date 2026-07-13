@@ -5,8 +5,8 @@ use tauri::{
     AppHandle, Manager, WindowEvent,
 };
 
-mod file_commands;
 mod ai_provider;
+mod file_commands;
 mod process;
 mod terminal;
 use crate::process::commands::{
