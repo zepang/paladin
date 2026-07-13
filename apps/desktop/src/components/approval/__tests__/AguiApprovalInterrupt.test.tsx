@@ -8,6 +8,7 @@ import {
 } from '../AguiApprovalInterrupt';
 import { ApprovalCard, type ApprovalInterrupt } from '../ApprovalCard';
 import { ChatArea } from '../../ChatArea';
+import { useAiProviderStore } from '@/stores/aiProvider';
 
 const {
   agentMock,
@@ -167,6 +168,22 @@ describe('AG-UI approval interrupt helpers', () => {
       }),
     );
     useTerminalStoreMock.mockImplementation((selector) => selector({ isOpen: false }));
+    useAiProviderStore.setState({
+      readiness: 'available',
+      lastProviderError: null,
+      activeProvider: {
+        id: 'test-provider',
+        provider_type: 'deepseek',
+        display_name: 'Test Provider',
+        base_url: 'https://example.invalid/v1',
+        model_id: 'test-model',
+        priority: 1,
+        active: true,
+        readiness: 'available',
+        has_api_key: true,
+        api_key_fingerprint: 'pk_TEST',
+      },
+    });
   });
 
   afterEach(() => {

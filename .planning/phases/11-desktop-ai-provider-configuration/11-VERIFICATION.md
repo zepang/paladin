@@ -99,7 +99,7 @@
 | Invalid AI key/provider | AI readiness is `invalid`/provider unavailable; Agent process remains distinct from Go readiness. | Agent validation route; AiProviderLight tests |
 | Missing DB | Go readiness degraded/non-blocking; AI provider state unchanged. | packaging docs; status separation |
 | Missing Redis | Go readiness degraded/non-blocking; AI provider state unchanged. | packaging docs; status separation |
-| All configured | Agent liveness OK, AI readiness available, Go readiness ready. | focused/full gates pending final command recording |
+| All configured | Agent liveness OK, AI readiness available, Go readiness ready. | focused Agent/Rust/frontend gates and full suites passed |
 
 ## Secret Evidence Scan
 
@@ -116,13 +116,26 @@
 | --- | --- |
 | `! rg -n "DEEPSEEK_API_KEY.*required|缺少必要配置：DEEPSEEK_API_KEY|hard startup prerequisite" README.md docs/packaging.md apps/agent/.env.example apps/agent/config/config.json` | PASS |
 | `rg -n "PALADIN_AI_PROVIDER|配置 AI provider|AI readiness|未配置" README.md docs/packaging.md apps/agent/.env.example` | PASS |
-| `scripts/test-launch-paladin-macos.sh` | pending final rerun after this artifact is committed |
-| `(cd apps/agent && uv run pytest tests/test_provider_runtime.py tests/test_server.py -x)` | pending Task 3 |
-| `(cd apps/desktop/src-tauri && cargo test ai_provider --lib && cargo test log_redact --lib)` | pending Task 3 |
-| `pnpm --filter @paladin/desktop test --run AiProvider ChatAreaProviderCta AiProviderLight` | pending Task 3 |
-| `(cd apps/agent && uv run pytest)` | pending Task 3 |
-| `(cd apps/desktop/src-tauri && cargo test)` | pending Task 3 |
-| `pnpm --filter @paladin/desktop test --run` | pending Task 3 |
+| `scripts/test-launch-paladin-macos.sh` | PASS: wrapper tests passed |
+| `! rg -n "<raw-sentinel>" README.md docs/packaging.md .planning/phases/11-desktop-ai-provider-configuration/11-VERIFICATION.md` | PASS: no raw sentinel in docs or verification evidence |
+| `(cd apps/agent && uv run pytest tests/test_provider_runtime.py tests/test_server.py -x)` | PASS: 16 passed in 4.82s |
+| `(cd apps/desktop/src-tauri && cargo test ai_provider --lib && cargo test log_redact --lib)` | PASS: ai_provider 13 passed; log_redact 22 passed |
+| `pnpm --filter @paladin/desktop test --run AiProvider ChatAreaProviderCta AiProviderLight` | PASS: 4 files, 19 tests |
+| `(cd apps/agent && uv run pytest)` | PASS: 74 passed in 10.17s |
+| `(cd apps/desktop/src-tauri && cargo test)` | PASS: lib 109 passed; main/doc tests 0 passed |
+| `pnpm --filter @paladin/desktop test --run AguiApprovalInterrupt` | PASS: 1 file, 10 tests |
+| `pnpm --filter @paladin/desktop test --run` | PASS after test fixture fix: 11 files, 66 tests |
+
+## Deviations from Plan
+
+### Auto-fixed Issues
+
+**1. [Rule 1 - Bug] Updated AG-UI approval test fixture for Phase 11 provider readiness**
+- **Found during:** Task 3 full frontend suite.
+- **Issue:** `AguiApprovalInterrupt.test.tsx` rendered `ChatArea` without setting AI provider readiness. After Phase 11, the default store state is `unconfigured`, so ChatArea correctly rendered the provider CTA instead of mounting CopilotChat and the AG-UI approval interrupt.
+- **Fix:** The test now explicitly sets `useAiProviderStore` to an available masked provider before exercising approval-interrupt mounting.
+- **Files modified:** `apps/desktop/src/components/approval/__tests__/AguiApprovalInterrupt.test.tsx`
+- **Verification:** `pnpm --filter @paladin/desktop test --run AguiApprovalInterrupt`; `pnpm --filter @paladin/desktop test --run`
 
 ## Residual Risk
 
