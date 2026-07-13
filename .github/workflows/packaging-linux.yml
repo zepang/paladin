@@ -64,3 +64,44 @@ jobs:
 
       - name: Build native x86_64 AppImage and deb through the release entrypoint
         run: pnpm release -- --target x86_64-unknown-linux-gnu --verify
+
+      - name: Create non-secret artifact manifest
+        run: |
+          shopt -s nullglob
+          appimages=(apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage)
+          debs=(apps/desktop/src-tauri/target/release/bundle/deb/*.deb)
+          if [ "${#appimages[@]}" -ne 1 ]; then
+            echo "Expected exactly one AppImage, found ${#appimages[@]}" >&2
+            exit 1
+          fi
+          if [ "${#debs[@]}" -ne 1 ]; then
+            echo "Expected exactly one deb, found ${#debs[@]}" >&2
+            exit 1
+          fi
+          APPIMAGE="${appimages[0]}"
+          DEB="${debs[0]}"
+          AGENT="apps/desktop/src-tauri/binaries/paladin-agent-sidecar-x86_64-unknown-linux-gnu"
+          SERVER="apps/desktop/src-tauri/binaries/paladin-server-sidecar-x86_64-unknown-linux-gnu"
+          mkdir -p linux-artifact
+          cp "$APPIMAGE" "linux-artifact/$(basename "$APPIMAGE")"
+          cp "$DEB" "linux-artifact/$(basename "$DEB")"
+          node apps/desktop/scripts/build-manifest.mjs \
+            --commit "${{ github.sha }}" \
+            --runner-os "${{ runner.os }}" \
+            --target "$TARGET_TRIPLE" \
+            --agent "$AGENT" \
+            --server "$SERVER" \
+            --installer "$APPIMAGE" \
+            --installer "$DEB" \
+            --output "linux-artifact/build-manifest.json"
+
+      - name: Upload AppImage, deb, and manifest only
+        uses: actions/upload-artifact@v4
+        with:
+          name: paladin-linux-x86_64-installers-${{ github.sha }}
+          path: |
+            linux-artifact/*.AppImage
+            linux-artifact/*.deb
+            linux-artifact/build-manifest.json
+          if-no-files-found: error
+          retention-days: 14
