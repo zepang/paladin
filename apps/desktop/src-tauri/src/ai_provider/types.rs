@@ -1,10 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(rename_all = "kebab-case")]
 pub enum ProviderType {
+    #[serde(rename = "deepseek")]
     DeepSeek,
+    #[serde(rename = "openai-compatible")]
     OpenAiCompatible,
+    #[serde(rename = "lm-studio")]
     LmStudio,
 }
 

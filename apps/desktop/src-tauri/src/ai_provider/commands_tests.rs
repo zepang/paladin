@@ -75,7 +75,12 @@ async fn set_active_and_refresh_posts_runtime_snapshot_without_returning_raw_key
         .await
         .unwrap();
     let raw_key = "sk-refresh-secret";
-    let (agent_url, received) = spawn_provider_server("/ai-provider/runtime", 200, r#"{"ai_provider":{"readiness":"available"}}"#);
+    let (agent_url, received) = spawn_provider_server(
+        "/ai-provider/runtime",
+        200,
+        r#"{"ai_provider":{"readiness":"available"}}"#,
+        2,
+    );
 
     save_ai_provider_with_manager(&manager, deepseek_input("first", "sk-first", true))
         .await
@@ -117,6 +122,7 @@ async fn test_provider_validates_supplied_input_without_saving_or_switching() {
         "/ai-provider/validate",
         200,
         r#"{"validation":{"readiness":"available","configured":true,"message":null}}"#,
+        1,
     );
 
     let result = test_ai_provider_with_agent(
@@ -125,9 +131,7 @@ async fn test_provider_validates_supplied_input_without_saving_or_switching() {
     )
     .await
     .unwrap();
-    let config = get_ai_provider_config_with_manager(&manager)
-        .await
-        .unwrap();
+    let config = manager.load_masked_config().await.unwrap();
     let body = received.recv().expect("validate POST body received");
 
     assert_eq!(result.readiness, AiProviderReadiness::Available);
@@ -141,12 +145,16 @@ fn spawn_provider_server(
     expected_path: &'static str,
     status: u16,
     response_body: &'static str,
+    request_count: usize,
 ) -> (String, mpsc::Receiver<Value>) {
     let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind fake provider server");
     let port = listener.local_addr().unwrap().port();
     let (tx, rx) = mpsc::channel();
     thread::spawn(move || {
-        if let Ok((mut stream, _)) = listener.accept() {
+        for _ in 0..request_count {
+            let Ok((mut stream, _)) = listener.accept() else {
+                return;
+            };
             let mut request = [0_u8; 8192];
             let bytes_read = stream.read(&mut request).unwrap_or(0);
             let text = String::from_utf8_lossy(&request[..bytes_read]);
