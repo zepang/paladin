@@ -65,6 +65,10 @@ const DEV_PREFLIGHT_GRACE_SECS: u64 = 5;
 const STDERR_TAIL_CAPACITY: usize = 50;
 
 const BUSINESS_ENV_ALLOWLIST: &[&str] = &[
+    "PALADIN_AI_PROVIDER",
+    "PALADIN_AI_BASE_URL",
+    "PALADIN_AI_API_KEY",
+    "PALADIN_AI_MODEL",
     "DEEPSEEK_API_KEY",
     "PALADIN_PORT",
     "PALADIN_DATABASE_URL",
@@ -129,6 +133,100 @@ pub(crate) fn environment_for_process(
         );
     }
     result
+}
+
+#[cfg(test)]
+mod environment_tests {
+    use super::*;
+
+    fn os(value: &str) -> OsString {
+        OsString::from(value)
+    }
+
+    fn get_env<'a>(env: &'a HashMap<OsString, OsString>, name: &str) -> Option<&'a OsString> {
+        env.get(&OsString::from(name))
+    }
+
+    #[test]
+    fn environment_for_process_forwards_non_empty_paladin_ai_bootstrap_vars() {
+        let parent = HashMap::from([
+            (os("PALADIN_AI_PROVIDER"), os("openai-compatible")),
+            (os("PALADIN_AI_BASE_URL"), os("https://provider.test/v1")),
+            (os("PALADIN_AI_API_KEY"), os("paladin-ai-secret")),
+            (os("PALADIN_AI_MODEL"), os("provider-model")),
+            (os("DEEPSEEK_API_KEY"), os("legacy-secret")),
+        ]);
+        let configured = HashMap::new();
+
+        let env = environment_for_process(RuntimeMode::Dev, &parent, &configured);
+
+        assert_eq!(get_env(&env, "PALADIN_AI_PROVIDER"), Some(&os("openai-compatible")));
+        assert_eq!(
+            get_env(&env, "PALADIN_AI_BASE_URL"),
+            Some(&os("https://provider.test/v1"))
+        );
+        assert_eq!(get_env(&env, "PALADIN_AI_API_KEY"), Some(&os("paladin-ai-secret")));
+        assert_eq!(get_env(&env, "PALADIN_AI_MODEL"), Some(&os("provider-model")));
+        assert_eq!(get_env(&env, "DEEPSEEK_API_KEY"), Some(&os("legacy-secret")));
+    }
+
+    #[test]
+    fn environment_for_process_ignores_empty_paladin_ai_values() {
+        let parent = HashMap::from([
+            (os("PALADIN_AI_PROVIDER"), os("")),
+            (os("PALADIN_AI_BASE_URL"), os("")),
+            (os("PALADIN_AI_API_KEY"), os("")),
+            (os("PALADIN_AI_MODEL"), os("")),
+        ]);
+        let configured = HashMap::from([
+            ("PALADIN_AI_PROVIDER".to_string(), String::new()),
+            ("PALADIN_AI_BASE_URL".to_string(), String::new()),
+            ("PALADIN_AI_API_KEY".to_string(), String::new()),
+            ("PALADIN_AI_MODEL".to_string(), String::new()),
+        ]);
+
+        let env = environment_for_process(RuntimeMode::Dev, &parent, &configured);
+
+        for name in [
+            "PALADIN_AI_PROVIDER",
+            "PALADIN_AI_BASE_URL",
+            "PALADIN_AI_API_KEY",
+            "PALADIN_AI_MODEL",
+        ] {
+            assert!(
+                !env.contains_key(&OsString::from(name)),
+                "empty {name} must not be forwarded"
+            );
+        }
+    }
+
+    #[test]
+    fn environment_for_process_allows_configured_paladin_ai_values() {
+        let parent = HashMap::new();
+        let configured = HashMap::from([
+            (
+                "PALADIN_AI_PROVIDER".to_string(),
+                "openai-compatible".to_string(),
+            ),
+            (
+                "PALADIN_AI_BASE_URL".to_string(),
+                "https://configured.test/v1".to_string(),
+            ),
+            ("PALADIN_AI_API_KEY".to_string(), "configured-secret".to_string()),
+            ("PALADIN_AI_MODEL".to_string(), "configured-model".to_string()),
+        ]);
+
+        let env = environment_for_process(RuntimeMode::Packaged, &parent, &configured);
+
+        assert_eq!(get_env(&env, "PALADIN_AI_PROVIDER"), Some(&os("openai-compatible")));
+        assert_eq!(
+            get_env(&env, "PALADIN_AI_BASE_URL"),
+            Some(&os("https://configured.test/v1"))
+        );
+        assert_eq!(get_env(&env, "PALADIN_AI_API_KEY"), Some(&os("configured-secret")));
+        assert_eq!(get_env(&env, "PALADIN_AI_MODEL"), Some(&os("configured-model")));
+        assert_eq!(get_env(&env, "PALADIN_RUNTIME_MODE"), Some(&os("packaged")));
+    }
 }
 
 #[cfg(test)]
