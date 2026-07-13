@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -120,7 +120,7 @@ test('writes repeatable installer CLI arguments in order', async () => {
     '--output', output,
   ]);
 
-  const manifest = JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(output, 'utf8')));
+  const manifest = JSON.parse(await readFile(output, 'utf8'));
   assert.deepEqual(manifest.artifacts.map(({ role }) => role), ['agent-sidecar', 'server-sidecar', 'appimage', 'deb']);
 });
 
