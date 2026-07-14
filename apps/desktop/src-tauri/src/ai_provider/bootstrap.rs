@@ -42,14 +42,6 @@ impl AiProviderConfigManager {
             });
         }
 
-        if let Some(input) = legacy_deepseek_input() {
-            self.seed_provider_from_bootstrap(input, ConfigProvenance::LegacyDeepSeekEnv)
-                .await?;
-            return Ok(BootstrapImport {
-                source: BootstrapSource::LegacyDeepSeekEnv,
-            });
-        }
-
         Ok(BootstrapImport {
             source: BootstrapSource::NoUsableEnvironment,
         })
@@ -74,20 +66,6 @@ fn paladin_ai_input() -> Option<ProviderInput> {
         model_id: env_value("PALADIN_AI_MODEL")
             .unwrap_or_else(|| provider_type.default_model_id().to_string()),
         api_key,
-        priority: 0,
-        active: true,
-    })
-}
-
-fn legacy_deepseek_input() -> Option<ProviderInput> {
-    let api_key = env_value("DEEPSEEK_API_KEY")?;
-    Some(ProviderInput {
-        id: "deepseek-env".to_string(),
-        provider_type: ProviderType::DeepSeek,
-        display_name: "DeepSeek".to_string(),
-        base_url: ProviderType::DeepSeek.default_base_url().to_string(),
-        model_id: ProviderType::DeepSeek.default_model_id().to_string(),
-        api_key: Some(api_key),
         priority: 0,
         active: true,
     })

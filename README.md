@@ -48,9 +48,6 @@ export PALADIN_AI_BASE_URL='https://api.deepseek.com/v1'
 export PALADIN_AI_MODEL='deepseek-chat'
 export PALADIN_AI_API_KEY='<your-api-key>'
 
-# 兼容旧路径：只设置 DEEPSEEK_API_KEY 时，会作为 DeepSeek provider 的首次启动种子。
-# export DEEPSEEK_API_KEY='<your-api-key>'
-
 # 2. 可选：配置 Go Server 外部依赖
 # PostgreSQL 和 Redis 不是安装包内置服务；即使已用 Docker 启动，也需要把连接 URL 传给 Paladin。
 export PALADIN_DATABASE_URL='postgres://paladin:change-me@localhost:5432/paladin?sslmode=disable'
@@ -73,7 +70,7 @@ scripts/launch-paladin-macos.sh --app "/Users/kdocs/Applications/Paladin-UAT-10-
 
 - 这些变量必须在启动 Paladin 的同一个 shell/session 中设置；Finder 双击不会继承终端环境变量。
 - AI provider 的主要配置路径是桌面端右侧 `AI Provider` 面板，支持 DeepSeek、OpenAI-compatible endpoint 和 LM Studio。保存配置与测试连接是两个动作；保存会影响后续请求，测试只验证当前配置。
-- 保存后的本地 provider 配置是运行时权威来源。`PALADIN_AI_PROVIDER`、`PALADIN_AI_BASE_URL`、`PALADIN_AI_API_KEY`、`PALADIN_AI_MODEL` 和 legacy `DEEPSEEK_API_KEY` 只用于干净本地配置的首次 bootstrap，不会在用户显式保存后悄悄切换 provider。
+- 保存后的本地 provider 配置是运行时权威来源。只有显式的 `PALADIN_AI_PROVIDER`、`PALADIN_AI_BASE_URL`、`PALADIN_AI_API_KEY`、`PALADIN_AI_MODEL` 可用于干净本地配置的首次 bootstrap；legacy `DEEPSEEK_API_KEY`、`OPENAI_API_KEY` 等旧 provider-specific 变量不会 seed 或切换 provider。
 - Agent liveness、AI readiness 和 Go DB/Redis readiness 是三条线：未配置 AI provider 不会阻止 Agent/Go sidecar 启动；缺 DB/Redis/JWT 会影响 Go readiness；无效 API key 会显示为 AI provider 不可用。
 - Go 显示“降级”通常表示 Go sidecar 已启动但 `/readyz` 未通过。先检查 `PALADIN_DATABASE_URL`、`PALADIN_REDIS_URL`、`PALADIN_JWT_SECRET` 是否在当前启动 shell 中有效。
 - API key 在普通 UI 中只显示是否已配置和固定短 fingerprint，不会回显原值。不要把 API key、数据库 DSN、Redis 密码或 JWT secret 粘贴到日志、issue、截图或聊天中。

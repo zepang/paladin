@@ -76,7 +76,7 @@ async fn paladin_ai_env_seeds_clean_app_data_and_preserves_exact_values_after_tr
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn legacy_deepseek_api_key_seeds_deepseek_default_without_duplicate_imports() {
+async fn legacy_deepseek_api_key_is_ignored_for_bootstrap() {
     let _guard = lock_env();
     clear_provider_env();
     env::set_var("DEEPSEEK_API_KEY", "sk-legacy-deepseek");
@@ -85,17 +85,12 @@ async fn legacy_deepseek_api_key_seeds_deepseek_default_without_duplicate_import
         .await
         .unwrap();
 
-    let first = manager.bootstrap_from_environment().await.unwrap();
-    let second = manager.bootstrap_from_environment().await.unwrap();
+    let import = manager.bootstrap_from_environment().await.unwrap();
     let config = manager.load_masked_config().await.unwrap();
 
-    assert_eq!(first.source, BootstrapSource::LegacyDeepSeekEnv);
-    assert_eq!(second.source, BootstrapSource::AlreadyImported);
-    assert_eq!(config.providers.len(), 1);
-    assert_eq!(config.providers[0].id, "deepseek-env");
-    assert_eq!(config.providers[0].provider_type, ProviderType::DeepSeek);
-    assert_eq!(config.providers[0].base_url, "https://api.deepseek.com/v1");
-    assert_eq!(config.providers[0].model_id, "deepseek-chat");
+    assert_eq!(import.source, BootstrapSource::NoUsableEnvironment);
+    assert!(config.providers.is_empty());
+    assert_eq!(config.readiness, AiProviderReadiness::Unconfigured);
 
     clear_provider_env();
 }

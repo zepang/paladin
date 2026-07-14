@@ -69,7 +69,6 @@ const BUSINESS_ENV_ALLOWLIST: &[&str] = &[
     "PALADIN_AI_BASE_URL",
     "PALADIN_AI_API_KEY",
     "PALADIN_AI_MODEL",
-    "DEEPSEEK_API_KEY",
     "PALADIN_PORT",
     "PALADIN_DATABASE_URL",
     "PALADIN_REDIS_URL",
@@ -155,19 +154,36 @@ mod environment_tests {
             (os("PALADIN_AI_API_KEY"), os("paladin-ai-secret")),
             (os("PALADIN_AI_MODEL"), os("provider-model")),
             (os("DEEPSEEK_API_KEY"), os("legacy-secret")),
+            (os("OPENAI_API_KEY"), os("openai-secret")),
         ]);
         let configured = HashMap::new();
 
         let env = environment_for_process(RuntimeMode::Dev, &parent, &configured);
 
-        assert_eq!(get_env(&env, "PALADIN_AI_PROVIDER"), Some(&os("openai-compatible")));
+        assert_eq!(
+            get_env(&env, "PALADIN_AI_PROVIDER"),
+            Some(&os("openai-compatible"))
+        );
         assert_eq!(
             get_env(&env, "PALADIN_AI_BASE_URL"),
             Some(&os("https://provider.test/v1"))
         );
-        assert_eq!(get_env(&env, "PALADIN_AI_API_KEY"), Some(&os("paladin-ai-secret")));
-        assert_eq!(get_env(&env, "PALADIN_AI_MODEL"), Some(&os("provider-model")));
-        assert_eq!(get_env(&env, "DEEPSEEK_API_KEY"), Some(&os("legacy-secret")));
+        assert_eq!(
+            get_env(&env, "PALADIN_AI_API_KEY"),
+            Some(&os("paladin-ai-secret"))
+        );
+        assert_eq!(
+            get_env(&env, "PALADIN_AI_MODEL"),
+            Some(&os("provider-model"))
+        );
+        assert!(
+            !env.contains_key(&os("DEEPSEEK_API_KEY")),
+            "legacy provider-specific keys must not be forwarded"
+        );
+        assert!(
+            !env.contains_key(&os("OPENAI_API_KEY")),
+            "generic OpenAI keys must not be forwarded"
+        );
     }
 
     #[test]
@@ -212,19 +228,34 @@ mod environment_tests {
                 "PALADIN_AI_BASE_URL".to_string(),
                 "https://configured.test/v1".to_string(),
             ),
-            ("PALADIN_AI_API_KEY".to_string(), "configured-secret".to_string()),
-            ("PALADIN_AI_MODEL".to_string(), "configured-model".to_string()),
+            (
+                "PALADIN_AI_API_KEY".to_string(),
+                "configured-secret".to_string(),
+            ),
+            (
+                "PALADIN_AI_MODEL".to_string(),
+                "configured-model".to_string(),
+            ),
         ]);
 
         let env = environment_for_process(RuntimeMode::Packaged, &parent, &configured);
 
-        assert_eq!(get_env(&env, "PALADIN_AI_PROVIDER"), Some(&os("openai-compatible")));
+        assert_eq!(
+            get_env(&env, "PALADIN_AI_PROVIDER"),
+            Some(&os("openai-compatible"))
+        );
         assert_eq!(
             get_env(&env, "PALADIN_AI_BASE_URL"),
             Some(&os("https://configured.test/v1"))
         );
-        assert_eq!(get_env(&env, "PALADIN_AI_API_KEY"), Some(&os("configured-secret")));
-        assert_eq!(get_env(&env, "PALADIN_AI_MODEL"), Some(&os("configured-model")));
+        assert_eq!(
+            get_env(&env, "PALADIN_AI_API_KEY"),
+            Some(&os("configured-secret"))
+        );
+        assert_eq!(
+            get_env(&env, "PALADIN_AI_MODEL"),
+            Some(&os("configured-model"))
+        );
         assert_eq!(get_env(&env, "PALADIN_RUNTIME_MODE"), Some(&os("packaged")));
     }
 }

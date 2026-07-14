@@ -61,6 +61,29 @@ def test_provider_not_configured_chat_returns_structured_state_and_keeps_server_
         assert client.get("/health").status_code == 200
 
 
+def test_legacy_ai_keys_do_not_bootstrap_chat_runtime():
+    with patch.dict(
+        os.environ,
+        {
+            "DEEPSEEK_API_KEY": "fake-deepseek-key",
+            "OPENAI_API_KEY": "fake-openai-key",
+        },
+        clear=True,
+    ):
+        main = import_server_fresh()
+
+        client = TestClient(main.app)
+        response = client.post(
+            "/copilotkit",
+            json={"messages": [{"role": "user", "content": "hello"}]},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["type"] == "provider-not-configured"
+    assert data["ai_provider"]["configured"] is False
+
+
 def test_snapshot_at_request_start_keeps_in_flight_provider_until_next_request(monkeypatch):
     from src.agent.provider_runtime import ProviderReadiness, ProviderRuntime, ProviderSnapshot
     from src.server import main

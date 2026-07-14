@@ -11,6 +11,14 @@ from fastapi import Request
 from starlette.responses import Response
 
 
+PALADIN_AI_ENV = {
+    "PALADIN_AI_PROVIDER": "deepseek",
+    "PALADIN_AI_BASE_URL": "https://api.deepseek.com/v1",
+    "PALADIN_AI_MODEL": "deepseek-chat",
+    "PALADIN_AI_API_KEY": "fake-key",
+}
+
+
 def import_server_fresh():
     sys.modules.pop("src.server.main", None)
     package = sys.modules.get("src.server")
@@ -26,11 +34,11 @@ class TestHealthEndpoint:
 
     def test_health_returns_200_and_json(self):
         """/health 返回 200 状态码和有效 JSON"""
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
-            from src.server.main import app
+        with patch.dict(os.environ, {}, clear=True):
             from fastapi.testclient import TestClient
+            main = import_server_fresh()
 
-            client = TestClient(app)
+            client = TestClient(main.app)
             response = client.get("/health")
 
             assert response.status_code == 200
@@ -41,7 +49,7 @@ class TestHealthEndpoint:
 
     def test_health_reads_model_ids_without_recreating_fallback_clients(self, monkeypatch):
         """/health 只读取模型配置 ID，不重新创建模型客户端"""
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+        with patch.dict(os.environ, {}, clear=True):
             from fastapi.testclient import TestClient
             main = import_server_fresh()
 
@@ -71,31 +79,31 @@ class TestCopilotkitEndpoint:
 
     def test_copilotkit_with_empty_body_returns_422(self):
         """空请求体返回 422 校验错误"""
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
-            from src.server.main import app
+        with patch.dict(os.environ, {}, clear=True):
             from fastapi.testclient import TestClient
+            main = import_server_fresh()
 
-            client = TestClient(app)
+            client = TestClient(main.app)
             response = client.post("/copilotkit", content="")
             assert response.status_code == 422
 
     def test_copilotkit_with_invalid_json_returns_422(self):
         """无效 JSON 返回 422"""
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
-            from src.server.main import app
+        with patch.dict(os.environ, {}, clear=True):
             from fastapi.testclient import TestClient
+            main = import_server_fresh()
 
-            client = TestClient(app)
+            client = TestClient(main.app)
             response = client.post("/copilotkit", json={"invalid": "body"})
             assert response.status_code == 422
 
     def test_copilotkit_options_has_cors_headers(self):
         """OPTIONS 请求包含 CORS 头"""
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
-            from src.server.main import app
+        with patch.dict(os.environ, {}, clear=True):
             from fastapi.testclient import TestClient
+            main = import_server_fresh()
 
-            client = TestClient(app)
+            client = TestClient(main.app)
             response = client.options(
                 "/copilotkit",
                 headers={
@@ -115,9 +123,9 @@ class TestAguiDispatchEntrypoint:
         assert not hasattr(main, "handle_ag_ui_request")
 
     def test_copilotkit_dispatches_with_request_agent_and_deps(self, monkeypatch):
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+        with patch.dict(os.environ, PALADIN_AI_ENV, clear=True):
             from fastapi.testclient import TestClient
-            from src.server import main
+            main = import_server_fresh()
 
             captured = {}
 
@@ -150,9 +158,9 @@ class TestAguiDispatchEntrypoint:
             assert captured["body"] == {"messages": []}
 
     def test_copilotkit_preserves_resume_for_official_agui_adapter(self, monkeypatch):
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+        with patch.dict(os.environ, PALADIN_AI_ENV, clear=True):
             from fastapi.testclient import TestClient
-            from src.server import main
+            main = import_server_fresh()
 
             captured = {}
             body = {
@@ -191,9 +199,9 @@ class TestAguiDispatchEntrypoint:
         self,
         monkeypatch,
     ):
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+        with patch.dict(os.environ, PALADIN_AI_ENV, clear=True):
             from fastapi.testclient import TestClient
-            from src.server import main
+            main = import_server_fresh()
 
             captured = {}
 
@@ -222,8 +230,8 @@ class TestAguiDispatchEntrypoint:
 
 class TestLegacyApprovalRoutes:
     def test_legacy_approval_routes_are_not_registered(self):
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
-            from src.server import main
+        with patch.dict(os.environ, {}, clear=True):
+            main = import_server_fresh()
 
             approval_prefix = "/" + "approval"
             stream_path = f"{approval_prefix}/stream"
@@ -234,9 +242,9 @@ class TestLegacyApprovalRoutes:
             assert decision_path not in paths
 
     def test_legacy_approval_route_probes_return_404(self):
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+        with patch.dict(os.environ, {}, clear=True):
             from fastapi.testclient import TestClient
-            from src.server import main
+            main = import_server_fresh()
 
             approval_prefix = "/" + "approval"
             client = TestClient(main.app)
@@ -247,11 +255,11 @@ class TestLegacyApprovalRoutes:
 
 class TestThreadsEndpoint:
     def test_threads_returns_empty_thread_list(self):
-        with patch.dict(os.environ, {"DEEPSEEK_API_KEY": "fake-key"}):
+        with patch.dict(os.environ, {}, clear=True):
             from fastapi.testclient import TestClient
-            from src.server.main import app
+            main = import_server_fresh()
 
-            client = TestClient(app)
+            client = TestClient(main.app)
             response = client.get("/threads")
 
             assert response.status_code == 200

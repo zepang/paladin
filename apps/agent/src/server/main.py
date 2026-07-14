@@ -14,7 +14,7 @@ from starlette.responses import JSONResponse, Response
 from pydantic_ai.ui.ag_ui import AGUIAdapter
 
 from ..agent.paladin_agent import apply_provider_snapshot, create_paladin_agent
-from ..agent.provider_runtime import ProviderRuntime, snapshot_from_model_config
+from ..agent.provider_runtime import ProviderReadiness, ProviderRuntime, ProviderSnapshot
 from .provider_routes import create_provider_router
 
 # ---- 日志 ----
@@ -61,7 +61,7 @@ agent = create_paladin_agent(
     system_prompt_path=str(_prompt_path),
     require_configured_model=False,
 )
-provider_runtime = ProviderRuntime(getattr(agent, "provider_snapshot", None))
+provider_runtime = ProviderRuntime()
 app.include_router(create_provider_router(provider_runtime))
 logger.info("Paladin Agent 已初始化")
 
@@ -218,28 +218,35 @@ def _request_provider_snapshot():
     snapshot = provider_runtime.snapshot()
     if snapshot.configured:
         return snapshot
-    if not _has_ai_provider_env():
-        return snapshot
 
-    for index, config in enumerate(getattr(agent, "_model_configs", []), start=1):
-        candidate = snapshot_from_model_config(config, version=snapshot.version + index)
-        if candidate.usable:
-            return provider_runtime.replace_snapshot(candidate)
+    candidate = _paladin_ai_env_snapshot(version=snapshot.version + 1)
+    if candidate is not None and candidate.usable:
+        return provider_runtime.replace_snapshot(candidate)
 
     return snapshot
 
 
-def _has_ai_provider_env() -> bool:
-    return any(
-        os.environ.get(key)
-        for key in (
-            "PALADIN_AI_API_KEY",
-            "PALADIN_AI_PROVIDER",
-            "OPENAI_API_KEY",
-            "DEEPSEEK_API_KEY",
-            "LM_STUDIO_API_KEY",
-        )
+def _paladin_ai_env_snapshot(*, version: int) -> ProviderSnapshot | None:
+    provider_type = _clean_env("PALADIN_AI_PROVIDER")
+    if not provider_type:
+        return None
+    return ProviderSnapshot(
+        version=version,
+        provider_id="paladin-ai-env",
+        provider_type=provider_type,
+        base_url=_clean_env("PALADIN_AI_BASE_URL"),
+        model_id=_clean_env("PALADIN_AI_MODEL"),
+        api_key=_clean_env("PALADIN_AI_API_KEY"),
+        readiness=ProviderReadiness.AVAILABLE,
     )
+
+
+def _clean_env(name: str) -> str | None:
+    value = os.environ.get(name)
+    if value is None:
+        return None
+    value = value.strip()
+    return value or None
 
 
 def provider_not_configured_response(snapshot) -> JSONResponse:

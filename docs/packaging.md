@@ -33,7 +33,7 @@ scripts/launch-paladin-macos.sh --app "/自定义位置/Paladin.app"
 
 Paladin 可以在没有 AI provider 或 API key 的情况下启动。桌面端右侧 `AI Provider` 面板是主要配置路径，支持 DeepSeek、OpenAI-compatible endpoint 和 LM Studio。用户可以先保存 provider，再单独执行 `测试连接`；保存后的 provider/model 会用于下一次请求，正在进行的请求不需要也不会中途切换。
 
-可选 bootstrap 变量包括 `PALADIN_AI_PROVIDER`、`PALADIN_AI_BASE_URL`、`PALADIN_AI_API_KEY`、`PALADIN_AI_MODEL`。只设置 legacy `DEEPSEEK_API_KEY` 时，也会作为 DeepSeek provider 的首次启动兼容种子。bootstrap 只用于干净本地配置；用户一旦在桌面端显式保存，本地 app data 中的 provider 配置就是运行时权威来源。仓库内 `apps/agent/config/config.json` 只是打包/兼容默认参考，不是桌面端运行时持久化权威文件。
+可选 bootstrap 变量只包括 `PALADIN_AI_PROVIDER`、`PALADIN_AI_BASE_URL`、`PALADIN_AI_API_KEY`、`PALADIN_AI_MODEL`。legacy `DEEPSEEK_API_KEY`、`OPENAI_API_KEY`、`LM_STUDIO_API_KEY` 等 provider-specific 变量不会作为桌面端首次启动种子，也不会被 macOS wrapper 传给安装态应用。bootstrap 只用于干净本地配置；用户一旦在桌面端显式保存，本地 app data 中的 provider 配置就是运行时权威来源。仓库内 `apps/agent/config/config.json` 只是打包/兼容默认参考，不是桌面端运行时持久化权威文件。
 
 Go Server 依赖外部 PostgreSQL 与 Redis，变量名分别是 `PALADIN_DATABASE_URL` 和 `PALADIN_REDIS_URL`。其他允许转发的业务配置包括：`PALADIN_PORT`、`PALADIN_JWT_SECRET`、`PALADIN_JWT_TTL`、`PALADIN_BCRYPT_COST`、`PALADIN_ADMIN_EMAIL`、`PALADIN_ADMIN_PASSWORD`、`PALADIN_AUTO_MIGRATE`、`PALADIN_QUOTA_LIMIT`、`PALADIN_QUOTA_WINDOW`。应用还会按 allowlist 转发必要的 home、临时目录、locale 和 TLS 证书发现变量。文档、诊断输出和 build manifest 只可出现变量名称，不可复制 secret、token、密码、DSN 或变量值。
 
@@ -48,7 +48,7 @@ Go Server 依赖外部 PostgreSQL 与 Redis，变量名分别是 `PALADIN_DATABA
 
 常见问题：
 
-- `尚未配置 AI provider`：Agent 正常运行，但还没有可用 provider。打开右侧 `AI Provider` 面板，配置 DeepSeek、OpenAI-compatible endpoint 或 LM Studio；也可以用 `PALADIN_AI_*` 或 legacy `DEEPSEEK_API_KEY` 为首次启动播种。
+- `尚未配置 AI provider`：Agent 正常运行，但还没有可用 provider。打开右侧 `AI Provider` 面板，配置 DeepSeek、OpenAI-compatible endpoint 或 LM Studio；也可以用显式 `PALADIN_AI_*` 为干净本地配置首次启动播种。
 - `当前 provider 不可用`：检查 base URL、API key 和模型 ID，或切换到其他 provider。保存配置与测试连接是独立动作，保存后下一次请求使用新的 provider。
 - `Agent 未就绪`：检查 Agent 日志中的退出码与摘要；核心 Agent 未通过 readiness 时不会进入主工作流。
 - `Server 降级（非阻塞）`：依赖服务暂不可用时核心 Agent 仍可继续；恢复依赖后通过应用内重试重新探测。
