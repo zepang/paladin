@@ -195,7 +195,7 @@ export function AiProviderPanel() {
     }
 
     await testProvider(nextDraft);
-    updateDraft({ id: nextDraft.id, api_key: '' });
+    updateDraft({ id: nextDraft.id });
   };
 
   const confirmDelete = async () => {

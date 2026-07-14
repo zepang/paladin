@@ -139,6 +139,51 @@ describe('useAiProviderStore Phase 11 readiness contracts', () => {
     expect(JSON.stringify(useAiProviderStore.getState())).not.toContain('sk-test-only-secret');
   });
 
+  it('updates saved active provider readiness after a successful connection test', async () => {
+    mockInvoke
+      .mockResolvedValueOnce({
+        readiness: 'untested',
+        active_provider_id: 'deepseek-main',
+        providers: [
+          {
+            id: 'deepseek-main',
+            provider_type: 'deepseek',
+            display_name: 'DeepSeek',
+            base_url: 'https://api.deepseek.com/v1',
+            model_id: 'deepseek-chat',
+            priority: 1,
+            active: true,
+            readiness: 'untested',
+            has_api_key: true,
+            api_key_fingerprint: 'pk_7F3A',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        readiness: 'available',
+        configured: true,
+        message: '连接可用',
+      });
+
+    await act(async () => {
+      await useAiProviderStore.getState().refresh();
+      await useAiProviderStore.getState().testProvider({
+        id: 'deepseek-main',
+        provider_type: 'deepseek',
+        display_name: 'DeepSeek',
+        base_url: 'https://api.deepseek.com/v1',
+        model_id: 'deepseek-chat',
+        priority: 1,
+        active: true,
+        api_key: null,
+      });
+    });
+
+    expect(useAiProviderStore.getState().activeProvider?.readiness).toBe('available');
+    expect(useAiProviderStore.getState().readiness).toBe('available');
+    expect(useAiProviderStore.getState().statusLabel).toBe('AI · 可用');
+  });
+
   it('keeps active provider metadata when readiness is untested or invalid', async () => {
     mockInvoke
       .mockResolvedValueOnce({

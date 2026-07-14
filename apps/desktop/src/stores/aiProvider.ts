@@ -220,7 +220,24 @@ export const useAiProviderStore = create<AiProviderStore>((set, get) => ({
     set({ isTesting: true, error: null, lastTestResult: null });
     try {
       const result = await testAiProvider(toCommandInput(input));
-      set({ isTesting: false, lastTestResult: result });
+      const current = get();
+      const testedProvider = current.providers.find((provider) => provider.id === input.id);
+      if (!testedProvider) {
+        set({ isTesting: false, lastTestResult: result });
+        return result;
+      }
+
+      const providers = sortProviders(
+        current.providers.map((provider) =>
+          provider.id === input.id ? { ...provider, readiness: result.readiness } : provider,
+        ),
+      );
+      const activeProvider = providers.find((provider) => provider.id === current.activeProviderId) ?? null;
+      set({
+        ...deriveConfig(configFromProviders(providers, current.activeProviderId, activeProvider?.readiness ?? current.readiness)),
+        isTesting: false,
+        lastTestResult: result,
+      });
       return result;
     } catch (error) {
       set({

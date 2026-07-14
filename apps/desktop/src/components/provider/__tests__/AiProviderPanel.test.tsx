@@ -82,6 +82,21 @@ describe('AiProviderPanel Phase 11 contracts', () => {
     expect(screen.getByRole('option', { name: 'LM Studio' })).toBeInTheDocument();
   });
 
+  it('keeps an unsaved replacement API key in the field after testing', async () => {
+    render(<AiProviderPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: /DeepSeek/ }));
+
+    fireEvent.change(screen.getByLabelText('API key'), {
+      target: { value: 'sk-test-before-save' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '测试连接' }));
+
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('test_ai_provider', expect.anything());
+    });
+    expect(screen.getByLabelText('API key')).toHaveValue('sk-test-before-save');
+  });
+
   it('does not render a raw key after saving or testing with a replacement key', async () => {
     render(<AiProviderPanel />);
     fireEvent.click(await screen.findByRole('button', { name: /DeepSeek/ }));
