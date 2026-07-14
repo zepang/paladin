@@ -1,7 +1,7 @@
 # Roadmap: Paladin
 
 **Created:** 2026-06-14
-**Granularity:** Fine (11 phases)
+**Granularity:** Fine (10.1 phases)
 **Core Value:** AI 编程助手桌面端
 
 ## Phase Overview
@@ -25,6 +25,7 @@
 | 8 | Go Server | 认证/数据库/WebSocket Hub | — |
 | 9 | Admin Systems | 审计日志 + 配额管理 | Phase 8 |
 | 10 | Packaging | Complete (9/9) | Phase 9 |
+| 10.1 | 5/5 | Complete    | 2026-07-14 |
 | 11 | Desktop AI Provider Configuration | Complete (8/8) | Phase 10 |
 
 ## Phase Details
@@ -350,6 +351,56 @@ Plans:
 - [x] 10-07-PLAN.md — Final verification and release honesty closure
 - [x] 10-08-PLAN.md — Packaged process UI diagnostics
 - [x] 10-09-PLAN.md — macOS artifact checkpoint and sentinel gate
+
+### Phase 10.1: macOS/Linux Packaging Workflows
+
+**Goal:** 将 Windows x64 packaging workflow 的 native buildability 能力扩展到 macOS 和 Linux，产出最小可审计安装包 artifact 与 manifest，但不宣称 release-ready。
+**Requirements:** PKG-01~03 extension
+**Depends on:** Phase 10
+**Plans:** 5/5 plans complete
+
+Plans:
+**Wave 1**
+
+- [x] 10.1-01-PLAN.md — Cross-platform build manifest validation (TDD)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 10.1-02-PLAN.md — macOS arm64 packaging workflow
+- [x] 10.1-03-PLAN.md — Linux x86_64 packaging workflow
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 10.1-04-PLAN.md — Packaging documentation honesty updates
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 10.1-05-PLAN.md — Final validation and CI artifact-count evidence
+
+**Cross-cutting constraints:**
+
+- macOS buildability artifacts contain exactly one DMG and one build-manifest.json.
+- Linux buildability artifacts contain exactly one AppImage, exactly one deb, and one build-manifest.json.
+- Missing required Linux installer type fails manifest validation.
+- Unsupported target triples fail manifest validation.
+- Wrong sidecar and installer filenames fail manifest validation.
+- Missing paths and directories fail manifest validation.
+- Workflow upload boundaries exclude full build trees, standalone sidecars, caches, logs, dependency directories, and .env files.
+- Documentation and evidence separate buildability from signing, notarization, installed-app UAT, and release-ready status.
+
+- macOS workflow：真实 macOS runner，通过 `pnpm release -- --target current --verify` 构建 DMG，并上传 DMG + `build-manifest.json`。
+- Linux workflow：真实 Ubuntu runner，安装 Tauri Linux build dependencies，通过 `pnpm release -- --target current --verify` 构建 AppImage + deb，并上传两个 installer + `build-manifest.json`。
+- manifest 扩展：支持 macOS/Linux target 与多个 installer，记录 commit SHA、runner OS、architecture、target triple、两个 sidecar、安装包文件名/大小/SHA-256。
+- artifact 边界：只上传安装包与 manifest，不上传完整 build tree、`.env`、secret 或中间产物。
+- 文档诚实：macOS/Linux workflow 成功只代表 buildability；installed-app UAT 和 release-ready 仍按后续验证单独判定。
+
+Acceptance draft:
+
+- [ ] 手动触发 Windows workflow 仍可产出 MSI + manifest。
+- [ ] 手动触发 macOS workflow 可产出 DMG + manifest。
+- [ ] 手动触发 Linux workflow 可产出 AppImage + deb + manifest。
+- [ ] `apps/desktop/scripts/build-manifest.mjs` 与测试覆盖 Windows/macOS/Linux、多 installer、缺失 artifact、错误文件名 fail-closed。
+- [ ] `docs/packaging.md` 与根 `README.md` 的平台状态说明同步更新，且不把 buildability 描述为 release-ready。
 
 ### Phase 11: Desktop AI Provider Configuration
 
