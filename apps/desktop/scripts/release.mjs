@@ -11,7 +11,6 @@ const agentDir = path.join(repoRoot, 'apps/agent');
 const serverDir = path.join(repoRoot, 'apps/server');
 const desktopDir = path.join(repoRoot, 'apps/desktop');
 const binariesDir = path.join(desktopDir, 'src-tauri/binaries');
-const BUILDABILITY_SMOKE_API_KEY = 'paladin-buildability-smoke-placeholder';
 
 export function sidecarFileName(logicalName, targetTriple) {
   if (!LOGICAL_SIDECARS.has(logicalName)) {
@@ -244,7 +243,6 @@ export async function smokeAgentSidecar({
   const child = spawnImpl(executable, ['serve', '--port', String(port)], {
     env: {
       ...env,
-      DEEPSEEK_API_KEY: env.DEEPSEEK_API_KEY || BUILDABILITY_SMOKE_API_KEY,
       PALADIN_RUNTIME_MODE: 'packaged',
       LOGFIRE_PYDANTIC_RECORD: 'off',
     },
@@ -256,7 +254,7 @@ export async function smokeAgentSidecar({
     output += chunk.toString();
     output = output
       .replace(/sk-[A-Za-z0-9_-]{6,}/g, '[REDACTED_API_KEY]')
-      .replace(new RegExp(BUILDABILITY_SMOKE_API_KEY, 'g'), '[BUILDABILITY_SMOKE_API_KEY]');
+      .replace(/paladin-buildability-smoke-placeholder/g, '[BUILDABILITY_SMOKE_API_KEY]');
     if (output.length > 8000) {
       output = output.slice(-8000);
     }

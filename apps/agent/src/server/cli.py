@@ -210,12 +210,6 @@ def main():
 
     args = parser.parse_args()
 
-    # 检查 API Key
-    if not os.environ.get("DEEPSEEK_API_KEY"):
-        print("警告: DEEPSEEK_API_KEY 未设置，请在 .env 中配置")
-        print("复制 .env.example 为 .env 并填入你的 API Key")
-        sys.exit(1)
-
     if args.command == "serve":
         run_serve(dev=args.dev, port=args.port)
     else:

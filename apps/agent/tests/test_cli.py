@@ -37,3 +37,20 @@ def test_packaged_serve_avoids_uvicorn_dynamic_import_string():
     source = inspect.getsource(cli.run_serve)
 
     assert '"src.server.main:app" if dev else app' in source
+
+
+def test_serve_command_does_not_require_legacy_deepseek_key(monkeypatch):
+    captured = {}
+
+    def fake_run_serve(*, dev=False, port=9876):
+        captured["dev"] = dev
+        captured["port"] = port
+
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    monkeypatch.setenv("PALADIN_RUNTIME_MODE", "packaged")
+    monkeypatch.setattr(cli, "run_serve", fake_run_serve)
+    monkeypatch.setattr("sys.argv", ["paladin-agent", "serve", "--port", "19976"])
+
+    cli.main()
+
+    assert captured == {"dev": False, "port": 19976}

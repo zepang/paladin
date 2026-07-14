@@ -171,7 +171,7 @@ test('smokes packaged Agent sidecar through health endpoint and terminates it', 
   assert.deepEqual(spawnCalls[0][1], ['serve', '--port', '19976']);
   assert.equal(spawnCalls[0][2].env.PALADIN_RUNTIME_MODE, 'packaged');
   assert.equal(spawnCalls[0][2].env.LOGFIRE_PYDANTIC_RECORD, 'off');
-  assert.equal(spawnCalls[0][2].env.DEEPSEEK_API_KEY, 'paladin-buildability-smoke-placeholder');
+  assert.equal(spawnCalls[0][2].env.DEEPSEEK_API_KEY, undefined);
 });
 
 test('fails packaged Agent sidecar smoke when process exits before health', async () => {
@@ -201,7 +201,7 @@ test('fails packaged Agent sidecar smoke when process exits before health', asyn
   );
 });
 
-test('preserves real Agent smoke API key and redacts placeholder from failures', async () => {
+test('packaged Agent smoke does not inject legacy API key and redacts placeholder from failures', async () => {
   const child = new EventEmitter();
   child.stdout = new EventEmitter();
   child.stderr = new EventEmitter();
@@ -225,9 +225,9 @@ test('preserves real Agent smoke API key and redacts placeholder from failures',
       spawnImpl,
       get,
       timeoutMs: 1000,
-      env: { DEEPSEEK_API_KEY: 'real-ci-secret' },
+      env: {},
     }),
     /starting with \[BUILDABILITY_SMOKE_API_KEY\]/,
   );
-  assert.equal(spawnCalls[0][2].env.DEEPSEEK_API_KEY, 'real-ci-secret');
+  assert.equal(spawnCalls[0][2].env.DEEPSEEK_API_KEY, undefined);
 });
