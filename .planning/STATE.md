@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 11
-current_phase_name: Desktop AI Provider Configuration
+current_phase: 12
+current_phase_name: Installed App Direct Launch Runtime Configuration
 status: Ready to plan
-stopped_at: Phase 11 complete
-last_updated: "2026-07-14T11:22:24.166Z"
+stopped_at: Phase 12 added from pending todo
+last_updated: "2026-07-15T00:00:00+08:00"
 progress:
-  total_phases: 19
+  total_phases: 20
   completed_phases: 17
   total_plans: 79
   completed_plans: 69
@@ -17,15 +17,15 @@ progress:
 
 # Project State: Paladin
 
-**Phase:** 11 — Desktop AI Provider Configuration
-**Last Updated:** 2026-07-13
+**Phase:** 12 — Installed App Direct Launch Runtime Configuration
+**Last Updated:** 2026-07-15
 
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 11 complete; milestone is ready for close-out.
+**Current focus:** Phase 12 added to close installed-app direct-launch runtime configuration before v1.0 close-out.
 
 ## Phase Status
 
@@ -49,6 +49,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 | 9 | Admin Systems | Complete |
 | 10 | Packaging | Complete (9/9) |
 | 11 | Desktop AI Provider Configuration | Complete (8/8) |
+| 12 | Installed App Direct Launch Runtime Configuration | Ready to plan |
 
 ## Roadmap Evolution
 
@@ -58,9 +59,11 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 - Phase 07.1 inserted after Phase 7 — Official AG-UI Deferred Tool Approval — COMPLETED
 - Phase 07.2 inserted after Phase 7.1 — Legacy SSE Approval Cleanup — COMPLETED
 - Phase 11 added — Desktop AI Provider Configuration
+- Phase 12 added — Installed App Direct Launch Runtime Configuration
 
 ## Recent Activity
 
+- 2026-07-15: Phase 12 added from `.planning/todos/pending/installed-app-direct-launch-runtime-config.md` — installed-app direct launch must no longer depend on repository wrapper runtime injection. Scope covers macOS Finder, Windows Start Menu/Explorer, Linux AppImage/desktop launcher direct launch, Go DB/Redis/JWT runtime configuration source, readiness diagnostics, and packaging docs honesty before v1.0 close-out.
 - 2026-07-13: Phase 11 completed — Desktop AI provider configuration is now app-data backed and runtime-configurable; Agent no-key startup, provider-not-configured CTA, Tauri command bridge, stored-secret masking, OpenAI-compatible/DeepSeek/LM Studio provider paths, runtime hot switch, status light, docs, code review, and final verification all passed. Final gates: Agent pytest 78/78, Rust lib tests 112/112, focused desktop Vitest 20/20, wrapper smoke passed, verification 12/12.
 - 2026-07-12: Phase 10 Plan 07 completed — final packaging verification artifact created; focused gates ran before full suites; Node release/manifest/sentinel 17/17, desktop Vitest 47/47, Rust cargo test 87/87, clippy clean after minimal closure fix, Agent pytest 70/70, Go tests all passed; PKG-01/02/03, D-01..D-25, R1..R7, and Prohibition 1..4 all covered; macOS release-ready true, Windows remains buildability-only/non-release-ready.
 - 2026-07-12: Phase 10 Plan 06 completed — latest HEAD macOS DMG `paladin_0.1.0_aarch64.dmg` verified at commit 2d5dcf7 with SHA-256 9ddfb59f75c824ce1a358e3a11f808016a4283f51d247d47119089ad6fb7c281; installed app copied to `/Users/kdocs/Applications/Paladin-UAT-10-06-2d5dcf7/Paladin.app`; all four macOS installed-app UAT scenarios passed and were human-confirmed; macOS platform release-ready true, Windows installed UAT remains deferred/release_ready=false.
@@ -101,14 +104,15 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Next Actions
 
-1. Run milestone close-out for Phase 11 / v1.0
-2. biome 29 preexisting errors 修复（跨 phase 技术债）
+1. Plan Phase 12 installed-app direct-launch runtime configuration.
+2. Run milestone close-out for Phase 12 / v1.0 after direct-launch UAT and docs honesty pass.
+3. biome 29 preexisting errors 修复（跨 phase 技术债）
 
 ## Session
 
 **Last session:** 2026-07-13T16:30:53.332Z
-**Stopped at:** Phase 11 complete
-**Resume file:** .planning/phases/11-desktop-ai-provider-configuration/11-VERIFICATION.md
+**Stopped at:** Phase 12 added from pending todo
+**Resume file:** .planning/todos/pending/installed-app-direct-launch-runtime-config.md
 
 ## Accumulated Context
 
@@ -120,6 +124,7 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 - Phase 07.3 inserted after Phase 7: Sidecar Process Management (Tauri sidecar lifecycle for Python Agent + Go Server; SDC-01/02/03, formerly deferred 'Phase 7b') (URGENT) — **CODE-COMPLETE** (10/10 plans, UAT deferred to Phase 10)
 - Phase 07.4 inserted after Phase 7: Sidecar Runtime Mode (URGENT)
 - Phase 11 added: Desktop AI Provider Configuration
+- Phase 12 added: Installed App Direct Launch Runtime Configuration
 
 ## Performance Metrics
 

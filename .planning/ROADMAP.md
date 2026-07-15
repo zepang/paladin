@@ -27,6 +27,7 @@
 | 10 | Packaging | Complete (9/9) | Phase 9 |
 | 10.1 | 5/5 | Complete    | 2026-07-14 |
 | 11 | Desktop AI Provider Configuration | Complete (8/8) | Phase 10 |
+| 12 | Installed App Direct Launch Runtime Configuration | Finder/Start Menu/Linux launcher 直启运行配置闭环 | Phase 10 + 10.1 + 11 |
 
 ## Phase Details
 
@@ -462,6 +463,40 @@ Acceptance draft:
 - [ ] 环境变量预设 DeepSeek 配置时，首次启动可直接对话，并且配置页能展示当前 provider/model，key 脱敏。
 - [ ] 切换到 OpenAI-compatible provider 后，Agent 使用新 base URL/model 发起请求。
 - [ ] 缺 DB/Redis 与缺 AI provider 的降级语义互不混淆：DB/Redis 影响 Go readiness；AI provider 影响对话可用性。
+
+### Phase 12: Installed App Direct Launch Runtime Configuration
+
+**Goal:** 让 macOS、Windows、Linux 的已安装应用可以从系统 GUI 直接启动，并进入可诊断、可配置、可恢复的产品状态；仓库 wrapper 只作为 UAT/诊断工具，而不是普通安装态使用的唯一入口。
+**Requirements:** TBD
+**Depends on:** Phase 10 + 10.1 + 11
+**Plans:** Ready to plan
+**Source todo:** `.planning/todos/pending/installed-app-direct-launch-runtime-config.md`
+
+Expected behavior:
+
+- macOS Finder 双击 `/Applications/Paladin.app` 可以启动 Paladin，并自动启动 packaged sidecars。
+- Windows 通过 Start Menu 或 Explorer 启动安装后的 Paladin，可以进入同等产品状态。
+- Linux 通过 AppImage、`.desktop` launcher 或 deb 安装后的菜单入口启动 Paladin，可以进入同等产品状态。
+- 缺少 DB/Redis/JWT 等 Go server 依赖配置时，应用显示明确的 Go readiness/配置提示，而不是要求用户回到仓库 wrapper。
+- AI provider 配置继续使用桌面端 app data 权威来源，不依赖 shell 环境。
+- 如果仍支持环境变量 bootstrap，应明确区分开发/UAT wrapper、系统级 launcher 环境、以及安装态本地持久配置。
+- 文档不再把 wrapper 描述为普通已安装应用的唯一启动方式；wrapper 保留为诊断和 UAT 入口。
+
+Architecture notes:
+
+- Phase 11 已经移除 AI provider 对启动环境的硬依赖；本 phase 聚焦 Go server runtime 配置和三端 installed-app direct-launch 语义。
+- Go runtime 配置需要明确最终来源：桌面端 app data、安装器/系统级配置、本地默认服务、更完整的 degraded mode，或这些来源的分层组合。
+- 直启验证需要覆盖真实系统 launcher 入口，而不是只覆盖 `scripts/launch-paladin-macos.sh --app "/Applications/Paladin.app"` 这类仓库 wrapper。
+- readiness 诊断需要区分 AI provider 未配置、Go DB/Redis/JWT 缺失、sidecar 进程失败、端口/健康探针失败。
+
+Acceptance draft:
+
+- [ ] macOS：安装 DMG 后，从 Finder 双击启动；无 AI key 时应用可启动并提示配置 AI provider；缺 Go 依赖时仅 Go readiness 降级。
+- [ ] Windows：安装 MSI 后，从 Start Menu/Explorer 启动，达到与 macOS 同等状态分类。
+- [ ] Linux：AppImage 双击或 deb 菜单入口启动，达到与 macOS 同等状态分类。
+- [ ] 三端日志位置、启动诊断、状态栏提示能说明缺失的是 AI provider、Go DB/Redis/JWT、还是 sidecar 进程失败。
+- [ ] `docs/packaging.md` 明确区分 buildability、installed-app direct-launch UAT、release-ready。
+- [ ] wrapper 仍可作为 CI/UAT smoke 的受控入口，但普通安装态成功不依赖仓库 wrapper 注入运行配置。
 
 ## Parallel Execution Opportunities
 
