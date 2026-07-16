@@ -5,14 +5,14 @@ milestone_name: milestone
 current_phase: 12
 current_phase_name: Installed App Direct Launch Runtime Configuration
 status: Ready to plan
-stopped_at: Phase 12 added from pending todo
-last_updated: "2026-07-15T00:00:00+08:00"
+stopped_at: Phase 12 context gathered
+last_updated: "2026-07-16T14:22:31.966Z"
 progress:
   total_phases: 20
   completed_phases: 17
   total_plans: 79
   completed_plans: 69
-  percent: 87
+  percent: 85
 ---
 
 # Project State: Paladin
@@ -110,9 +110,9 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Session
 
-**Last session:** 2026-07-13T16:30:53.332Z
-**Stopped at:** Phase 12 added from pending todo
-**Resume file:** .planning/todos/pending/installed-app-direct-launch-runtime-config.md
+**Last session:** 2026-07-16T14:22:31.926Z
+**Stopped at:** Phase 12 context gathered
+**Resume file:** .planning/phases/12-installed-app-direct-launch-runtime-configuration/12-CONTEXT.md
 
 ## Accumulated Context
 
