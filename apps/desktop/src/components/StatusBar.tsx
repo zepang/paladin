@@ -1,4 +1,5 @@
 import { AiProviderLight } from '@/components/StatusBar/AiProviderLight';
+import { GoServiceLight } from '@/components/StatusBar/GoServiceLight';
 import { ProcessLight } from '@/components/StatusBar/ProcessLight';
 import { Button } from '@/components/ui/button';
 import { useTerminalStore } from '@/stores/terminal';
@@ -35,8 +36,8 @@ export function StatusBar() {
         </Button>
         {/* Agent 子进程状态灯 — Popover 控制菜单 (D-09/D-11) */}
         <ProcessLight name="agent" label="Agent" />
-        {/* Go Server 子进程状态灯 — 常驻为后续 desktop 集成预留 (D-12) */}
-        <ProcessLight name="server" label="Go" />
+        {/* Go 配置与运行状态独立于 Agent/AI，Go 降级永不阻断工作区。 */}
+        <GoServiceLight />
         {/* AI provider readiness — 独立于 Agent/Go 进程健康状态 */}
         <AiProviderLight />
       </div>

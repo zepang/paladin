@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 
@@ -8,6 +8,7 @@ import { GoServiceLight } from '../GoServiceLight';
 import { AiProviderLight } from '../AiProviderLight';
 
 describe('Go 服务状态灯 RED 合同', () => {
+  afterEach(() => cleanup());
   it('D-03 独立显示 Go 与 AI 灯，并给出不阻断 Agent 的降级说明', () => {
     render(<><AiProviderLight /><GoServiceLight status="dependency-degraded" /></>);
     expect(screen.getByRole('button', { name: /AI ·/ })).toBeInTheDocument();
