@@ -329,3 +329,12 @@ fn test_redact_preserves_key_name() {
         output
     );
 }
+
+#[test]
+fn d02_go_dsn_redis_and_jwt_sentinels_are_redacted_before_logs_or_evidence_strings() {
+    let input = "DATABASE_URL=postgres://phase12-db-sentinel REDIS_URL=redis://phase12-redis-sentinel PALADIN_JWT_SECRET=phase12-jwt-sentinel";
+    let output = redact_log_line(input);
+    for sentinel in ["phase12-db-sentinel", "phase12-redis-sentinel", "phase12-jwt-sentinel"] {
+        assert!(!output.contains(sentinel), "D-02 redaction leaked {sentinel}");
+    }
+}

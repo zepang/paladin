@@ -15,6 +15,7 @@ use crate::process::supervisor::{
     LifecycleAction, LifecycleRequest, LogChunk, LogStream, ProcessHealth, ProcessInfoDTO,
     ProcessName, ProcessOwner, ProcessState,
 };
+use crate::go_config::{GoEnvironment, GoRuntimeSnapshot};
 use tempfile::tempdir;
 
 #[test]
@@ -145,6 +146,19 @@ fn environment_packaged_is_allowlisted_and_forces_runtime_marker() {
     assert!(!result.contains_key(&OsString::from("OPENAI_API_KEY")));
     assert!(!result.contains_key(&OsString::from("UNLISTED_SECRET")));
     assert!(!result.contains_key(&OsString::from("PALADIN_REDIS_URL")));
+}
+
+#[test]
+fn d07_packaged_server_environment_uses_selected_snapshot_not_ordinary_parent_go_values() {
+    let parent = HashMap::from([
+        (OsString::from("PALADIN_DATABASE_URL"), OsString::from("postgres://phase12-parent-db")),
+        (OsString::from("PALADIN_REDIS_URL"), OsString::from("redis://phase12-parent-redis")),
+        (OsString::from("PALADIN_JWT_SECRET"), OsString::from("phase12-parent-jwt")),
+    ]);
+    let selected = GoRuntimeSnapshot::persisted_for_test("postgres://saved", "redis://saved", "saved-jwt");
+    let result = environment_for_process_with_go_snapshot(RuntimeMode::Packaged, &parent, &HashMap::new(), selected);
+    assert_eq!(result.get(&OsString::from("PALADIN_DATABASE_URL")), Some(&OsString::from("postgres://saved")));
+    assert!(!result.values().any(|value| value == "phase12-parent-jwt"));
 }
 
 #[test]
