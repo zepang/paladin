@@ -25,8 +25,15 @@ async fn d02_complete_save_returns_only_masked_metadata_and_fixed_fingerprint() 
     assert!(saved.configured);
     assert_eq!(saved.readiness, GoConfigReadiness::Untested);
     assert!(saved.fingerprint.starts_with("cfg_"));
-    for sentinel in ["phase12-db-sentinel", "phase12-redis-sentinel", "phase12-jwt-sentinel"] {
-        assert!(!rendered.contains(sentinel), "D-02 must never serialize write input");
+    for sentinel in [
+        "phase12-db-sentinel",
+        "phase12-redis-sentinel",
+        "phase12-jwt-sentinel",
+    ] {
+        assert!(
+            !rendered.contains(sentinel),
+            "D-02 must never serialize write input"
+        );
     }
 }
 
@@ -53,9 +60,17 @@ async fn d02_masked_readback_and_errors_exclude_all_three_secret_sentinels() {
     manager.save(complete_input()).await.unwrap();
     let masked = manager.load_masked_config().await.unwrap();
     let serialized = serde_json::to_string(&masked).unwrap();
-    let error = manager.save(GoConfigInput::default()).await.unwrap_err().to_string();
+    let error = manager
+        .save(GoConfigInput::default())
+        .await
+        .unwrap_err()
+        .to_string();
 
-    for sentinel in ["phase12-db-sentinel", "phase12-redis-sentinel", "phase12-jwt-sentinel"] {
+    for sentinel in [
+        "phase12-db-sentinel",
+        "phase12-redis-sentinel",
+        "phase12-jwt-sentinel",
+    ] {
         assert!(!serialized.contains(sentinel));
         assert!(!error.contains(sentinel));
     }
@@ -65,7 +80,12 @@ async fn d02_masked_readback_and_errors_exclude_all_three_secret_sentinels() {
 async fn d05_d06_partial_or_invalid_save_never_creates_a_partial_record() {
     let dir = tempdir().unwrap();
     let manager = GoConfigManager::new_for_app_data(dir.path()).await.unwrap();
-    let result = manager.save(GoConfigInput { database_url: "postgres://only-one".into(), ..Default::default() }).await;
+    let result = manager
+        .save(GoConfigInput {
+            database_url: "postgres://only-one".into(),
+            ..Default::default()
+        })
+        .await;
 
     assert!(result.is_err());
     let masked = manager.load_masked_config().await.unwrap();

@@ -25,6 +25,7 @@
 
 // Task 1-4 已完成所有 stub,无 unused imports/dead_code;此 allow 已移除。
 
+use crate::go_config::GoRuntimeSnapshot;
 use crate::process::config::{
     EndpointConfig, HealthConfig, ProcessConfig, ProcessEntry, ProcessNameKey, RuntimeMode,
 };
@@ -131,6 +132,39 @@ pub(crate) fn environment_for_process(
             OsString::from("off"),
         );
     }
+    result
+}
+
+/// Go values are selected by the Rust-only configuration authority before a
+/// server child is spawned.  This deliberately replaces (rather than merges)
+/// any ordinary parent-shell Go values.
+#[cfg(test)]
+pub(crate) fn environment_for_process_with_go_snapshot(
+    mode: RuntimeMode,
+    parent: &HashMap<OsString, OsString>,
+    configured: &HashMap<String, String>,
+    snapshot: GoRuntimeSnapshot,
+) -> HashMap<OsString, OsString> {
+    let mut result = environment_for_process(mode, parent, configured);
+    for name in [
+        "PALADIN_DATABASE_URL",
+        "PALADIN_REDIS_URL",
+        "PALADIN_JWT_SECRET",
+    ] {
+        result.remove(&OsString::from(name));
+    }
+    result.insert(
+        OsString::from("PALADIN_DATABASE_URL"),
+        OsString::from(snapshot.database_url),
+    );
+    result.insert(
+        OsString::from("PALADIN_REDIS_URL"),
+        OsString::from(snapshot.redis_url),
+    );
+    result.insert(
+        OsString::from("PALADIN_JWT_SECRET"),
+        OsString::from(snapshot.jwt_secret),
+    );
     result
 }
 

@@ -7,15 +7,15 @@ use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 
+use crate::go_config::{GoEnvironment, GoRuntimeSnapshot};
 use crate::process::config::{EndpointConfig, HealthConfig, ProcessEntry, RuntimeMode};
 use crate::process::log_rotate::{RotatingLineWriter, RotationPolicy};
 use crate::process::supervisor::{
-    augmented_spawn_path, environment_for_process, lifecycle_action, process_log_line,
-    resolve_dev_runtime_path, should_shutdown_on_drop, spawn_path_for_mode, DevRuntimePath,
-    LifecycleAction, LifecycleRequest, LogChunk, LogStream, ProcessHealth, ProcessInfoDTO,
-    ProcessName, ProcessOwner, ProcessState,
+    augmented_spawn_path, environment_for_process, environment_for_process_with_go_snapshot,
+    lifecycle_action, process_log_line, resolve_dev_runtime_path, should_shutdown_on_drop,
+    spawn_path_for_mode, DevRuntimePath, LifecycleAction, LifecycleRequest, LogChunk, LogStream,
+    ProcessHealth, ProcessInfoDTO, ProcessName, ProcessOwner, ProcessState,
 };
-use crate::go_config::{GoEnvironment, GoRuntimeSnapshot};
 use tempfile::tempdir;
 
 #[test]
@@ -151,13 +151,31 @@ fn environment_packaged_is_allowlisted_and_forces_runtime_marker() {
 #[test]
 fn d07_packaged_server_environment_uses_selected_snapshot_not_ordinary_parent_go_values() {
     let parent = HashMap::from([
-        (OsString::from("PALADIN_DATABASE_URL"), OsString::from("postgres://phase12-parent-db")),
-        (OsString::from("PALADIN_REDIS_URL"), OsString::from("redis://phase12-parent-redis")),
-        (OsString::from("PALADIN_JWT_SECRET"), OsString::from("phase12-parent-jwt")),
+        (
+            OsString::from("PALADIN_DATABASE_URL"),
+            OsString::from("postgres://phase12-parent-db"),
+        ),
+        (
+            OsString::from("PALADIN_REDIS_URL"),
+            OsString::from("redis://phase12-parent-redis"),
+        ),
+        (
+            OsString::from("PALADIN_JWT_SECRET"),
+            OsString::from("phase12-parent-jwt"),
+        ),
     ]);
-    let selected = GoRuntimeSnapshot::persisted_for_test("postgres://saved", "redis://saved", "saved-jwt");
-    let result = environment_for_process_with_go_snapshot(RuntimeMode::Packaged, &parent, &HashMap::new(), selected);
-    assert_eq!(result.get(&OsString::from("PALADIN_DATABASE_URL")), Some(&OsString::from("postgres://saved")));
+    let selected =
+        GoRuntimeSnapshot::persisted_for_test("postgres://saved", "redis://saved", "saved-jwt");
+    let result = environment_for_process_with_go_snapshot(
+        RuntimeMode::Packaged,
+        &parent,
+        &HashMap::new(),
+        selected,
+    );
+    assert_eq!(
+        result.get(&OsString::from("PALADIN_DATABASE_URL")),
+        Some(&OsString::from("postgres://saved"))
+    );
     assert!(!result.values().any(|value| value == "phase12-parent-jwt"));
 }
 
