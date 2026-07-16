@@ -221,7 +221,10 @@ fn test_redact_provider_secret_aliases_env_form() {
     for (input, raw) in [
         ("PROVIDER_API_KEY=provider-secret-1", "provider-secret-1"),
         ("AI_PROVIDER_API_KEY=provider-secret-2", "provider-secret-2"),
-        ("PALADIN_PROVIDER_KEY=provider-secret-3", "provider-secret-3"),
+        (
+            "PALADIN_PROVIDER_KEY=provider-secret-3",
+            "provider-secret-3",
+        ),
     ] {
         let output = redact_log_line(input);
         assert!(
@@ -334,7 +337,14 @@ fn test_redact_preserves_key_name() {
 fn d02_go_dsn_redis_and_jwt_sentinels_are_redacted_before_logs_or_evidence_strings() {
     let input = "DATABASE_URL=postgres://phase12-db-sentinel REDIS_URL=redis://phase12-redis-sentinel PALADIN_JWT_SECRET=phase12-jwt-sentinel";
     let output = redact_log_line(input);
-    for sentinel in ["phase12-db-sentinel", "phase12-redis-sentinel", "phase12-jwt-sentinel"] {
-        assert!(!output.contains(sentinel), "D-02 redaction leaked {sentinel}");
+    for sentinel in [
+        "phase12-db-sentinel",
+        "phase12-redis-sentinel",
+        "phase12-jwt-sentinel",
+    ] {
+        assert!(
+            !output.contains(sentinel),
+            "D-02 redaction leaked {sentinel}"
+        );
     }
 }

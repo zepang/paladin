@@ -9,8 +9,8 @@ pub use bootstrap::{GoBootstrapResult, GoEnvironment};
 pub use storage::GoConfigManager;
 pub(crate) use types::GoRuntimeSnapshot;
 pub use types::{
-    GoConfigInput, GoConfigProvenance, GoConfigReadiness, GoFieldDiagnostic, MaskedGoServiceConfig,
-    GoRuntimeSource, SaveGoServiceInput,
+    GoConfigInput, GoConfigProvenance, GoConfigReadiness, GoFieldDiagnostic, GoRuntimeSource,
+    MaskedGoServiceConfig, SaveGoServiceInput,
 };
 
 #[cfg(test)]
