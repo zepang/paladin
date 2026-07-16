@@ -7,6 +7,7 @@ import { DiffReview } from '@/components/panel/DiffReview';
 import { FilePreview } from '@/components/panel/FilePreview';
 import { LogsPanel } from '@/components/panel/LogsPanel';
 import { AiProviderPanel } from '@/components/provider/AiProviderPanel';
+import { GoServicePanel } from '@/components/go-service/GoServicePanel';
 import { TerminalPanel } from '@/components/terminal/TerminalPanel';
 import { TerminalTabBar } from '@/components/terminal/TerminalTabBar';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import {
   Maximize2,
   Minimize2,
   ScrollText,
+  ServerCog,
   Terminal as TerminalIcon,
   X,
 } from 'lucide-react';
@@ -131,6 +133,7 @@ export function RightPanel() {
     { id: 'diff', icon: GitBranch, label: 'Diff' },
     { id: 'logs', icon: ScrollText, label: '日志' },
     { id: 'ai-provider', icon: BrainCircuit, label: 'AI Provider' },
+    { id: 'go-service', icon: ServerCog, label: 'Go 服务' },
   ];
 
   return (
@@ -225,6 +228,9 @@ export function RightPanel() {
 
           {/* AI Provider 设置视图 */}
           {activePanel === 'ai-provider' && <AiProviderPanel />}
+
+          {/* Go 服务设置视图 */}
+          {activePanel === 'go-service' && <GoServicePanel />}
         </div>
       </aside>
     </>

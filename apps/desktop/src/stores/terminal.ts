@@ -6,7 +6,13 @@ export interface TerminalTab {
   cwd: string;
 }
 
-export type RightPanelId = 'terminal' | 'file-preview' | 'diff' | 'logs' | 'ai-provider';
+export type RightPanelId =
+  | 'terminal'
+  | 'file-preview'
+  | 'diff'
+  | 'logs'
+  | 'ai-provider'
+  | 'go-service';
 
 interface TerminalState {
   isOpen: boolean;
