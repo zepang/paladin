@@ -311,16 +311,12 @@ This is a schema illustration, not a new dependency; no value-bearing config fie
 
 All other design constraints above come from locked context, existing code, or official Tauri documentation.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **What explicit marker name authorizes a session-only override?**
-   - What we know: D-07 requires one and leaves command/file name discretionary.
-   - What's unclear: whether a single `PALADIN_RUNTIME_CONFIG_OVERRIDE=...` marker or a wrapper-only flag is least error-prone.
-   - Recommendation: use one non-secret, fail-closed marker recognized only in dev/CI/UAT builds/harnesses; tests must prove ordinary parent env cannot override saved state. [CITED: 12-CONTEXT.md]
-2. **How should an existing running Go process receive new saved configuration?**
-   - What we know: save and test/retry are separate, and supervisor owns child lifecycle.
-   - What's unclear: immediate safe restart versus “apply on explicit retry/restart”.
-   - Recommendation: make apply behavior explicit in the command result/UI; do not silently mutate a live child env. This needs a planner decision based on current restart UX. [ASSUMED]
+1. **Which marker authorizes a session-only override?**
+   - **Resolved decision:** use the non-secret, fail-closed `PALADIN_RUNTIME_CONFIG_OVERRIDE=1` marker. It is honored only by development/CI/UAT harness paths, authorizes a complete session override for one spawned child, and never writes app-data. An ordinary inherited parent environment has no override authority. This closes D-07 through the precedence and non-persistence contracts in Plans 12-01 Task 1, 12-02 Task 2, and 12-03 Task 1. [CITED: 12-CONTEXT.md]
+2. **How does saved configuration affect an already-running Go process?**
+   - **Resolved decision:** D-03 uses explicit save/retry/managed-restart semantics. Save persists a validated configuration and reports pending apply; retry only probes the current process and does not mutate its environment; a Paladin-managed restart stops and respawns the child using the saved snapshot; an externally owned process cannot be restarted by Paladin and must be restarted outside Paladin before re-detection. This closes the behavior through Plans 12-04 Task 1, 12-05 Task 1, and 12-06 Task 1 without claiming an immediate live-environment mutation. [CITED: 12-CONTEXT.md]
 
 ## Environment Availability
 
