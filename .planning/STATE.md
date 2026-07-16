@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 12
 current_phase_name: Installed App Direct Launch Runtime Configuration
 status: Ready to plan
-stopped_at: Phase 12 context gathered
-last_updated: "2026-07-16T14:22:31.966Z"
+stopped_at: Phase 12 UI-SPEC approved
+last_updated: "2026-07-16T14:36:49.984Z"
 progress:
   total_phases: 20
   completed_phases: 17
@@ -110,9 +110,9 @@ See: .planning/PROJECT.md (updated 2026-07-03)
 
 ## Session
 
-**Last session:** 2026-07-16T14:22:31.926Z
-**Stopped at:** Phase 12 context gathered
-**Resume file:** .planning/phases/12-installed-app-direct-launch-runtime-configuration/12-CONTEXT.md
+**Last session:** 2026-07-16T14:36:49.931Z
+**Stopped at:** Phase 12 UI-SPEC approved
+**Resume file:** .planning/phases/12-installed-app-direct-launch-runtime-configuration/12-UI-SPEC.md
 
 ## Accumulated Context
 
