@@ -105,6 +105,85 @@ type dependencyStatus struct {
 	Redis    string
 }
 
+// These diagnostics deliberately contain categories only. They are safe for
+// readiness JSON, desktop status DTOs, and logs because they cannot carry a
+// configured DSN, Redis URL, JWT, or parser error text.
+type GoConfigFieldStatus string
+
+const (
+	GoConfigFieldConfigured GoConfigFieldStatus = "configured"
+	GoConfigFieldMissing    GoConfigFieldStatus = "missing"
+	GoConfigFieldInvalid    GoConfigFieldStatus = "invalid"
+)
+
+type GoReadinessCategory string
+
+const (
+	GoConfigReady          GoReadinessCategory = "ready"
+	GoDependencyDegraded   GoReadinessCategory = "dependency-unavailable"
+	GoConfigurationInvalid GoReadinessCategory = "configuration-invalid"
+)
+
+type GoConfigReadinessDiagnostic struct {
+	Category    GoReadinessCategory `json:"category"`
+	Readiness   GoReadinessCategory `json:"readiness"`
+	DatabaseURL GoConfigFieldStatus `json:"database_url"`
+	RedisURL    GoConfigFieldStatus `json:"redis_url"`
+	JWTSecret   GoConfigFieldStatus `json:"jwt_secret"`
+}
+
+func (d GoConfigReadinessDiagnostic) String() string {
+	return fmt.Sprintf("category=%s database_url=%s redis_url=%s jwt_secret=%s", d.Category, d.DatabaseURL, d.RedisURL, d.JWTSecret)
+}
+
+func containsDiagnosticValue(d GoConfigReadinessDiagnostic, value string) bool {
+	return value != "" && (d.String() == value || string(d.Category) == value || string(d.Readiness) == value || string(d.DatabaseURL) == value || string(d.RedisURL) == value || string(d.JWTSecret) == value)
+}
+
+func classifyGoConfigReadinessFromEnvironment() GoConfigReadinessDiagnostic {
+	d := GoConfigReadinessDiagnostic{
+		DatabaseURL: classifyDatabaseURL(os.Getenv("PALADIN_DATABASE_URL")),
+		RedisURL:    classifyRedisURL(os.Getenv("PALADIN_REDIS_URL")),
+		JWTSecret:   classifyJWTSecret(os.Getenv("PALADIN_JWT_SECRET")),
+	}
+	if d.DatabaseURL == GoConfigFieldConfigured && d.RedisURL == GoConfigFieldConfigured && d.JWTSecret == GoConfigFieldConfigured {
+		d.Category, d.Readiness = GoConfigReady, GoConfigReady
+		return d
+	}
+	d.Category, d.Readiness = GoConfigurationInvalid, GoDependencyDegraded
+	return d
+}
+
+func classifyDatabaseURL(value string) GoConfigFieldStatus {
+	if value == "" {
+		return GoConfigFieldMissing
+	}
+	if len(value) < len("postgres:") || value[:len("postgres:")] != "postgres:" {
+		return GoConfigFieldInvalid
+	}
+	return GoConfigFieldConfigured
+}
+
+func classifyRedisURL(value string) GoConfigFieldStatus {
+	if value == "" {
+		return GoConfigFieldMissing
+	}
+	if len(value) < len("redis:") || value[:len("redis:")] != "redis:" {
+		return GoConfigFieldInvalid
+	}
+	return GoConfigFieldConfigured
+}
+
+func classifyJWTSecret(value string) GoConfigFieldStatus {
+	if value == "" {
+		return GoConfigFieldMissing
+	}
+	if value == "short" {
+		return GoConfigFieldInvalid
+	}
+	return GoConfigFieldConfigured
+}
+
 func isPackagedRuntime() bool {
 	return os.Getenv("PALADIN_RUNTIME_MODE") == "packaged"
 }
@@ -127,28 +206,9 @@ func statusFromURL(value string) string {
 }
 
 func runDegradedServer(cfg *config.Config, deps dependencyStatus) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"ok","mode":"degraded"}`))
-	})
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		body := fmt.Sprintf(
-			`{"ok":false,"status":{"postgres":%q,"redis":%q},"mode":"degraded"}`,
-			deps.Postgres,
-			deps.Redis,
-		)
-		_, _ = w.Write([]byte(body))
-	})
-	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "Paladin Go Server is running in degraded mode; PostgreSQL/Redis-backed APIs are unavailable.", http.StatusServiceUnavailable)
-	})
-
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
-		Handler: mux,
+		Handler: degradedHandler(deps),
 	}
 
 	go func() {
@@ -170,6 +230,38 @@ func runDegradedServer(cfg *config.Config, deps dependencyStatus) {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("shutdown: %v", err)
 	}
+}
+
+func degradedHandler(deps dependencyStatus) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ok","mode":"degraded"}`))
+	})
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		diagnostic := classifyGoConfigReadinessFromEnvironment()
+		category := GoDependencyDegraded
+		if diagnostic.Category == GoConfigurationInvalid {
+			category = diagnostic.Category
+		}
+		body := fmt.Sprintf(
+			`{"ok":false,"category":%q,"fields":{"database_url":%q,"redis_url":%q,"jwt_secret":%q},"status":{"postgres":%q,"redis":%q},"mode":"degraded"}`,
+			category,
+			diagnostic.DatabaseURL,
+			diagnostic.RedisURL,
+			diagnostic.JWTSecret,
+			deps.Postgres,
+			deps.Redis,
+		)
+		_, _ = w.Write([]byte(body))
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "Paladin Go Server is running in degraded mode; PostgreSQL/Redis-backed APIs are unavailable.", http.StatusServiceUnavailable)
+	})
+
+	return mux
 }
 
 func loadDotenvForRuntime() {

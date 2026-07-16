@@ -36,6 +36,8 @@ pub const SECRET_PATTERNS: &[&str] = &[
     "providerKey",
     "JWT_SECRET",
     "PALADIN_JWT_SECRET",
+    "DATABASE_URL",
+    "REDIS_URL",
     "Authorization",
     "password",
 ];
@@ -52,6 +54,19 @@ static JWT_SECRET_PATTERN: LazyLock<Regex> =
 
 static PALADIN_JWT_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)(PALADIN_JWT_SECRET\s*[=:]\s*)\S+").unwrap());
+
+static GO_CONFIG_VALUE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r#"(?i)(\b(?:PALADIN_DATABASE_URL|DATABASE_URL|PALADIN_REDIS_URL|REDIS_URL)\b\s*[=:]\s*[\"']?)[^\s\"',}]+([\"']?)"#,
+    )
+    .unwrap()
+});
+
+// Some library errors print a DSN directly rather than as a key/value pair.
+// Replace the full URL so neither credentials nor host/query fragments leak.
+static GO_DSN_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?i)\b(?:postgres(?:ql)?|redis(?:\+\w+)?)://[^\s\"']+"#).unwrap()
+});
 
 static AUTHORIZATION_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)(Authorization\s*:\s*Bearer\s+)\S+").unwrap());
@@ -74,6 +89,10 @@ pub fn redact_log_line(line: &str) -> String {
     s = PALADIN_JWT_PATTERN
         .replace_all(&s, "${1}[REDACTED]")
         .into_owned();
+    s = GO_CONFIG_VALUE_PATTERN
+        .replace_all(&s, "${1}[REDACTED]${2}")
+        .into_owned();
+    s = GO_DSN_PATTERN.replace_all(&s, "[REDACTED]").into_owned();
     s = AUTHORIZATION_PATTERN
         .replace_all(&s, "${1}[REDACTED]")
         .into_owned();

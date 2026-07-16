@@ -501,7 +501,6 @@ pub struct ProcessInfoDTO {
 #[serde(rename_all = "kebab-case")]
 pub enum ProcessDiagnosticCategory {
     GoConfigurationMissing,
-    GoConfigurationInvalid,
     DependencyUnavailable,
     PortConflict,
     SidecarFailed,

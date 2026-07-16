@@ -1,10 +1,36 @@
 package main
 
 import (
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+func TestDegradedReadyzUsesFixedCategoriesWithoutConfigReflection(t *testing.T) {
+	t.Setenv("PALADIN_DATABASE_URL", "postgres://phase12-http-db-sentinel")
+	t.Setenv("PALADIN_REDIS_URL", "redis://phase12-http-redis-sentinel")
+	t.Setenv("PALADIN_JWT_SECRET", "phase12-http-jwt-sentinel")
+
+	request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+	recorder := httptest.NewRecorder()
+	degradedHandler(dependencyStatus{Postgres: "down", Redis: "unknown"}).ServeHTTP(recorder, request)
+	body, err := io.ReadAll(recorder.Result().Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if recorder.Code != http.StatusServiceUnavailable || !strings.Contains(string(body), "dependency-unavailable") {
+		t.Fatalf("expected fixed readiness category, got status=%d body=%s", recorder.Code, body)
+	}
+	for _, sentinel := range []string{"phase12-http-db-sentinel", "phase12-http-redis-sentinel", "phase12-http-jwt-sentinel"} {
+		if strings.Contains(string(body), sentinel) {
+			t.Fatalf("readiness body leaked sentinel %q: %s", sentinel, body)
+		}
+	}
+}
 
 func TestPackagedModeIgnoresDotenv(t *testing.T) {
 	dir := t.TempDir()
