@@ -14,6 +14,7 @@ use crate::ai_provider::{
     delete_ai_provider, get_ai_provider_config, refresh_agent_ai_provider, save_ai_provider,
     set_active_ai_provider, test_ai_provider, AiProviderConfigManager,
 };
+use crate::go_config::{GoConfigManager, GoEnvironment};
 use crate::process::commands::{
     get_process_status, get_runtime_config, redetect_agent, redetect_server, restart_agent,
     restart_server, stop_agent, stop_server,
@@ -112,8 +113,21 @@ pub fn run() {
             let ai_provider_manager = tauri::async_runtime::block_on(
                 AiProviderConfigManager::new_for_app_data(ai_provider_dir),
             )?;
-            let _ = tauri::async_runtime::block_on(ai_provider_manager.bootstrap_from_environment());
+            let _ =
+                tauri::async_runtime::block_on(ai_provider_manager.bootstrap_from_environment());
             app.manage(ai_provider_manager);
+
+            let go_config_dir = app
+                .path()
+                .app_data_dir()
+                .unwrap_or_else(|_| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("app-data"));
+            let go_config_manager =
+                tauri::async_runtime::block_on(GoConfigManager::new_for_app_data(go_config_dir))?;
+            let go_environment = GoEnvironment::from_process_env();
+            let _ = tauri::async_runtime::block_on(
+                go_config_manager.bootstrap_from_environment(&go_environment),
+            );
+            app.manage(go_config_manager);
 
             // Dev 保留仓库 processes.json；release 只从已安装资源读取 packaged config。
             let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
