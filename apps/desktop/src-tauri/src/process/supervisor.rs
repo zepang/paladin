@@ -25,7 +25,7 @@
 
 // Task 1-4 已完成所有 stub,无 unused imports/dead_code;此 allow 已移除。
 
-use crate::go_config::GoRuntimeSnapshot;
+use crate::go_config::{GoConfigManager, GoEnvironment, GoRuntimeSnapshot};
 use crate::process::config::{
     EndpointConfig, HealthConfig, ProcessConfig, ProcessEntry, ProcessNameKey, RuntimeMode,
 };
@@ -138,12 +138,11 @@ pub(crate) fn environment_for_process(
 /// Go values are selected by the Rust-only configuration authority before a
 /// server child is spawned.  This deliberately replaces (rather than merges)
 /// any ordinary parent-shell Go values.
-#[cfg(test)]
 pub(crate) fn environment_for_process_with_go_snapshot(
     mode: RuntimeMode,
     parent: &HashMap<OsString, OsString>,
     configured: &HashMap<String, String>,
-    snapshot: GoRuntimeSnapshot,
+    snapshot: Option<&GoRuntimeSnapshot>,
 ) -> HashMap<OsString, OsString> {
     let mut result = environment_for_process(mode, parent, configured);
     for name in [
@@ -153,18 +152,20 @@ pub(crate) fn environment_for_process_with_go_snapshot(
     ] {
         result.remove(&OsString::from(name));
     }
-    result.insert(
-        OsString::from("PALADIN_DATABASE_URL"),
-        OsString::from(snapshot.database_url),
-    );
-    result.insert(
-        OsString::from("PALADIN_REDIS_URL"),
-        OsString::from(snapshot.redis_url),
-    );
-    result.insert(
-        OsString::from("PALADIN_JWT_SECRET"),
-        OsString::from(snapshot.jwt_secret),
-    );
+    if let Some(snapshot) = snapshot {
+        result.insert(
+            OsString::from("PALADIN_DATABASE_URL"),
+            OsString::from(&snapshot.database_url),
+        );
+        result.insert(
+            OsString::from("PALADIN_REDIS_URL"),
+            OsString::from(&snapshot.redis_url),
+        );
+        result.insert(
+            OsString::from("PALADIN_JWT_SECRET"),
+            OsString::from(&snapshot.jwt_secret),
+        );
+    }
     result
 }
 
@@ -489,6 +490,52 @@ pub struct ProcessInfoDTO {
     pub last_error: Option<String>,
     pub stderr_tail: Option<String>,
     pub last_restart_at: Option<i64>,
+    /// Fixed category for UI guidance. Never derive this from an error string.
+    pub diagnostic_category: Option<ProcessDiagnosticCategory>,
+    /// A saved Go configuration is selected only by a future managed Server spawn.
+    pub pending_apply: bool,
+    pub allowed_actions: ProcessAllowedActions,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProcessDiagnosticCategory {
+    GoConfigurationMissing,
+    GoConfigurationInvalid,
+    DependencyUnavailable,
+    PortConflict,
+    SidecarFailed,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ProcessAllowedActions {
+    pub restart: bool,
+    pub stop: bool,
+    pub redetect: bool,
+}
+
+fn allowed_actions(owner: ProcessOwner) -> ProcessAllowedActions {
+    ProcessAllowedActions {
+        restart: owner == ProcessOwner::Supervisor,
+        stop: owner == ProcessOwner::Supervisor,
+        redetect: true,
+    }
+}
+
+fn diagnostic_for_state(
+    name: ProcessName,
+    state: ProcessState,
+) -> Option<ProcessDiagnosticCategory> {
+    match (name, state) {
+        (_, ProcessState::Conflict) => Some(ProcessDiagnosticCategory::PortConflict),
+        (_, ProcessState::Unhealthy | ProcessState::Stopped) => {
+            Some(ProcessDiagnosticCategory::SidecarFailed)
+        }
+        (ProcessName::Server, ProcessState::Degraded) => {
+            Some(ProcessDiagnosticCategory::DependencyUnavailable)
+        }
+        _ => None,
+    }
 }
 
 /// `process-status` 事件 payload — 含 `name` 字段让前端区分 agent vs server。
@@ -526,6 +573,8 @@ pub struct ManagedProcess {
     pub spawn_time: Option<Instant>,
     pub last_restart_at: Option<i64>,
     pub last_error: Option<String>,
+    pub diagnostic_category: Option<ProcessDiagnosticCategory>,
+    pub pending_apply: bool,
 }
 
 impl ManagedProcess {
@@ -541,6 +590,8 @@ impl ManagedProcess {
             spawn_time: None,
             last_restart_at: None,
             last_error: None,
+            diagnostic_category: None,
+            pending_apply: false,
         }
     }
 }
@@ -656,22 +707,37 @@ pub struct ProcessSupervisor {
     pub config: Arc<ProcessConfig>,
     pub app_handle: AppHandle,
     pub log_dir: PathBuf,
+    /// The write-only Go authority is read only when a managed Server child is spawned.
+    pub go_config: Option<GoConfigManager>,
 }
 
 impl ProcessSupervisor {
     /// 构造 supervisor。不 spawn 子进程;`start()` 才 spawn。
-    pub fn new(app_handle: AppHandle, config: ProcessConfig, log_dir: PathBuf) -> Self {
+    pub fn new(
+        app_handle: AppHandle,
+        config: ProcessConfig,
+        log_dir: PathBuf,
+        go_config: GoConfigManager,
+    ) -> Self {
         Self {
             agent: ProcessSlot::new(ProcessName::Agent),
             server: ProcessSlot::new(ProcessName::Server),
             config: Arc::new(config),
             app_handle,
             log_dir,
+            go_config: Some(go_config),
         }
     }
 
     pub fn from_config_error(app_handle: AppHandle, log_dir: PathBuf, message: String) -> Self {
-        let supervisor = Self::new(app_handle, diagnostic_fallback_config(), log_dir);
+        let supervisor = Self {
+            agent: ProcessSlot::new(ProcessName::Agent),
+            server: ProcessSlot::new(ProcessName::Server),
+            config: Arc::new(diagnostic_fallback_config()),
+            app_handle,
+            log_dir,
+            go_config: None,
+        };
         for slot in [&supervisor.agent, &supervisor.server] {
             let mut mp = slot.state.blocking_lock();
             apply_none_state(&mut mp, ProcessState::Stopped, ProcessHealth::Failed);
@@ -740,6 +806,9 @@ impl ProcessSupervisor {
         }
         mp.last_error = None;
         mp.snapshot.fail_count = 0;
+        if name == ProcessName::Server && state == ProcessState::Degraded {
+            mp.diagnostic_category = Some(ProcessDiagnosticCategory::DependencyUnavailable);
+        }
     }
 
     async fn snapshot_of(&self, name: ProcessName) -> ProcessInfoDTO {
@@ -764,6 +833,9 @@ impl ProcessSupervisor {
                 }
             },
             last_restart_at: mp.last_restart_at,
+            diagnostic_category: mp.diagnostic_category,
+            pending_apply: mp.pending_apply,
+            allowed_actions: allowed_actions(mp.owner),
         }
     }
 
@@ -782,7 +854,15 @@ impl ProcessSupervisor {
     #[allow(dead_code)]
     pub async fn spawn_one(&self, name: ProcessName) -> Result<(), String> {
         let slot = self.slot_of(name).clone();
-        spawn_child_to_slot(&slot, name, &self.app_handle, &self.config, &self.log_dir).await
+        spawn_child_to_slot(
+            &slot,
+            name,
+            &self.app_handle,
+            &self.config,
+            &self.log_dir,
+            self.go_config.as_ref(),
+        )
+        .await
     }
 
     async fn start_one_runtime(&self, name: ProcessName) -> Result<(), String> {
@@ -790,8 +870,15 @@ impl ProcessSupervisor {
         let _guard = slot.restart_lock.lock().await;
 
         if self.config.runtime_mode()? == RuntimeMode::Packaged {
-            return spawn_child_to_slot(&slot, name, &self.app_handle, &self.config, &self.log_dir)
-                .await;
+            return spawn_child_to_slot(
+                &slot,
+                name,
+                &self.app_handle,
+                &self.config,
+                &self.log_dir,
+                self.go_config.as_ref(),
+            )
+            .await;
         }
 
         match resolve_dev_runtime_path(name, self.entry_of(name)).await? {
@@ -816,8 +903,15 @@ impl ProcessSupervisor {
                 Ok(())
             }
             DevRuntimePath::Spawn => {
-                spawn_child_to_slot(&slot, name, &self.app_handle, &self.config, &self.log_dir)
-                    .await
+                spawn_child_to_slot(
+                    &slot,
+                    name,
+                    &self.app_handle,
+                    &self.config,
+                    &self.log_dir,
+                    self.go_config.as_ref(),
+                )
+                .await
             }
             DevRuntimePath::Conflict(message) => {
                 {
@@ -826,6 +920,7 @@ impl ProcessSupervisor {
                     mp.pid = None;
                     mp.spawn_time = None;
                     mp.last_error = Some(message.clone());
+                    mp.diagnostic_category = Some(ProcessDiagnosticCategory::PortConflict);
                 }
                 emit_status_to(&slot, &self.app_handle, name, Some(message.clone())).await;
                 Err(message)
@@ -890,6 +985,8 @@ impl ProcessSupervisor {
                         mp.snapshot = nsnap;
                         mp.last_error =
                             Some("启动 5s 内 /readyz 未就绪 (PG/Redis 可能未启动)".to_string());
+                        mp.diagnostic_category =
+                            Some(ProcessDiagnosticCategory::DependencyUnavailable);
                     }
                     emit_status_to(
                         &slot,
@@ -947,13 +1044,21 @@ impl ProcessSupervisor {
         }
 
         // spawn — 失败时置 Stopped + emit
-        let res =
-            spawn_child_to_slot(&slot, name, &self.app_handle, &self.config, &self.log_dir).await;
+        let res = spawn_child_to_slot(
+            &slot,
+            name,
+            &self.app_handle,
+            &self.config,
+            &self.log_dir,
+            self.go_config.as_ref(),
+        )
+        .await;
         if let Err(e) = res {
             let msg = format!("restart spawn 失败: {e}");
             let mut mp = slot.state.lock().await;
             apply_supervisor_state(&mut mp, ProcessState::Stopped);
             mp.last_error = Some(msg.clone());
+            mp.diagnostic_category = Some(ProcessDiagnosticCategory::SidecarFailed);
             drop(mp);
             emit_status_to(&slot, &self.app_handle, name, Some(msg)).await;
             return Err(e);
@@ -1120,6 +1225,7 @@ pub(crate) fn spawn_child_to_slot<'a>(
     app: &'a AppHandle,
     config: &'a Arc<ProcessConfig>,
     log_dir: &'a Path,
+    go_config: Option<&'a GoConfigManager>,
 ) -> SpawnFut<'a> {
     Box::pin(async move {
         let entry = match name {
@@ -1157,7 +1263,32 @@ pub(crate) fn spawn_child_to_slot<'a>(
         cmd.current_dir(&cwd);
         // 子进程不继承开放式 parent env；仅显式业务/系统 allowlist 可进入边界。
         let parent: HashMap<OsString, OsString> = env::vars_os().collect();
-        let process_env = environment_for_process(config.runtime_mode()?, &parent, &entry.env);
+        let selected_go_snapshot = if name == ProcessName::Server {
+            if let Some(manager) = go_config {
+                // A marker is the only path that may select parent-session values. The
+                // manager otherwise returns its persisted Rust-only snapshot.
+                let environment = GoEnvironment::from_process_env();
+                let marker = env::var("PALADIN_GO_SESSION_OVERRIDE").unwrap_or_default();
+                manager
+                    .runtime_snapshot_for_marked_session(&environment, &marker)
+                    .await
+                    .ok()
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let process_env = if name == ProcessName::Server {
+            environment_for_process_with_go_snapshot(
+                config.runtime_mode()?,
+                &parent,
+                &entry.env,
+                selected_go_snapshot.as_ref(),
+            )
+        } else {
+            environment_for_process(config.runtime_mode()?, &parent, &entry.env)
+        };
         cmd.env_clear().envs(process_env);
         if let Some(path) = spawn_path_for_mode(config.runtime_mode()?, env::var_os("PATH")) {
             // GUI/Tauri dev shells may not inherit login-shell PATH. Add common tool dirs so
@@ -1193,6 +1324,13 @@ pub(crate) fn spawn_child_to_slot<'a>(
             mp.pid = child.id();
             mp.spawn_time = Some(Instant::now());
             mp.stderr_tail.clear();
+            mp.pending_apply = false;
+            mp.diagnostic_category =
+                if name == ProcessName::Server && selected_go_snapshot.is_none() {
+                    Some(ProcessDiagnosticCategory::GoConfigurationMissing)
+                } else {
+                    None
+                };
             // spawn 成功不立即清 last_error,等首次 ProbeOk 才清 (transition 不动 last_error_len)。
         }
 
@@ -1248,8 +1386,9 @@ pub(crate) fn spawn_child_to_slot<'a>(
             let cfg_c = config.clone();
             let app_c = app.clone();
             let ld = log_dir.to_path_buf();
+            let go_config_c = go_config.cloned();
             tokio::spawn(async move {
-                wait_exit(slot_c, name, app_c, cfg_c, ld).await;
+                wait_exit(slot_c, name, app_c, cfg_c, ld, go_config_c).await;
             });
         }
 
@@ -1407,6 +1546,9 @@ pub(crate) async fn emit_status_to(
                     }
                 },
                 last_restart_at: mp.last_restart_at,
+                diagnostic_category: mp.diagnostic_category,
+                pending_apply: mp.pending_apply,
+                allowed_actions: allowed_actions(mp.owner),
             },
         }
     };
@@ -1528,6 +1670,7 @@ async fn probe_loop(
             if ns == ProcessState::Running {
                 mp.last_error = None;
             }
+            mp.diagnostic_category = diagnostic_for_state(name, ns).or(mp.diagnostic_category);
             // emit 策略: Running (清错) / Unhealthy / Degraded 都 emit,以便前端刷新
             let emit = prev != ns || ns == ProcessState::Running;
             (emit, mp.last_error.clone())
@@ -1557,6 +1700,7 @@ async fn wait_exit(
     app: AppHandle,
     config: Arc<ProcessConfig>,
     log_dir: PathBuf,
+    go_config: Option<GoConfigManager>,
 ) {
     let process_label = match name {
         ProcessName::Agent => "Agent",
@@ -1642,6 +1786,7 @@ async fn wait_exit(
         }
         mp.snapshot = nsnap;
         mp.last_error = Some(error_msg.clone());
+        mp.diagnostic_category = Some(ProcessDiagnosticCategory::SidecarFailed);
         new_state = ns;
         new_snap = nsnap;
     }
@@ -1671,8 +1816,15 @@ async fn wait_exit(
                     let cfg_c = config.clone();
                     let ld = log_dir.clone();
                     tokio::spawn(async move {
-                        if let Err(e) =
-                            spawn_child_to_slot(&slot_c, name, &app_c, &cfg_c, &ld).await
+                        if let Err(e) = spawn_child_to_slot(
+                            &slot_c,
+                            name,
+                            &app_c,
+                            &cfg_c,
+                            &ld,
+                            go_config.as_ref(),
+                        )
+                        .await
                         {
                             let fail_msg = format!("退避后重启 spawn 失败: {e}");
                             {

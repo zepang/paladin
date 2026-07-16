@@ -170,7 +170,7 @@ fn d07_packaged_server_environment_uses_selected_snapshot_not_ordinary_parent_go
         RuntimeMode::Packaged,
         &parent,
         &HashMap::new(),
-        selected,
+        Some(&selected),
     );
     assert_eq!(
         result.get(&OsString::from("PALADIN_DATABASE_URL")),
@@ -220,6 +220,13 @@ fn test_process_info_dto_serializes_owner_and_health() {
         last_error: Some("port conflict".into()),
         stderr_tail: None,
         last_restart_at: None,
+        diagnostic_category: None,
+        pending_apply: false,
+        allowed_actions: crate::process::supervisor::ProcessAllowedActions {
+            restart: false,
+            stop: false,
+            redetect: true,
+        },
     };
     let json = serde_json::to_value(dto).expect("serialize dto");
     assert_eq!(json["state"], "conflict");

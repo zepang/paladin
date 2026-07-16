@@ -127,7 +127,7 @@ pub fn run() {
             let _ = tauri::async_runtime::block_on(
                 go_config_manager.bootstrap_from_environment(&go_environment),
             );
-            app.manage(go_config_manager);
+            app.manage(go_config_manager.clone());
 
             // Dev 保留仓库 processes.json；release 只从已安装资源读取 packaged config。
             let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -185,7 +185,12 @@ pub fn run() {
             });
             let (supervisor, should_start) = match loaded_config {
                 Ok(config) => (
-                    ProcessSupervisor::new(app.handle().clone(), config, log_dir),
+                    ProcessSupervisor::new(
+                        app.handle().clone(),
+                        config,
+                        log_dir,
+                        go_config_manager.clone(),
+                    ),
                     true,
                 ),
                 Err(e) => {
