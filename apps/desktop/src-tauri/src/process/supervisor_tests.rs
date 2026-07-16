@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
 
-use crate::go_config::{GoEnvironment, GoRuntimeSnapshot};
+use crate::go_config::GoRuntimeSnapshot;
 use crate::process::config::{EndpointConfig, HealthConfig, ProcessEntry, RuntimeMode};
 use crate::process::log_rotate::{RotatingLineWriter, RotationPolicy};
 use crate::process::supervisor::{

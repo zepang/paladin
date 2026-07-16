@@ -1,4 +1,5 @@
 //! Phase 12 Go 服务配置的 Rust-only authority.
+#![allow(dead_code, unused_imports)]
 
 mod bootstrap;
 mod storage;
