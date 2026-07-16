@@ -47,23 +47,24 @@ APP
 APP="$TMP_DIR/Paladin.app"
 make_fake_app "$APP"
 
-output="$(DEEPSEEK_API_KEY='sk-test-secret' PALADIN_DATABASE_URL='postgres://secret' PALADIN_REDIS_URL='redis://secret' "$WRAPPER" --app "$APP" 2>&1)"
+output="$(PALADIN_DIRECT_LAUNCH_UAT=1 DEEPSEEK_API_KEY='sk-test-secret' PALADIN_DATABASE_URL='postgres://secret' PALADIN_REDIS_URL='redis://secret' "$WRAPPER" --app "$APP" 2>&1)"
 assert_contains "$output" "PALADIN_FAKE_APP_EXECUTED"
+assert_contains "$output" "Launcher class: wrapper-diagnostic-uat"
 assert_contains "$output" "PALADIN_FAKE_APP_ARGC=0"
 assert_contains "$output" "PALADIN_FAKE_APP_DEEPSEEK_API_KEY="
 assert_not_contains "$output" "sk-test-secret"
 
-provider_output="$(PALADIN_AI_PROVIDER='openai-compatible' PALADIN_AI_API_KEY='paladin-ai-secret' PALADIN_DATABASE_URL='postgres://secret' PALADIN_REDIS_URL='redis://secret' "$WRAPPER" --app "$APP" 2>&1)"
+provider_output="$(PALADIN_DIRECT_LAUNCH_UAT=1 PALADIN_AI_PROVIDER='openai-compatible' PALADIN_AI_API_KEY='paladin-ai-secret' PALADIN_DATABASE_URL='postgres://secret' PALADIN_REDIS_URL='redis://secret' "$WRAPPER" --app "$APP" 2>&1)"
 assert_contains "$provider_output" "PALADIN_FAKE_APP_EXECUTED"
 assert_contains "$provider_output" "PALADIN_FAKE_APP_PALADIN_AI_API_KEY=paladin-ai-secret"
 
 LOWER_APP="$TMP_DIR/PaladinLower.app"
 make_fake_app "$LOWER_APP" "paladin"
-lower_output="$(DEEPSEEK_API_KEY='sk-test-secret' PALADIN_DATABASE_URL='postgres://secret' PALADIN_REDIS_URL='redis://secret' "$WRAPPER" --app "$LOWER_APP" 2>&1)"
+lower_output="$(PALADIN_DIRECT_LAUNCH_UAT=1 DEEPSEEK_API_KEY='sk-test-secret' PALADIN_DATABASE_URL='postgres://secret' PALADIN_REDIS_URL='redis://secret' "$WRAPPER" --app "$LOWER_APP" 2>&1)"
 assert_contains "$lower_output" "PALADIN_FAKE_APP_EXECUTED"
 assert_not_contains "$lower_output" "sk-test-secret"
 
-missing_output="$(env -u DEEPSEEK_API_KEY -u PALADIN_AI_API_KEY -u PALADIN_DATABASE_URL -u PALADIN_REDIS_URL "$WRAPPER" --app "$APP" 2>&1)"
+missing_output="$(env -u DEEPSEEK_API_KEY -u PALADIN_AI_API_KEY -u PALADIN_DATABASE_URL -u PALADIN_REDIS_URL PALADIN_DIRECT_LAUNCH_UAT=1 "$WRAPPER" --app "$APP" 2>&1)"
 assert_contains "$missing_output" "Missing recommended environment variables:"
 assert_not_contains "$missing_output" "- DEEPSEEK_API_KEY"
 assert_not_contains "$missing_output" "- PALADIN_AI_API_KEY"
@@ -74,19 +75,19 @@ assert_not_contains "$missing_output" "postgres://secret"
 assert_not_contains "$missing_output" "redis://secret"
 assert_not_contains "$missing_output" "sk-test-secret"
 
-empty_output="$(DEEPSEEK_API_KEY='' PALADIN_DATABASE_URL='' PALADIN_REDIS_URL='' "$WRAPPER" --app "$APP" 2>&1)"
+empty_output="$(PALADIN_DIRECT_LAUNCH_UAT=1 DEEPSEEK_API_KEY='' PALADIN_DATABASE_URL='' PALADIN_REDIS_URL='' "$WRAPPER" --app "$APP" 2>&1)"
 assert_not_contains "$empty_output" "- DEEPSEEK_API_KEY"
 assert_contains "$empty_output" "PALADIN_DATABASE_URL"
 assert_contains "$empty_output" "PALADIN_REDIS_URL"
 
-if "$WRAPPER" --app "$TMP_DIR/Missing.app" >/tmp/paladin-missing-app.out 2>&1; then
+if PALADIN_DIRECT_LAUNCH_UAT=1 "$WRAPPER" --app "$TMP_DIR/Missing.app" >/tmp/paladin-missing-app.out 2>&1; then
   echo "Expected missing app to fail" >&2
   exit 1
 fi
 assert_contains "$(cat /tmp/paladin-missing-app.out)" "Paladin executable not found or not executable"
 assert_contains "$(cat /tmp/paladin-missing-app.out)" "$TMP_DIR/Missing.app/Contents/MacOS/Paladin"
 
-if "$WRAPPER" --DEEPSEEK_API_KEY sk-test-secret --app "$APP" >/tmp/paladin-secret-arg.out 2>&1; then
+if PALADIN_DIRECT_LAUNCH_UAT=1 "$WRAPPER" --DEEPSEEK_API_KEY sk-test-secret --app "$APP" >/tmp/paladin-secret-arg.out 2>&1; then
   echo "Expected secret CLI argument to fail" >&2
   exit 1
 fi
@@ -95,7 +96,7 @@ assert_contains "$secret_arg_output" "Configuration values must be provided thro
 assert_contains "$secret_arg_output" "--DEEPSEEK_API_KEY"
 assert_not_contains "$secret_arg_output" "sk-test-secret"
 
-if "$WRAPPER" --PALADIN_AI_API_KEY paladin-ai-secret --app "$APP" >/tmp/paladin-ai-secret-arg.out 2>&1; then
+if PALADIN_DIRECT_LAUNCH_UAT=1 "$WRAPPER" --PALADIN_AI_API_KEY paladin-ai-secret --app "$APP" >/tmp/paladin-ai-secret-arg.out 2>&1; then
   echo "Expected PALADIN_AI_API_KEY CLI argument to fail" >&2
   exit 1
 fi
@@ -104,7 +105,7 @@ assert_contains "$paladin_ai_secret_arg_output" "Configuration values must be pr
 assert_contains "$paladin_ai_secret_arg_output" "--PALADIN_AI_API_KEY"
 assert_not_contains "$paladin_ai_secret_arg_output" "paladin-ai-secret"
 
-if "$WRAPPER" --PALADIN_AI_API_KEY=paladin-ai-secret --app "$APP" >/tmp/paladin-ai-secret-equals-arg.out 2>&1; then
+if PALADIN_DIRECT_LAUNCH_UAT=1 "$WRAPPER" --PALADIN_AI_API_KEY=paladin-ai-secret --app "$APP" >/tmp/paladin-ai-secret-equals-arg.out 2>&1; then
   echo "Expected PALADIN_AI_API_KEY= CLI argument to fail" >&2
   exit 1
 fi
@@ -113,7 +114,7 @@ assert_contains "$paladin_ai_secret_equals_output" "Configuration values must be
 assert_contains "$paladin_ai_secret_equals_output" "--PALADIN_AI_API_KEY"
 assert_not_contains "$paladin_ai_secret_equals_output" "paladin-ai-secret"
 
-if "$WRAPPER" --app >/tmp/paladin-missing-app-arg.out 2>&1; then
+if PALADIN_DIRECT_LAUNCH_UAT=1 "$WRAPPER" --app >/tmp/paladin-missing-app-arg.out 2>&1; then
   echo "Expected --app without a path to fail" >&2
   exit 1
 fi
@@ -133,5 +134,11 @@ fi
 assert_contains "$(cat "$VERIFICATION_FILE")" "pk_"
 assert_contains "$(cat "$VERIFICATION_FILE")" "provider-not-configured"
 assert_contains "$(cat "$VERIFICATION_FILE")" "PALADIN_AI"
+
+if "$WRAPPER" --app "$APP" >/tmp/paladin-unmarked-wrapper.out 2>&1; then
+  echo "Expected unmarked wrapper invocation to fail" >&2
+  exit 1
+fi
+assert_contains "$(cat /tmp/paladin-unmarked-wrapper.out)" "diagnostic/UAT-only"
 
 echo "launch-paladin-macos wrapper tests passed"

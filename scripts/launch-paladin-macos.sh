@@ -5,8 +5,9 @@ APP_PATH="/Applications/Paladin.app"
 
 usage() {
   cat >&2 <<'USAGE'
-Usage: scripts/launch-paladin-macos.sh [--app /path/to/Paladin.app]
+Usage: PALADIN_DIRECT_LAUNCH_UAT=1 scripts/launch-paladin-macos.sh [--app /path/to/Paladin.app]
 
+Diagnostic/UAT wrapper only; Finder is the normal installed-app launcher.
 Configuration values must be provided through the current environment.
 Only the non-secret --app path argument is supported.
 USAGE
@@ -60,6 +61,13 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "${PALADIN_DIRECT_LAUNCH_UAT:-}" != "1" ]]; then
+  echo "This wrapper is diagnostic/UAT-only. Set PALADIN_DIRECT_LAUNCH_UAT=1 for an explicit session override." >&2
+  exit 64
+fi
+
+echo "Launcher class: wrapper-diagnostic-uat (not Finder primary evidence)" >&2
 
 missing=()
 for name in PALADIN_DATABASE_URL PALADIN_REDIS_URL; do
