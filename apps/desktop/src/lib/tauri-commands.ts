@@ -6,16 +6,9 @@ import { invoke } from '@tauri-apps/api/core';
 
 export type AiProviderType = 'deepseek' | 'openai-compatible' | 'lm-studio';
 
-export type AiProviderReadiness =
-  | 'unconfigured'
-  | 'untested'
-  | 'available'
-  | 'invalid';
+export type AiProviderReadiness = 'unconfigured' | 'untested' | 'available' | 'invalid';
 
-export type ConfigProvenance =
-  | 'local-user'
-  | 'paladin-ai-env'
-  | 'legacy-deep-seek-env';
+export type ConfigProvenance = 'local-user' | 'paladin-ai-env' | 'legacy-deep-seek-env';
 
 export interface MaskedProviderConfig {
   providers: MaskedProviderEntry[];
@@ -56,6 +49,90 @@ export interface TestAiProviderResult {
   message: string | null;
 }
 
+export interface GoServiceDraft {
+  databaseUrl: string;
+  redisUrl: string;
+  jwtSecret: string;
+}
+
+export interface MaskedGoServiceConfig {
+  configured: boolean;
+  readiness: 'unconfigured' | 'untested';
+  provenance: 'unconfigured' | 'local-user' | 'environment-import';
+  fingerprint: string;
+  fieldDiagnostics: Record<string, string | null | undefined>;
+  pendingApply: boolean;
+}
+
+export interface GoServiceProcess {
+  owner: 'supervisor' | 'external' | 'none';
+  state: string;
+  health: string;
+  pendingApply: boolean;
+  allowedActions: { restart: boolean; stop: boolean; redetect: boolean };
+}
+
+export type GoServiceOperation =
+  | 'saved-pending-restart'
+  | 'imported-pending-restart'
+  | 'cleared-pending-restart'
+  | 'retry-current-process'
+  | 'restarted-managed-process'
+  | 'restart-unavailable';
+
+export interface GoServiceActionResult {
+  operation: GoServiceOperation;
+  config: MaskedGoServiceConfig;
+  process: GoServiceProcess;
+}
+
+export interface TestGoServiceResult {
+  valid: boolean;
+  fieldDiagnostics: Record<string, string | null | undefined>;
+}
+
+function toRustGoServiceInput(input: GoServiceDraft) {
+  return {
+    database_url: input.databaseUrl,
+    redis_url: input.redisUrl,
+    jwt_secret: input.jwtSecret,
+  };
+}
+
+export async function getGoServiceConfiguration(): Promise<GoServiceActionResult> {
+  return invoke<GoServiceActionResult>('get_go_service_configuration');
+}
+
+export async function saveGoServiceConfig(input: GoServiceDraft): Promise<GoServiceActionResult> {
+  return invoke<GoServiceActionResult>('save_go_service_configuration', {
+    input: toRustGoServiceInput(input),
+  });
+}
+
+export async function importGoServiceEnvironment(): Promise<GoServiceActionResult> {
+  return invoke<GoServiceActionResult>('import_go_service_environment');
+}
+
+export async function clearGoServiceConfiguration(): Promise<GoServiceActionResult> {
+  return invoke<GoServiceActionResult>('clear_go_service_configuration');
+}
+
+export async function testGoServiceConfiguration(
+  input: GoServiceDraft
+): Promise<TestGoServiceResult> {
+  return invoke<TestGoServiceResult>('test_go_service_configuration', {
+    input: toRustGoServiceInput(input),
+  });
+}
+
+export async function retryGoServiceReadiness(): Promise<GoServiceActionResult> {
+  return invoke<GoServiceActionResult>('retry_go_service_readiness');
+}
+
+export async function restartGoService(): Promise<GoServiceActionResult> {
+  return invoke<GoServiceActionResult>('restart_go_service');
+}
+
 interface RustSaveAiProviderInput {
   id: string;
   provider_type: AiProviderType;
@@ -93,33 +170,25 @@ export async function getAiProviderConfig(): Promise<AiProviderState> {
   return invoke<AiProviderState>('get_ai_provider_config');
 }
 
-export async function saveAiProvider(
-  input: SaveAiProviderInput,
-): Promise<MaskedProviderEntry> {
+export async function saveAiProvider(input: SaveAiProviderInput): Promise<MaskedProviderEntry> {
   return invoke<MaskedProviderEntry>('save_ai_provider', {
     input: toRustSaveAiProviderInput(input),
   });
 }
 
-export async function deleteAiProvider(
-  providerId: string,
-): Promise<AiProviderState> {
+export async function deleteAiProvider(providerId: string): Promise<AiProviderState> {
   return invoke<AiProviderState>('delete_ai_provider', {
     providerId,
   });
 }
 
-export async function setActiveAiProvider(
-  providerId: string,
-): Promise<AiProviderState> {
+export async function setActiveAiProvider(providerId: string): Promise<AiProviderState> {
   return invoke<AiProviderState>('set_active_ai_provider', {
     providerId,
   });
 }
 
-export async function testAiProvider(
-  input: SaveAiProviderInput,
-): Promise<TestAiProviderResult> {
+export async function testAiProvider(input: SaveAiProviderInput): Promise<TestAiProviderResult> {
   return invoke<TestAiProviderResult>('test_ai_provider', {
     input: toRustSaveAiProviderInput(input),
   });

@@ -99,6 +99,12 @@ impl GoConfigManager {
         self.write_pair(&metadata, &StoredSecrets::default())
     }
 
+    /// Validate a write-only draft without retaining it. This is intentionally
+    /// narrower than `save`: command callers receive only fixed field states.
+    pub async fn validate_draft(&self, input: GoConfigInput) -> GoFieldDiagnostic {
+        validate_input(&input).err().unwrap_or_default()
+    }
+
     pub(crate) async fn save_environment_import(
         &self,
         environment: &GoEnvironment,

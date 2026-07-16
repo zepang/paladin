@@ -14,7 +14,11 @@ use crate::ai_provider::{
     delete_ai_provider, get_ai_provider_config, refresh_agent_ai_provider, save_ai_provider,
     set_active_ai_provider, test_ai_provider, AiProviderConfigManager,
 };
-use crate::go_config::{GoConfigManager, GoEnvironment};
+use crate::go_config::{
+    clear_go_service_configuration, get_go_service_configuration, import_go_service_environment,
+    restart_go_service, retry_go_service_readiness, save_go_service_configuration,
+    test_go_service_configuration, GoConfigManager, GoEnvironment,
+};
 use crate::process::commands::{
     get_process_status, get_runtime_config, redetect_agent, redetect_server, restart_agent,
     restart_server, stop_agent, stop_server,
@@ -101,6 +105,13 @@ pub fn run() {
             set_active_ai_provider,
             test_ai_provider,
             refresh_agent_ai_provider,
+            get_go_service_configuration,
+            save_go_service_configuration,
+            import_go_service_environment,
+            clear_go_service_configuration,
+            test_go_service_configuration,
+            retry_go_service_readiness,
+            restart_go_service,
         ])
         .setup(|app| {
             // 管理 TerminalManager 实例
