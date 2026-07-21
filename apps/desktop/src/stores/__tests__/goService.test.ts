@@ -83,4 +83,36 @@ describe('Go 服务 store 的写入专用 RED 合同', () => {
     expect(mockInvoke).toHaveBeenNthCalledWith(2, 'restart_go_service');
     expect(useGoServiceStore.getState().lastAction?.operation).toBe('restart-unavailable');
   });
+
+  it('接收 Rust 序列化的 camelCase 保存响应，保留 supervisor 重启权限', async () => {
+    // Mirrors `GoServiceActionResult` JSON produced by Rust serde; do not replace
+    // this with a hand-built TypeScript object or snake_case compatibility shim.
+    const rustSerializedSaveResponse = JSON.parse(`{
+      "operation":"saved-pending-restart",
+      "config":{"configured":true,"readiness":"untested","provenance":"local-user","fingerprint":"cfg_contract","fieldDiagnostics":{"databaseUrl":null,"redisUrl":null,"jwtSecret":null},"pendingApply":true},
+      "process":{"state":"running","owner":"supervisor","health":"healthy","lastError":null,"stderrTail":null,"lastRestartAt":null,"diagnosticCategory":null,"pendingApply":true,"allowedActions":{"restart":true,"stop":true,"redetect":true}}
+    }`);
+    mockInvoke.mockResolvedValueOnce(rustSerializedSaveResponse);
+
+    await useGoServiceStore.getState().saveConfiguration({
+      databaseUrl: 'postgres://store-contract',
+      redisUrl: 'redis://store-contract',
+      jwtSecret: 'store-contract-secret',
+    });
+
+    const state = useGoServiceStore.getState();
+    expect(state.process?.owner).toBe('supervisor');
+    expect(state.process?.allowedActions.restart).toBe(true);
+    expect(state.config?.pendingApply).toBe(true);
+    expect(JSON.stringify(state)).not.toContain('store-contract-secret');
+  });
+
+  it('已保存配置检查只调用无输入的写入专用命令', async () => {
+    mockInvoke.mockResolvedValueOnce({ valid: true, fieldDiagnostics: {} });
+
+    await useGoServiceStore.getState().testSavedConfiguration();
+
+    expect(mockInvoke).toHaveBeenCalledWith('test_saved_go_service_configuration');
+    expect(JSON.stringify(useGoServiceStore.getState())).not.toContain('jwt');
+  });
 });

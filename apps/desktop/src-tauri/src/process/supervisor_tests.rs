@@ -232,6 +232,10 @@ fn test_process_info_dto_serializes_owner_and_health() {
     assert_eq!(json["state"], "conflict");
     assert_eq!(json["owner"], "none");
     assert_eq!(json["health"], "failed");
+    assert_eq!(json["lastError"], "port conflict");
+    assert!(json.get("last_error").is_none());
+    assert_eq!(json["allowedActions"]["redetect"], true);
+    assert!(json.get("allowed_actions").is_none());
 }
 
 #[test]

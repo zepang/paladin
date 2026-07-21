@@ -7,6 +7,7 @@ import {
   retryGoServiceReadiness,
   saveGoServiceConfig,
   testGoServiceConfiguration,
+  testSavedGoServiceConfiguration,
   type GoServiceActionResult,
   type GoServiceDraft,
   type GoServiceProcess,
@@ -24,6 +25,7 @@ interface GoServiceStore {
   refresh: () => Promise<void>;
   saveConfiguration: (draft: GoServiceDraft) => Promise<GoServiceActionResult>;
   testReadiness: (draft: GoServiceDraft) => Promise<TestGoServiceResult>;
+  testSavedConfiguration: () => Promise<TestGoServiceResult>;
   importFromEnvironment: () => Promise<GoServiceActionResult>;
   clearConfiguration: () => Promise<GoServiceActionResult>;
   retryReadiness: () => Promise<GoServiceActionResult>;
@@ -74,6 +76,17 @@ export const useGoServiceStore = create<GoServiceStore>((set) => ({
     set({ isLoading: true, error: null });
     try {
       const result = await testGoServiceConfiguration(draft);
+      set({ isLoading: false, lastTestResult: result });
+      return result;
+    } catch (error) {
+      set({ isLoading: false, error: String(error) });
+      throw error;
+    }
+  },
+  testSavedConfiguration: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await testSavedGoServiceConfiguration();
       set({ isLoading: false, lastTestResult: result });
       return result;
     } catch (error) {

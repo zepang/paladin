@@ -33,6 +33,7 @@ pub enum GoRuntimeSource {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GoFieldDiagnostic {
     pub database_url: Option<String>,
     pub redis_url: Option<String>,
@@ -40,6 +41,7 @@ pub struct GoFieldDiagnostic {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MaskedGoServiceConfig {
     pub configured: bool,
     pub readiness: GoConfigReadiness,

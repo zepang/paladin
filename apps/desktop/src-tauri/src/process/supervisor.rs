@@ -483,6 +483,7 @@ pub(crate) fn process_log_line<F>(
 
 /// 单进程的对外 DTO (get_process_status 命令与 process-status payload 共用)。
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProcessInfoDTO {
     pub state: ProcessState,
     pub owner: ProcessOwner,
@@ -507,6 +508,7 @@ pub enum ProcessDiagnosticCategory {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProcessAllowedActions {
     pub restart: bool,
     pub stop: bool,
@@ -931,6 +933,69 @@ impl ProcessSupervisor {
         self.start_one_runtime(name).await
     }
 
+    /// 对托管 Go 服务等待一次 readiness 结果。启动与手动重启必须共享此
+    /// 收敛步骤：否则重启命令会在子进程刚 spawn 时立即返回，调用方只能看到
+    /// 过早的 `Starting`/`Degraded` 快照，直到下一轮后台探针才会刷新。
+    async fn wait_for_managed_server_readiness(&self) -> Result<(), String> {
+        let server_entry = self.entry_of(ProcessName::Server);
+        let readyz_path = server_entry
+            .health
+            .readiness
+            .as_ref()
+            .map(|readiness| readiness.path.clone());
+        let server_is_supervisor_owned = {
+            self.slot_of(ProcessName::Server).state.lock().await.owner == ProcessOwner::Supervisor
+        };
+        if !server_is_supervisor_owned {
+            return Ok(());
+        }
+
+        let Some(readyz_path) = readyz_path else {
+            return Ok(());
+        };
+        let readyz_url = format!("http://127.0.0.1:{}{}", server_entry.port, readyz_path);
+        let readyz_expect = server_entry
+            .health
+            .readiness
+            .as_ref()
+            .expect("readiness path exists when waiting")
+            .expect_status;
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_millis(900))
+            .build()
+            .map_err(|error| format!("reqwest build 失败: {error}"))?;
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            if let Ok(response) = client.get(&readyz_url).send().await {
+                if response.status().as_u16() == readyz_expect {
+                    return Ok(());
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+
+        // 5 秒内未 ready 不视为重启命令失败：服务可能仍在启动，保留降级
+        // 状态并让后台探针随后恢复；但返回给 UI 的快照必须是这次检测结果。
+        let slot = self.slot_of(ProcessName::Server).clone();
+        {
+            let mut mp = slot.state.lock().await;
+            let (next_state, next_snapshot) =
+                transition(mp.state, ProcessEvent::ProbeDegraded, &mp.snapshot);
+            apply_supervisor_state(&mut mp, next_state);
+            mp.snapshot = next_snapshot;
+            mp.last_error = Some("启动 5s 内 /readyz 未就绪 (PG/Redis 可能未启动)".to_string());
+            mp.diagnostic_category = Some(ProcessDiagnosticCategory::DependencyUnavailable);
+        }
+        emit_status_to(
+            &slot,
+            &self.app_handle,
+            ProcessName::Server,
+            Some("启动 5s 内 /readyz 未就绪".to_string()),
+        )
+        .await;
+        Ok(())
+    }
+
     /// SPEC 启动顺序 (D-08): **Server 先**,等 /readyz 5s 超时,再 spawn Agent。
     ///
     /// 5s 超时不阻塞 Agent 启动 (Server 在 Degraded 探针后会自恢复,Agent 启动不依赖
@@ -940,63 +1005,7 @@ impl ProcessSupervisor {
         let server_result = self.start_one_runtime(ProcessName::Server).await;
 
         // 2. 等 Server /readyz 5s (若配置了 readiness)
-        let server_entry = self.entry_of(ProcessName::Server);
-        let readyz_path = server_entry
-            .health
-            .readiness
-            .as_ref()
-            .map(|r| r.path.clone());
-        let server_is_supervisor_owned = {
-            self.slot_of(ProcessName::Server).state.lock().await.owner == ProcessOwner::Supervisor
-        };
-        if server_is_supervisor_owned {
-            if let Some(readyz_path) = readyz_path {
-                let readyz_url = format!("http://127.0.0.1:{}{}", server_entry.port, readyz_path);
-                let readyz_expect = server_entry
-                    .health
-                    .readiness
-                    .as_ref()
-                    .unwrap()
-                    .expect_status;
-                let client = reqwest::Client::builder()
-                    .timeout(Duration::from_millis(900))
-                    .build()
-                    .map_err(|e| format!("reqwest build 失败: {e}"))?;
-                let deadline = Instant::now() + Duration::from_secs(5);
-                let mut ok = false;
-                while Instant::now() < deadline {
-                    if let Ok(resp) = client.get(&readyz_url).send().await {
-                        if resp.status().as_u16() == readyz_expect {
-                            ok = true;
-                            break;
-                        }
-                    }
-                    tokio::time::sleep(Duration::from_millis(200)).await;
-                }
-                if !ok {
-                    // 5s 超时 — 不阻塞 Agent 启动,但记 Server Degraded 状态
-                    let slot = self.slot_of(ProcessName::Server).clone();
-                    {
-                        let mut mp = slot.state.lock().await;
-                        let (ns, nsnap) =
-                            transition(mp.state, ProcessEvent::ProbeDegraded, &mp.snapshot);
-                        apply_supervisor_state(&mut mp, ns);
-                        mp.snapshot = nsnap;
-                        mp.last_error =
-                            Some("启动 5s 内 /readyz 未就绪 (PG/Redis 可能未启动)".to_string());
-                        mp.diagnostic_category =
-                            Some(ProcessDiagnosticCategory::DependencyUnavailable);
-                    }
-                    emit_status_to(
-                        &slot,
-                        &self.app_handle,
-                        ProcessName::Server,
-                        Some("启动 5s 内 /readyz 未就绪".to_string()),
-                    )
-                    .await;
-                }
-            }
-        }
+        self.wait_for_managed_server_readiness().await?;
 
         // 3. Agent spawn
         if let Err(e) = self.start_one_runtime(ProcessName::Agent).await {
@@ -1061,6 +1070,9 @@ impl ProcessSupervisor {
             drop(mp);
             emit_status_to(&slot, &self.app_handle, name, Some(msg)).await;
             return Err(e);
+        }
+        if name == ProcessName::Server {
+            self.wait_for_managed_server_readiness().await?;
         }
         Ok(())
     }
@@ -1313,6 +1325,7 @@ pub(crate) fn spawn_child_to_slot<'a>(
 
         let stdout: Option<ChildStdout> = child.stdout.take();
         let stderr: Option<ChildStderr> = child.stderr.take();
+        let child_pid = child.id().expect("spawn 成功的子进程必须具有 PID");
 
         // 新 spawn — 重置 shutdown_flag。
         slot.shutdown_flag.store(false, Ordering::Relaxed);
@@ -1379,7 +1392,8 @@ pub(crate) fn spawn_child_to_slot<'a>(
             });
         }
 
-        // wait_exit — 接管 child handle,处理 SpawnFailed/Crashed/backoff。
+        // wait_exit — 观察仍由 slot 持有的 child,处理 SpawnFailed/Crashed/backoff。
+        // 关闭/重启必须能从 slot 取出同一个 handle 来终止整棵进程树。
         {
             let slot_c = slot.clone();
             let cfg_c = config.clone();
@@ -1387,7 +1401,7 @@ pub(crate) fn spawn_child_to_slot<'a>(
             let ld = log_dir.to_path_buf();
             let go_config_c = go_config.cloned();
             tokio::spawn(async move {
-                wait_exit(slot_c, name, app_c, cfg_c, ld, go_config_c).await;
+                wait_exit(slot_c, name, app_c, cfg_c, ld, go_config_c, child_pid).await;
             });
         }
 
@@ -1681,11 +1695,11 @@ async fn probe_loop(
     }
 }
 
-/// wait_exit — 接管 child handle,等待退出并按 SPEC R3/R3'/R4/P3 决策。
+/// wait_exit — 观察 slot 持有的 child,等待退出并按 SPEC R3/R3'/R4/P3 决策。
 ///
 /// 流程:
-/// 1. 从 `slot.child` mutex take 出 child handle (释放 mutex)。
-/// 2. await `child.wait()`;退出后取 `exit_status.code()`。
+/// 1. 按 spawn 时捕获的 PID 轮询 `slot.child.try_wait()`，不转移 handle 所有权。
+/// 2. 子进程退出后才移除同一 PID 的 handle，并取 `exit_status.code()`。
 /// 3. 读 `spawn_time.elapsed()`:
 ///    - ≤ STARTUP_GRACE_SECS (5s) → `SpawnFailed` → transition → Stopped,**break 不重启**。
 ///    - > 5s → `Crashed` → transition → Unhealthy + restart_count+1,走 backoff。
@@ -1700,6 +1714,7 @@ async fn wait_exit(
     config: Arc<ProcessConfig>,
     log_dir: PathBuf,
     go_config: Option<GoConfigManager>,
+    expected_pid: u32,
 ) {
     let process_label = match name {
         ProcessName::Agent => "Agent",
@@ -1711,22 +1726,16 @@ async fn wait_exit(
     }
     .expect("ProcessConfig::validate 已保证 agent+server 都存在");
 
-    // 1. take child
-    let mut child = {
-        let mut guard = slot.child.lock().await;
-        match guard.take() {
-            Some(c) => c,
-            None => return, // spawn 失败 / 手动 stop — 没有 child 可等
-        }
+    // 1/2. 保持 handle 在 slot 内，直到同一 PID 退出。这样 graceful shutdown / restart
+    // 能 take 到受监督的 child 并向其进程组发信号；若 slot 已被新 child 替换，旧 task
+    // 直接退出，绝不观察或移除新一代 child。
+    let Some(exit_result) = wait_for_tracked_child_exit(&slot, expected_pid).await else {
+        return;
     };
-
-    // 2. wait
-    let exit_result = child.wait().await;
     let exit_code = match &exit_result {
         Ok(status) => status.code(),
         Err(_) => None,
     };
-    drop(child);
 
     // shutdown 期间 child 退出 — 不视为崩溃
     if slot.shutdown_flag.load(Ordering::Relaxed) {
@@ -1855,6 +1864,92 @@ async fn wait_exit(
         _ => {
             // 不应发生 (SpawnFailed→Stopped / Crashed→Unhealthy 是 transition 的硬路径)
         }
+    }
+}
+
+/// 等待指定 PID 的 tracked child 退出，但不在运行期间把 handle 移出 slot。
+///
+/// `None` 表示关闭/重启已取走该 handle，或 slot 已经有了另一代 child；两种情况都不应
+/// 被旧的 wait task 当成崩溃处理。
+async fn wait_for_tracked_child_exit(
+    slot: &Arc<ProcessSlot>,
+    expected_pid: u32,
+) -> Option<Result<std::process::ExitStatus, std::io::Error>> {
+    loop {
+        let result = {
+            let mut children = slot.child.lock().await;
+            let tracked = children.as_mut()?;
+            if tracked.id() != Some(expected_pid) {
+                return None;
+            }
+            match tracked.try_wait() {
+                Ok(Some(status)) => {
+                    // `try_wait` 回收后 Child::id() 可能变成 None，因此必须仍在
+                    // 同一把锁内移除已确认的 handle；此时没有其他 task 能替换它。
+                    children.take();
+                    Ok(Some(status))
+                }
+                other => other,
+            }
+        };
+
+        match result {
+            Ok(Some(status)) => {
+                return Some(Ok(status));
+            }
+            Err(error) => return Some(Err(error)),
+            Ok(None) => tokio::time::sleep(Duration::from_millis(50)).await,
+        }
+    }
+}
+
+#[cfg(all(test, unix))]
+mod wait_exit_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn wait_exit_keeps_running_child_handle_tracked_for_graceful_shutdown() {
+        let slot = ProcessSlot::new(ProcessName::Server);
+        let child = Command::new("sh")
+            .args(["-c", "sleep 5"])
+            .spawn()
+            .expect("spawn test child");
+        let pid = child.id().expect("spawned test child has PID");
+        *slot.child.lock().await = Some(child);
+
+        let waiting_slot = slot.clone();
+        let waiting =
+            tokio::spawn(async move { wait_for_tracked_child_exit(&waiting_slot, pid).await });
+
+        tokio::time::sleep(Duration::from_millis(25)).await;
+        assert_eq!(
+            slot.child
+                .lock()
+                .await
+                .as_ref()
+                .and_then(|child| child.id()),
+            Some(pid),
+            "waiting for exit must not take the running child away from graceful shutdown"
+        );
+
+        let mut child = slot
+            .child
+            .lock()
+            .await
+            .take()
+            .expect("graceful shutdown can take the tracked running child");
+        assert_eq!(child.id(), Some(pid));
+        child.start_kill().expect("terminate tracked test child");
+        child.wait().await.expect("reap tracked test child");
+
+        assert!(
+            waiting.await.expect("wait task joins").is_none(),
+            "the observer must exit when graceful shutdown takes the handle"
+        );
+        assert!(
+            slot.child.lock().await.is_none(),
+            "graceful shutdown remains the handle owner after taking it"
+        );
     }
 }
 

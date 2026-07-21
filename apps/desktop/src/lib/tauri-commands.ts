@@ -125,6 +125,10 @@ export async function testGoServiceConfiguration(
   });
 }
 
+export async function testSavedGoServiceConfiguration(): Promise<TestGoServiceResult> {
+  return invoke<TestGoServiceResult>('test_saved_go_service_configuration');
+}
+
 export async function retryGoServiceReadiness(): Promise<GoServiceActionResult> {
   return invoke<GoServiceActionResult>('retry_go_service_readiness');
 }

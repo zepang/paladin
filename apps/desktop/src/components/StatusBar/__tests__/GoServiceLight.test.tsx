@@ -6,6 +6,7 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 
 import { GoServiceLight } from '../GoServiceLight';
 import { AiProviderLight } from '../AiProviderLight';
+import { useGoServiceStore } from '@/stores/goService';
 
 describe('Go 服务状态灯 RED 合同', () => {
   afterEach(() => cleanup());
@@ -33,5 +34,20 @@ describe('Go 服务状态灯 RED 合同', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Go · 已就绪' }));
     expect(screen.getByRole('button', { name: '重启' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '重新检测' })).not.toBeDisabled();
+  });
+
+  it('旧版事件 DTO 缺少 allowedActions 时不崩溃，也不推断出重启权限', () => {
+    useGoServiceStore.setState({
+      process: {
+        owner: 'supervisor',
+        state: 'unhealthy',
+        health: 'failed',
+        pendingApply: true,
+      } as never,
+    });
+
+    render(<GoServiceLight />);
+    fireEvent.click(screen.getByRole('button', { name: 'Go · Sidecar 启动失败' }));
+    expect(screen.queryByRole('button', { name: '重启' })).not.toBeInTheDocument();
   });
 });

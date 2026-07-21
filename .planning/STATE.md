@@ -6,13 +6,13 @@ current_phase: 12
 current_phase_name: Installed App Direct Launch Runtime Configuration
 status: Ready to plan
 stopped_at: Phase 12 UI-SPEC approved
-last_updated: "2026-07-16T14:36:49.984Z"
+last_updated: "2026-07-16T15:27:38.486Z"
 progress:
   total_phases: 20
   completed_phases: 17
-  total_plans: 79
+  total_plans: 87
   completed_plans: 69
-  percent: 85
+  percent: 79
 ---
 
 # Project State: Paladin
@@ -25,7 +25,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-03)
 
 **Core value:** AI 编程助手桌面端 —— 聊天式 AI 编码交互、终端面板、代码 Diff 查看、HITL 权限审批
-**Current focus:** Phase 12 added to close installed-app direct-launch runtime configuration before v1.0 close-out.
+**Current focus:** Phase 12 — installed-app-direct-launch-runtime-configuration
 
 ## Phase Status
 

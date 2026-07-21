@@ -17,7 +17,8 @@ use crate::ai_provider::{
 use crate::go_config::{
     clear_go_service_configuration, get_go_service_configuration, import_go_service_environment,
     restart_go_service, retry_go_service_readiness, save_go_service_configuration,
-    test_go_service_configuration, GoConfigManager, GoEnvironment,
+    test_go_service_configuration, test_saved_go_service_configuration, GoConfigManager,
+    GoEnvironment,
 };
 use crate::process::commands::{
     get_process_status, get_runtime_config, redetect_agent, redetect_server, restart_agent,
@@ -110,6 +111,7 @@ pub fn run() {
             import_go_service_environment,
             clear_go_service_configuration,
             test_go_service_configuration,
+            test_saved_go_service_configuration,
             retry_go_service_readiness,
             restart_go_service,
         ])

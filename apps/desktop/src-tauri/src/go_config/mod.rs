@@ -10,7 +10,8 @@ pub use bootstrap::{GoBootstrapResult, GoEnvironment};
 pub use commands::{
     clear_go_service_configuration, get_go_service_configuration, import_go_service_environment,
     restart_go_service, retry_go_service_readiness, save_go_service_configuration,
-    test_go_service_configuration, GoServiceActionResult, GoServiceOperation, TestGoServiceResult,
+    test_go_service_configuration, test_saved_go_service_configuration, GoServiceActionResult,
+    GoServiceOperation, TestGoServiceResult,
 };
 pub use storage::GoConfigManager;
 pub(crate) use types::GoRuntimeSnapshot;

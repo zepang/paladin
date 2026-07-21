@@ -105,6 +105,28 @@ impl GoConfigManager {
         validate_input(&input).err().unwrap_or_default()
     }
 
+    /// Validate the already persisted write-only configuration without exposing
+    /// any secret value to a command response or the frontend.
+    pub async fn validate_saved_configuration(&self) -> Result<GoFieldDiagnostic> {
+        let _guard = self.write_lock.lock().await;
+        let metadata = self.read_metadata()?;
+        if !metadata.configured {
+            return Ok(GoFieldDiagnostic {
+                database_url: Some("missing".into()),
+                redis_url: Some("missing".into()),
+                jwt_secret: Some("missing".into()),
+            });
+        }
+        let secrets = self.read_secrets()?;
+        Ok(validate_input(&GoConfigInput {
+            database_url: secrets.database_url,
+            redis_url: secrets.redis_url,
+            jwt_secret: secrets.jwt_secret,
+        })
+        .err()
+        .unwrap_or_default())
+    }
+
     pub(crate) async fn save_environment_import(
         &self,
         environment: &GoEnvironment,

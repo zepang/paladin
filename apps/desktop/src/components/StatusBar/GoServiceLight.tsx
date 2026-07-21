@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { canRestartGoService } from '@/lib/go-service-permissions';
 import { useGoServiceStore } from '@/stores/goService';
 import { useProcessStatus } from '@/stores/process';
 import { useTerminalStore } from '@/stores/terminal';
@@ -92,7 +93,7 @@ export function GoServiceLight({ status, owner }: { status?: GoLightStatus; owne
   );
   const copy = presentation[resolvedStatus];
   const isExternal = resolvedOwner === 'external';
-  const canRestart = !isExternal && (process?.allowedActions.restart ?? resolvedOwner === 'supervisor');
+  const canRestart = !isExternal && canRestartGoService(process);
   const canRetry = ['dependency-degraded', 'checking', 'ready', 'session-override'].includes(resolvedStatus);
   const canRedetect = resolvedStatus === 'port-conflict' || resolvedStatus === 'sidecar-failed' || isExternal;
   const pending = resolvedStatus === 'saved-pending-restart';

@@ -24,6 +24,7 @@ pub struct GoServiceActionResult {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TestGoServiceResult {
     pub valid: bool,
     pub field_diagnostics: super::GoFieldDiagnostic,
@@ -127,6 +128,20 @@ pub async fn test_go_service_configuration(
     input: GoConfigInput,
 ) -> Result<TestGoServiceResult, String> {
     let field_diagnostics = manager.validate_draft(input).await;
+    Ok(TestGoServiceResult {
+        valid: field_diagnostics == super::GoFieldDiagnostic::default(),
+        field_diagnostics,
+    })
+}
+
+#[tauri::command]
+pub async fn test_saved_go_service_configuration(
+    manager: State<'_, GoConfigManager>,
+) -> Result<TestGoServiceResult, String> {
+    let field_diagnostics = manager
+        .validate_saved_configuration()
+        .await
+        .map_err(|error| error.to_string())?;
     Ok(TestGoServiceResult {
         valid: field_diagnostics == super::GoFieldDiagnostic::default(),
         field_diagnostics,

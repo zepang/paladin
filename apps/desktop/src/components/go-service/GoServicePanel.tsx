@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { canRestartGoService } from '@/lib/go-service-permissions';
 import type { GoServiceDraft } from '@/lib/tauri-commands';
 import { useGoServiceStore } from '@/stores/goService';
 import { Database, LoaderCircle, RotateCw, ServerCog, Trash2 } from 'lucide-react';
@@ -28,12 +29,30 @@ const fieldLabels: Record<Field, string> = {
 
 const emptyDraft: GoServiceDraft = { databaseUrl: '', redisUrl: '', jwtSecret: '' };
 
+function generateJwtSecret() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
 function validate(draft: GoServiceDraft): FieldErrors {
   const errors: FieldErrors = {};
   for (const field of Object.keys(fieldLabels) as Field[]) {
     if (!draft[field].trim()) errors[field] = `${fieldLabels[field]} 不能为空`;
   }
   return errors;
+}
+
+function safeTauriErrorDetail(error: unknown, draft: GoServiceDraft) {
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '未知错误';
+  const redacted = Object.values(draft).reduce(
+    (result, value) => (value ? result.replaceAll(value, '[已隐藏]') : result),
+    message,
+  );
+  return redacted.slice(0, 240) || '未知错误';
 }
 
 function actionMessage(operation: string) {
@@ -57,6 +76,7 @@ export function GoServicePanel() {
   const refresh = useGoServiceStore((state) => state.refresh);
   const saveConfiguration = useGoServiceStore((state) => state.saveConfiguration);
   const testReadiness = useGoServiceStore((state) => state.testReadiness);
+  const testSavedConfiguration = useGoServiceStore((state) => state.testSavedConfiguration);
   const importFromEnvironment = useGoServiceStore((state) => state.importFromEnvironment);
   const clearConfiguration = useGoServiceStore((state) => state.clearConfiguration);
   const retryReadiness = useGoServiceStore((state) => state.retryReadiness);
@@ -64,6 +84,7 @@ export function GoServicePanel() {
   const [draft, setDraft] = useState<GoServiceDraft>(emptyDraft);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [result, setResult] = useState('');
+  const [isJwtVisible, setIsJwtVisible] = useState(false);
   const databaseRef = useRef<HTMLInputElement>(null);
   const redisRef = useRef<HTMLInputElement>(null);
   const jwtRef = useRef<HTMLInputElement>(null);
@@ -96,13 +117,16 @@ export function GoServicePanel() {
   const save = async () => {
     if (!requireCompleteDraft()) return;
     try {
-      const action = await saveConfiguration(draft);
+      let action = await saveConfiguration(draft);
+      if (action.process.owner === 'supervisor' && canRestartGoService(action.process)) {
+        action = await restartService();
+      }
       const message = actionMessage(action.operation);
       setResult(message);
       toast.success('Go 服务配置已保存');
       setDraft(emptyDraft);
-    } catch {
-      setResult('保存配置失败，请检查字段后重试。');
+    } catch (error) {
+      setResult(`保存配置失败：${safeTauriErrorDetail(error, draft)}`);
     }
   };
 
@@ -113,6 +137,15 @@ export function GoServicePanel() {
       setResult(test.valid ? 'Go 服务依赖可用' : '当前未保存输入未通过检查。');
     } catch {
       setResult('测试当前配置失败，请检查字段后重试。');
+    }
+  };
+
+  const testSaved = async () => {
+    try {
+      const test = await testSavedConfiguration();
+      setResult(test.valid ? '已保存配置完整可用。' : '已保存配置不完整，请重新填写后保存。');
+    } catch {
+      setResult('测试已保存配置失败，请稍后重试。');
     }
   };
 
@@ -132,7 +165,10 @@ export function GoServicePanel() {
   };
 
   const hasSavedConfig = Boolean(config?.configured);
-  const managed = process?.owner === 'supervisor' && process.allowedActions.restart;
+  const hasDraftInput = Object.values(draft).some((value) => value.trim());
+  const liveProcessReady = process?.state === 'running' && process.health === 'healthy';
+  const serviceReady = hasSavedConfig && liveProcessReady;
+  const managed = process?.owner === 'supervisor' && canRestartGoService(process);
   const external = process?.owner === 'external';
   const status = config?.configured ? '已保存到此设备' : '未配置';
   const latest = result || (lastAction ? actionMessage(lastAction.operation) : '');
@@ -152,8 +188,12 @@ export function GoServicePanel() {
             <p className="text-xs text-muted-foreground">配置指纹 · {config.fingerprint}</p>
           )}
           <p className="text-sm">
-            {process?.health === 'ready'
-              ? 'Go 服务依赖可用'
+            {serviceReady
+              ? 'Go 服务运行正常（实时健康检查已通过）。'
+              : !hasSavedConfig && liveProcessReady
+                ? 'Go 服务进程正在运行，但本地 Go 配置未配置；服务处于降级状态。'
+                : !hasSavedConfig
+                  ? '本地 Go 配置未配置；服务处于降级状态。Agent 仍可继续使用。'
               : 'Go 服务未完全就绪；Agent 仍可继续使用。'}
           </p>
           <div className="grid gap-1 text-xs text-muted-foreground">
@@ -168,18 +208,42 @@ export function GoServicePanel() {
             const ref =
               field === 'databaseUrl' ? databaseRef : field === 'redisUrl' ? redisRef : jwtRef;
             return (
-              <label key={field} className="block space-y-1 text-xs" htmlFor={`go-${field}`}>
-                <span>{fieldLabels[field]}</span>
+              <div key={field} className="space-y-1 text-xs">
+                <label className="block" htmlFor={`go-${field}`}>
+                  {fieldLabels[field]}
+                </label>
                 <input
                   ref={ref}
                   id={`go-${field}`}
                   aria-label={fieldLabels[field]}
                   aria-invalid={Boolean(errors[field])}
-                  type={field === 'jwtSecret' ? 'password' : 'text'}
+                  type={field === 'jwtSecret' && !isJwtVisible ? 'password' : 'text'}
                   value={draft[field]}
                   onChange={(event) => update(field, event.target.value)}
                   className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
+                {field === 'jwtSecret' && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-label="生成安全 JWT 密钥"
+                      onClick={() => update('jwtSecret', generateJwtSecret())}
+                    >
+                      生成安全密钥
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-label={isJwtVisible ? '隐藏 JWT 密钥' : '显示 JWT 密钥'}
+                      onClick={() => setIsJwtVisible((visible) => !visible)}
+                    >
+                      {isJwtVisible ? '隐藏' : '显示'}
+                    </Button>
+                  </div>
+                )}
                 {config?.fieldDiagnostics?.[field] === 'configured' && (
                   <span className="text-muted-foreground">已配置</span>
                 )}
@@ -188,7 +252,7 @@ export function GoServicePanel() {
                     {errors[field]}
                   </span>
                 )}
-              </label>
+              </div>
             );
           })}
         </div>
@@ -200,8 +264,12 @@ export function GoServicePanel() {
           >
             {isLoading && <LoaderCircle className="size-4 animate-spin" />} 保存配置
           </Button>
-          <Button variant="outline" onClick={() => void testCurrentInput()} disabled={isLoading}>
-            测试{hasSavedConfig ? '连接' : '当前配置'}
+          <Button
+            variant="outline"
+            onClick={() => void (hasSavedConfig && !hasDraftInput ? testSaved() : testCurrentInput())}
+            disabled={isLoading}
+          >
+            {hasSavedConfig && !hasDraftInput ? '测试已保存配置' : '测试当前配置'}
           </Button>
           <Button
             variant="outline"

@@ -27,7 +27,7 @@
 | 10 | Packaging | Complete (9/9) | Phase 9 |
 | 10.1 | 5/5 | Complete    | 2026-07-14 |
 | 11 | Desktop AI Provider Configuration | Complete (8/8) | Phase 10 |
-| 12 | Installed App Direct Launch Runtime Configuration | Finder/Start Menu/Linux launcher 直启运行配置闭环 | Phase 10 + 10.1 + 11 |
+| 12 | 6/8 | In Progress|  |
 
 ## Phase Details
 
@@ -469,7 +469,17 @@ Acceptance draft:
 **Goal:** 让 macOS、Windows、Linux 的已安装应用可以从系统 GUI 直接启动，并进入可诊断、可配置、可恢复的产品状态；仓库 wrapper 只作为 UAT/诊断工具，而不是普通安装态使用的唯一入口。
 **Requirements:** TBD
 **Depends on:** Phase 10 + 10.1 + 11
-**Plans:** Ready to plan
+**Plans:** 6/8 plans executed
+
+- [x] 12-01-PLAN.md
+- [x] 12-02-PLAN.md
+- [x] 12-03-PLAN.md
+- [x] 12-04-PLAN.md
+- [x] 12-05-PLAN.md
+- [x] 12-06-PLAN.md
+- [ ] 12-07-PLAN.md
+- [ ] 12-08-PLAN.md
+
 **Source todo:** `.planning/todos/pending/installed-app-direct-launch-runtime-config.md`
 
 Expected behavior:
